@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -66,10 +65,6 @@ type Listing struct {
 	Sort string `json:"sort"`
 	// And which order.
 	Order string `json:"order"`
-	// Items to skip, pagination
-	Skip int `json:"skip"`
-	// Items page limit, pagination
-	Limit int `json:"skip"`
 }
 
 // GetInfo gets the file information and, in case of error, returns the
@@ -121,11 +116,9 @@ func (i *File) GetListing(u *User, r *http.Request) error {
 
 	var (
 		fileinfos                        []*File
-		dirCount, fileCount, skip, limit int
+		dirCount, fileCount int
 	)
 	//pagination details
-	skip, _ = strconv.Atoi(r.URL.Query().Get("skip"))
-	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
 
 	baseurl, err := url.PathUnescape(i.URL)
 	if err != nil {
@@ -179,8 +172,6 @@ func (i *File) GetListing(u *User, r *http.Request) error {
 		Items:    fileinfos,
 		NumDirs:  dirCount,
 		NumFiles: fileCount,
-		Skip:     skip,
-		Limit:    limit,
 	}
 
 	return nil
