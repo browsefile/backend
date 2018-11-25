@@ -1,26 +1,24 @@
 package lib
 
 import (
-	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"github.com/filebrowser/filebrowser/lib/filehelper"
+	"github.com/maruel/natural"
 	"hash"
 	"io"
 	"io/ioutil"
-	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/gohugoio/hugo/parser"
-	"github.com/maruel/natural"
 )
 
 // File contains the information about a particular file or directory.
@@ -68,20 +66,24 @@ type Listing struct {
 	Sort string `json:"sort"`
 	// And which order.
 	Order string `json:"order"`
+	// Items to skip, pagination
+	Skip int `json:"skip"`
+	// Items page limit, pagination
+	Limit int `json:"skip"`
 }
 
 // GetInfo gets the file information and, in case of error, returns the
 // respective HTTP error code
-func GetInfo(url *url.URL, c *FileBrowser, u *User) (*File, error) {
+func GetInfo(url *url.URL, c *Context) (*File, error) {
 	var err error
+	info, err, path, t := filehelper.GetFileInfo(c.User.Scope, c.User.PreviewScope, url.Path, c.PreviewType)
 
 	i := &File{
 		URL:         "/files" + url.String(),
 		VirtualPath: url.Path,
-		Path:        filepath.Join(u.Scope, url.Path),
+		Path:        path,
 	}
 
-	info, err := u.FileSystem.Stat(url.Path)
 	if err != nil {
 		return i, err
 	}
@@ -92,6 +94,7 @@ func GetInfo(url *url.URL, c *FileBrowser, u *User) (*File, error) {
 	i.IsDir = info.IsDir()
 	i.Size = info.Size()
 	i.Extension = filepath.Ext(i.Name)
+	i.Type = t
 
 	if i.IsDir && !strings.HasSuffix(i.URL, "/") {
 		i.URL += "/"
@@ -117,9 +120,12 @@ func (i *File) GetListing(u *User, r *http.Request) error {
 	}
 
 	var (
-		fileinfos           []*File
-		dirCount, fileCount int
+		fileinfos                        []*File
+		dirCount, fileCount, skip, limit int
 	)
+	//pagination details
+	skip, _ = strconv.Atoi(r.URL.Query().Get("skip"))
+	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
 
 	baseurl, err := url.PathUnescape(i.URL)
 	if err != nil {
@@ -165,7 +171,7 @@ func (i *File) GetListing(u *User, r *http.Request) error {
 			Path:        filepath.Join(i.Path, name),
 		}
 
-		i.GetFileType(false)
+		i.SetFileType(false)
 		fileinfos = append(fileinfos, i)
 	}
 
@@ -173,103 +179,36 @@ func (i *File) GetListing(u *User, r *http.Request) error {
 		Items:    fileinfos,
 		NumDirs:  dirCount,
 		NumFiles: fileCount,
+		Skip:     skip,
+		Limit:    limit,
 	}
 
 	return nil
 }
 
-// GetEditor gets the editor based on a Info struct
-func (i *File) GetEditor() error {
-	i.Language = editorLanguage(i.Extension)
-	// If the editor will hold only content, leave now.
-	if editorMode(i.Language) == "content" {
-		return nil
-	}
-
-	// If the file doesn't have any kind of metadata, leave now.
-	if !hasRune(i.Content) {
-		return nil
-	}
-
-	buffer := bytes.NewBuffer([]byte(i.Content))
-	page, err := parser.ReadFrom(buffer)
-
-	// If there is an error, just ignore it and return nil.
-	// This way, the file can be served for editing.
-	if err != nil {
-		return nil
-	}
-
-	i.Content = strings.TrimSpace(string(page.Content()))
-	i.Metadata = strings.TrimSpace(string(page.FrontMatter()))
-	return nil
-}
-
-// GetFileType obtains the mimetype and converts it to a simple
+// SetFileType obtains the mimetype and converts it to a simple
 // type nomenclature.
-func (i *File) GetFileType(checkContent bool) error {
+func (i *File) SetFileType(checkContent bool) error {
+	if len(i.Type) > 0 {
+		return nil
+	}
 	var content []byte
 	var err error
-
+	isOk, mimetype := filehelper.GetBasedOnExtensions(i.Extension)
 	// Tries to get the file mimetype using its extension.
-	mimetype := mime.TypeByExtension(i.Extension)
-
-	if mimetype == "" && checkContent {
-		file, err := os.Open(i.Path)
+	if !isOk && checkContent {
+		content, mimetype, err = filehelper.GetBasedOnContent(i.Path)
 		if err != nil {
 			return err
 		}
-		defer file.Close()
-
-		// Only the first 512 bytes are used to sniff the content type.
-		buffer := make([]byte, 512)
-		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
-			return err
-		}
-
-		// Tries to get the file mimetype using its first
-		// 512 bytes.
-		mimetype = http.DetectContentType(buffer[:n])
 	}
 
-	if strings.HasPrefix(mimetype, "video") {
-		i.Type = "video"
-		return nil
-	}
+	i.Type = mimetype
 
-	if strings.HasPrefix(mimetype, "audio") {
-		i.Type = "audio"
-		return nil
-	}
-
-	if strings.HasPrefix(mimetype, "image") {
-		i.Type = "image"
-		return nil
-	}
-
-	if strings.HasPrefix(mimetype, "text") {
-		i.Type = "text"
-		goto End
-	}
-
-	if strings.HasPrefix(mimetype, "application/javascript") {
-		i.Type = "text"
-		goto End
-	}
-
-	// If the type isn't text (and is blob for example), it will check some
-	// common types that are mistaken not to be text.
-	if isInTextExtensions(i.Name) {
-		i.Type = "text"
-	} else {
-		i.Type = "blob"
-	}
-
-End:
 	// If the file type is text, save its content.
 	if i.Type == "text" {
 		if len(content) == 0 {
+			//todo: fix me, what if file too big ?
 			content, err = ioutil.ReadFile(i.Path)
 			if err != nil {
 				return err
@@ -409,40 +348,6 @@ func (l byModified) Swap(i, j int) {
 func (l byModified) Less(i, j int) bool {
 	iModified, jModified := l.Items[i].ModTime, l.Items[j].ModTime
 	return iModified.Sub(jModified) < 0
-}
-
-// textExtensions is the sorted list of text extensions which
-// can be edited.
-var textExtensions = []string{
-	".ad", ".ada", ".adoc", ".asciidoc",
-	".bas", ".bash", ".bat",
-	".c", ".cc", ".cmd", ".conf", ".cpp", ".cr", ".cs", ".css", ".csv",
-	".d",
-	".f", ".f90",
-	".h", ".hh", ".hpp", ".htaccess", ".html",
-	".ini",
-	".java", ".js", ".json",
-	".markdown", ".md", ".mdown", ".mmark",
-	".nim",
-	".php", ".pl", ".ps1", ".py",
-	".rss", ".rst", ".rtf",
-	".sass", ".scss", ".sh", ".sty",
-	".tex", ".tml", ".toml", ".txt",
-	".vala", ".vapi",
-	".xml",
-	".yaml", ".yml",
-	"Caddyfile",
-}
-
-// isInTextExtensions checks if a file can be edited by its extensions.
-func isInTextExtensions(name string) bool {
-	search := filepath.Ext(name)
-	if search == "" {
-		search = name
-	}
-
-	i := sort.SearchStrings(textExtensions, search)
-	return i < len(textExtensions) && textExtensions[i] == search
 }
 
 // hasRune checks if the file has the frontmatter rune

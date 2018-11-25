@@ -1,13 +1,9 @@
 package http
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
-	"reflect"
-
 	fb "github.com/filebrowser/filebrowser/lib"
-	"github.com/mitchellh/mapstructure"
+	"net/http"
 )
 
 type modifySettingsRequest struct {
@@ -78,22 +74,6 @@ func settingsGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 		CSS:       c.CSS,
 	}
 
-	if c.StaticGen != nil {
-		t := reflect.TypeOf(c.StaticGen).Elem()
-
-		for i := 0; i < t.NumField(); i++ {
-			if t.Field(i).Name[0] == bytes.ToLower([]byte{t.Field(i).Name[0]})[0] {
-				continue
-			}
-
-			result.StaticGen = append(result.StaticGen, option{
-				Variable: t.Field(i).Name,
-				Name:     t.Field(i).Tag.Get("name"),
-				Value:    reflect.ValueOf(c.StaticGen).Elem().FieldByName(t.Field(i).Name).Interface(),
-			})
-		}
-	}
-
 	return renderJSON(w, result)
 }
 
@@ -124,21 +104,6 @@ func settingsPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 		}
 
 		c.CSS = mod.Data.CSS
-		return http.StatusOK, nil
-	}
-
-	// Update the static generator options.
-	if mod.Which == "staticGen" {
-		err = mapstructure.Decode(mod.Data.StaticGen, c.StaticGen)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-
-		err = c.Store.Config.Save("staticgen_"+c.StaticGen.Name(), c.StaticGen)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-
 		return http.StatusOK, nil
 	}
 

@@ -3,6 +3,9 @@ package http
 import (
 	"errors"
 	"fmt"
+	fb "github.com/filebrowser/filebrowser/lib"
+	"github.com/filebrowser/filebrowser/lib/filehelper"
+	"github.com/hacdias/fileutils"
 	"io"
 	"io/ioutil"
 	"log"
@@ -11,10 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	fb "github.com/filebrowser/filebrowser/lib"
-	"github.com/hacdias/fileutils"
 )
 
 // sanitizeURL sanitizes the URL to prevent path transversal
@@ -64,7 +63,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Gets the information of the directory/file.
-	f, err := fb.GetInfo(r.URL, c.FileBrowser, c.User)
+	f, err := fb.GetInfo(r.URL, c)
 	if err != nil {
 		return ErrorToHTTP(err, false), err
 	}
@@ -82,7 +81,7 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	}
 
 	// Tries to get the file type.
-	if err = f.GetFileType(true); err != nil {
+	if err = f.SetFileType(true); err != nil {
 		return ErrorToHTTP(err, true), err
 	}
 
@@ -95,11 +94,6 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	}
 
 	f.Kind = "editor"
-
-	// Tries to get the editor data.
-	if err = f.GetEditor(); err != nil {
-		return http.StatusInternalServerError, err
-	}
 
 	return renderJSON(w, f)
 }
@@ -130,6 +124,7 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int,
 	}
 
 	listing.ApplySort()
+
 	return renderJSON(w, f)
 }
 
@@ -143,9 +138,11 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 	if err := c.Runner("before_delete", r.URL.Path, "", c.User); err != nil {
 		return http.StatusInternalServerError, err
 	}
+	removePreview(c, r)
 
 	// Remove the file or folder.
 	err := c.User.FileSystem.RemoveAll(r.URL.Path)
+
 	if err != nil {
 		return ErrorToHTTP(err, true), err
 	}
@@ -156,6 +153,37 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 	}
 
 	return http.StatusOK, nil
+}
+
+//Remove preview
+func removePreview(c *fb.Context, r *http.Request) {
+	_, errW, path, t := filehelper.GetFileInfo(c.User.Scope, c.User.PreviewScope, r.URL.Path, "thumb")
+	if errW == nil && len(t) > 0 {
+		path = filepath.Join(c.User.Scope, filepath.Base(path))
+	} else {
+		path = strings.TrimPrefix(path, c.User.PreviewScope)
+	}
+	err := c.User.FileSystemPreview.RemoveAll(path)
+	if err != nil {
+		log.Println(err)
+	}
+} //rename preview
+func modPreview(c *fb.Context, src, dst string, isCopy bool) {
+	info, _ := c.User.FileSystem.Stat(src)
+	if !info.IsDir() {
+		src, _ = filehelper.ReplacePrevExt(c.User.Scope, src)
+		dst, _ = filehelper.ReplacePrevExt(c.User.Scope, dst)
+
+	} else {
+		dst = filepath.Join(c.User.Scope, dst)
+		src = filepath.Join(c.User.Scope, src)
+	}
+	if isCopy {
+		c.User.FileSystemPreview.Copy(src, dst)
+	} else {
+		c.User.FileSystemPreview.Rename(src, dst)
+	}
+
 }
 
 func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
@@ -183,6 +211,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 
 		// Otherwise we try to create the directory.
 		err := c.User.FileSystem.Mkdir(r.URL.Path, 0775)
+		c.User.FileSystemPreview.Mkdir(filepath.Join(c.User.Scope, r.URL.Path), 0775)
 		return ErrorToHTTP(err, false), err
 	}
 
@@ -219,14 +248,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		return ErrorToHTTP(err, false), err
 	}
 
-	// Check if this instance has a Static Generator and handles publishing
-	// or scheduling if it's the case.
-	if c.StaticGen != nil {
-		code, err := resourcePublishSchedule(c, w, r)
-		if code != 0 {
-			return code, err
-		}
-	}
+	c.GenPreview(r.URL.Path, false)
 
 	// Writes the ETag Header.
 	etag := fmt.Sprintf(`"%x%x"`, fi.ModTime().UnixNano(), fi.Size())
@@ -238,58 +260,6 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	}
 
 	return http.StatusOK, nil
-}
-
-func resourcePublishSchedule(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	publish := r.Header.Get("Publish")
-	schedule := r.Header.Get("Schedule")
-
-	if publish != "true" && schedule == "" {
-		return 0, nil
-	}
-
-	if !c.User.AllowPublish {
-		return http.StatusForbidden, nil
-	}
-
-	if publish == "true" {
-		return resourcePublish(c, w, r)
-	}
-
-	t, err := time.Parse("2006-01-02T15:04", schedule)
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-
-	c.Cron.AddFunc(t.Format("05 04 15 02 01 *"), func() {
-		_, err := resourcePublish(c, w, r)
-		if err != nil {
-			log.Print(err)
-		}
-	})
-
-	return http.StatusOK, nil
-}
-
-func resourcePublish(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	path := filepath.Join(c.User.Scope, r.URL.Path)
-
-	// Before save command handler.
-	if err := c.Runner("before_publish", path, "", c.User); err != nil {
-		return http.StatusInternalServerError, err
-	}
-
-	code, err := c.StaticGen.Publish(c, w, r)
-	if err != nil {
-		return code, err
-	}
-
-	// Executed the before publish command.
-	if err := c.Runner("before_publish", path, "", c.User); err != nil {
-		return http.StatusInternalServerError, err
-	}
-
-	return code, nil
 }
 
 // resourcePatchHandler is the entry point for resource handler.
@@ -316,7 +286,7 @@ func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request)
 		if err := c.Runner("before_copy", src, dst, c.User); err != nil {
 			return http.StatusInternalServerError, err
 		}
-
+		modPreview(c, src, dst, true)
 		// Copy the file.
 		err = c.User.FileSystem.Copy(src, dst)
 
@@ -330,6 +300,7 @@ func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request)
 			return http.StatusInternalServerError, err
 		}
 
+		modPreview(c, src, dst, false)
 		// Rename the file.
 		err = c.User.FileSystem.Rename(src, dst)
 

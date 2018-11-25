@@ -1,15 +1,14 @@
 package http
 
 import (
+	fb "github.com/filebrowser/filebrowser/lib"
+	"github.com/hacdias/fileutils"
+	"github.com/mholt/archiver"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-
-	fb "github.com/filebrowser/filebrowser/lib"
-	"github.com/hacdias/fileutils"
-	"github.com/mholt/archiver"
 )
 
 // downloadHandler creates an archive in one of the supported formats (zip, tar,
@@ -80,13 +79,20 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	file, err := os.Open(c.File.Path)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		if len(c.PreviewType) > 0 {
+			c.GenPreview(r.URL.Path, false)
+			file, err = os.Open(c.File.Path)
+
+		}
+		if err != nil {
+			return http.StatusNotFound, err
+		}
 	}
 	defer file.Close()
 
 	stat, err := file.Stat()
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return http.StatusNotFound, err
 	}
 
 	if r.URL.Query().Get("inline") == "true" {

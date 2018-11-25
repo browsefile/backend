@@ -72,13 +72,6 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 		return apiHandler(c, w, r)
 	}
 
-	// If it is a request to the preview and a static website generator is
-	// active, build the preview.
-	if strings.HasPrefix(r.URL.Path, "/preview") && c.StaticGen != nil {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/preview")
-		return c.StaticGen.Preview(c, w, r)
-	}
-
 	if strings.HasPrefix(r.URL.Path, "/share/") {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/share/")
 		return sharePage(c, w, r)
@@ -119,27 +112,15 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 
 	c.Router, r.URL.Path = splitURL(r.URL.Path)
 
+	c.PreviewType = r.URL.Query().Get("previewType")
+
 	if !c.User.Allowed(r.URL.Path) {
 		return http.StatusForbidden, nil
 	}
 
-	if c.StaticGen != nil {
-		// If we are using the 'magic url' for the settings,
-		// we should redirect the request for the acutual path.
-		if r.URL.Path == "/settings" {
-			r.URL.Path = c.StaticGen.SettingsPath()
-		}
-
-		// Executes the Static website generator hook.
-		code, err := c.StaticGen.Hook(c, w, r)
-		if code != 0 || err != nil {
-			return code, err
-		}
-	}
-
 	if c.Router == "checksum" || c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
 		var err error
-		c.File, err = fb.GetInfo(r.URL, c.FileBrowser, c.User)
+		c.File, err = fb.GetInfo(r.URL, c)
 		if err != nil {
 			return ErrorToHTTP(err, false), err
 		}
@@ -234,10 +215,6 @@ func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) 
 		"ReCaptcha":     c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",
 		"ReCaptchaHost": c.ReCaptcha.Host,
 		"ReCaptchaKey":  c.ReCaptcha.Key,
-	}
-
-	if c.StaticGen != nil {
-		data["staticgen"] = c.StaticGen.Name()
 	}
 
 	err := tpl.Execute(w, data)

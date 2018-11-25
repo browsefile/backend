@@ -4,18 +4,20 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/filebrowser/filebrowser/lib/filehelper"
+	"github.com/filebrowser/filebrowser/lib/preview"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
-	"reflect"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
-	rice "github.com/GeertJohan/go.rice"
+	"github.com/GeertJohan/go.rice"
 	"github.com/hacdias/fileutils"
 	"github.com/mholt/caddy"
 	"github.com/robfig/cron"
@@ -92,9 +94,6 @@ type FileBrowser struct {
 	// ReCaptcha host, key and secret.
 	ReCaptcha *ReCaptcha
 
-	// StaticGen is the static websit generator handler.
-	StaticGen StaticGen
-
 	// The Default User needed to build the New User page.
 	DefaultUser *User
 
@@ -106,6 +105,8 @@ type FileBrowser struct {
 
 	// NewFS should build a new file system for a given path.
 	NewFS FSBuilder
+	//generates preview
+	Pgen *preview.PreviewGen
 }
 
 var commandEvents = []string{
@@ -232,8 +233,33 @@ func (m *FileBrowser) Setup() error {
 
 	m.Cron.AddFunc("@hourly", m.ShareCleaner)
 	m.Cron.Start()
+	m.Pgen = new(preview.PreviewGen)
+	m.Pgen.Setup()
 
 	return nil
+}
+func (c *Context) GenPreview(path string, isAsync bool) {
+	pData := c.Pgen.GetDefaultData()
+	in, out, _ := filehelper.GenPreviewConvertPath(path, c.User.Scope, c.User.PreviewScope)
+	if _, err := os.Stat(out); os.IsExist(err) {
+		return
+	}
+
+	dirPath := filepath.Dir(out)
+	_, err := os.Stat(dirPath)
+	if err != nil {
+		err = os.MkdirAll(dirPath, 0775)
+	}
+	if err == nil {
+		_, t := filehelper.GetBasedOnExtensions(filepath.Base(path))
+		pData.SetPaths(in, out, t)
+		/*	if isAsync {
+			c.Pgen.ProcessAsync(pData)
+
+		} else {*/
+		c.Pgen.ProcessSync(pData)
+		//}
+	}
 }
 
 // RootURL returns the actual URL where
@@ -258,27 +284,6 @@ func (m *FileBrowser) SetBaseURL(url string) {
 	url = strings.TrimSuffix(url, "/")
 	url = "/" + url
 	m.BaseURL = strings.TrimSuffix(url, "/")
-}
-
-// Attach attaches a static generator to the current File Browser.
-func (m *FileBrowser) Attach(s StaticGen) error {
-	if reflect.TypeOf(s).Kind() != reflect.Ptr {
-		return errors.New("data should be a pointer to interface, not interface")
-	}
-
-	err := s.Setup()
-	if err != nil {
-		return err
-	}
-
-	m.StaticGen = s
-
-	err = m.Store.Config.Get("staticgen_"+s.Name(), s)
-	if err == ErrNotExist {
-		return m.Store.Config.Save("staticgen_"+s.Name(), s)
-	}
-
-	return err
 }
 
 // ShareCleaner removes sharing links that are no longer active.
@@ -361,19 +366,21 @@ func (m FileBrowser) Runner(event string, path string, destination string, user 
 
 // DefaultUser is used on New, when no 'base' user is provided.
 var DefaultUser = User{
-	AllowCommands: true,
-	AllowEdit:     true,
-	AllowNew:      true,
-	AllowPublish:  true,
-	LockPassword:  false,
-	Commands:      []string{},
-	Rules:         []*Rule{},
-	CSS:           "",
-	Admin:         true,
-	Locale:        "",
-	Scope:         ".",
-	FileSystem:    fileutils.Dir("."),
-	ViewMode:      "mosaic",
+	AllowCommands:     true,
+	AllowEdit:         true,
+	AllowNew:          true,
+	AllowPublish:      true,
+	LockPassword:      false,
+	Commands:          []string{},
+	Rules:             []*Rule{},
+	CSS:               "",
+	Admin:             true,
+	Locale:            "",
+	Scope:             "/tmp/scope",
+	FileSystem:        fileutils.Dir("."),
+	FileSystemPreview: fileutils.Dir("."),
+	ViewMode:          "mosaic",
+	PreviewScope:      "/tmp/prev-scope/",
 }
 
 // User contains the configuration for each user.
@@ -420,6 +427,10 @@ type User struct {
 
 	// User view mode for files and folders.
 	ViewMode string `json:"viewMode"`
+	// system path to store user's image/video previews
+	PreviewScope string `json:"previewScope"`
+	// FileSystem is the virtual file system the user has access, uses to store previews.
+	FileSystemPreview FileSystem `json:"-"`
 }
 
 // Allowed checks if the user has permission to access a directory/file.
@@ -516,17 +527,6 @@ type ShareStore interface {
 	Delete(hash string) error
 }
 
-// StaticGen is a static website generator.
-type StaticGen interface {
-	SettingsPath() string
-	Name() string
-	Setup() error
-
-	Hook(c *Context, w http.ResponseWriter, r *http.Request) (int, error)
-	Preview(c *Context, w http.ResponseWriter, r *http.Request) (int, error)
-	Publish(c *Context, w http.ResponseWriter, r *http.Request) (int, error)
-}
-
 // FileSystem is the interface to work with the file system.
 type FileSystem interface {
 	Mkdir(name string, perm os.FileMode) error
@@ -544,6 +544,8 @@ type Context struct {
 	File *File
 	// On API handlers, Router is the APi handler we want.
 	Router string
+	//indicate that requested preview
+	PreviewType string
 }
 
 // HashPassword generates an hash from a password using bcrypt.

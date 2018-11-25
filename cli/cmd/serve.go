@@ -61,18 +61,20 @@ func init() {
 	}
 
 	// Global settings
+
 	flagP("port", "p", 0, "HTTP Port (default is random)")
 	flagP("address", "a", "", "Address to listen to (default is all of them)")
 	flagP("database", "d", "./filebrowser.db", "Database file")
 	flagP("log", "l", "stdout", "Errors logger; can use 'stdout', 'stderr' or file")
 	flagP("baseurl", "b", "", "Base URL")
 	flag("prefixurl", "", "Prefix URL")
-	flag("staticgen", "", "Static Generator you want to enable")
+	/*flag("staticgen", "", "Static Generator you want to enable")*/
 
 	// User default settings
 	f.String("defaults.commands", "git svn hg", "Default commands option for new users")
 	v.SetDefault("defaults.commands", []string{"git", "svn", "hg"})
 
+	flagP("defaults.previewScope", "v", "/tmp/prev-scope/thumb", "Backend path to the preview folder")
 	flagP("defaults.scope", "s", ".", "Default scope option for new users")
 	flag("defaults.viewMode", filebrowser.MosaicViewMode, "Default view mode for new users")
 	flag("defaults.allowCommands", true, "Default allow commands option for new users")

@@ -1,21 +1,18 @@
 package cmd
 
 import (
+	"github.com/asdine/storm"
+	filebrowser "github.com/filebrowser/filebrowser/lib"
+	"github.com/filebrowser/filebrowser/lib/bolt"
+	h "github.com/filebrowser/filebrowser/lib/http"
+	"github.com/hacdias/fileutils"
+	"github.com/spf13/viper"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
-
-	"github.com/asdine/storm"
-	filebrowser "github.com/filebrowser/filebrowser/lib"
-	"github.com/filebrowser/filebrowser/lib/bolt"
-	h "github.com/filebrowser/filebrowser/lib/http"
-	"github.com/filebrowser/filebrowser/lib/staticgen"
-	"github.com/hacdias/fileutils"
-	"github.com/spf13/viper"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
 func Serve() {
@@ -91,17 +88,19 @@ func handler() http.Handler {
 			Secret: viper.GetString("recaptcha.secret"),
 		},
 		DefaultUser: &filebrowser.User{
-			AllowCommands: viper.GetBool("defaults.allowCommands"),
-			AllowEdit:     viper.GetBool("defaults.allowEdit"),
-			AllowNew:      viper.GetBool("defaults.allowNew"),
-			AllowPublish:  viper.GetBool("defaults.allowPublish"),
-			Commands:      viper.GetStringSlice("defaults.commands"),
-			Rules:         []*filebrowser.Rule{},
-			Locale:        viper.GetString("defaults.locale"),
-			CSS:           "",
-			Scope:         viper.GetString("defaults.scope"),
-			FileSystem:    fileutils.Dir(viper.GetString("defaults.scope")),
-			ViewMode:      viper.GetString("defaults.viewMode"),
+			AllowCommands:     viper.GetBool("defaults.allowCommands"),
+			AllowEdit:         viper.GetBool("defaults.allowEdit"),
+			AllowNew:          viper.GetBool("defaults.allowNew"),
+			AllowPublish:      viper.GetBool("defaults.allowPublish"),
+			Commands:          viper.GetStringSlice("defaults.commands"),
+			Rules:             []*filebrowser.Rule{},
+			Locale:            viper.GetString("defaults.locale"),
+			CSS:               "",
+			Scope:             viper.GetString("defaults.scope"),
+			FileSystem:        fileutils.Dir(viper.GetString("defaults.scope")),
+			FileSystemPreview: fileutils.Dir(viper.GetString("defaults.previewScope")),
+			ViewMode:          viper.GetString("defaults.viewMode"),
+			PreviewScope:      viper.GetString("defaults.previewScope"),
 		},
 		Store: &filebrowser.Store{
 			Config: bolt.ConfigStore{DB: db},
@@ -119,31 +118,6 @@ func handler() http.Handler {
 	err = fb.Setup()
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	switch viper.GetString("staticgen") {
-	case "hugo":
-		hugo := &staticgen.Hugo{
-			Root:        viper.GetString("Scope"),
-			Public:      filepath.Join(viper.GetString("Scope"), "public"),
-			Args:        []string{},
-			CleanPublic: true,
-		}
-
-		if err = fb.Attach(hugo); err != nil {
-			log.Fatal(err)
-		}
-	case "jekyll":
-		jekyll := &staticgen.Jekyll{
-			Root:        viper.GetString("Scope"),
-			Public:      filepath.Join(viper.GetString("Scope"), "_site"),
-			Args:        []string{"build"},
-			CleanPublic: true,
-		}
-
-		if err = fb.Attach(jekyll); err != nil {
-			log.Fatal(err)
-		}
 	}
 
 	return h.Handler(fb)

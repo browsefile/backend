@@ -25,6 +25,7 @@ func (u UsersStore) Get(id int, builder fb.FSBuilder) (*fb.User, error) {
 	}
 
 	us.FileSystem = builder(us.Scope)
+	us.FileSystemPreview = builder(us.PreviewScope)
 	return &us, nil
 }
 
@@ -41,6 +42,7 @@ func (u UsersStore) GetByUsername(username string, builder fb.FSBuilder) (*fb.Us
 	}
 
 	us.FileSystem = builder(us.Scope)
+	us.FileSystemPreview = builder(us.PreviewScope)
 	return &us, nil
 }
 
@@ -58,6 +60,7 @@ func (u UsersStore) Gets(builder fb.FSBuilder) ([]*fb.User, error) {
 
 	for _, user := range us {
 		user.FileSystem = builder(user.Scope)
+		user.FileSystemPreview = builder(user.PreviewScope)
 	}
 
 	return us, err

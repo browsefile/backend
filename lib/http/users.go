@@ -83,6 +83,7 @@ func getUser(c *fb.Context, r *http.Request) (*fb.User, string, error) {
 	}
 
 	mod.Data.FileSystem = c.NewFS(mod.Data.Scope)
+	mod.Data.FileSystemPreview = c.NewFS(mod.Data.PreviewScope)
 	return mod.Data, mod.Which, nil
 }
 
@@ -163,6 +164,9 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	// If the view mode is empty, initialize with the default one.
 	if u.ViewMode == "" {
 		u.ViewMode = c.DefaultUser.ViewMode
+	}
+	if u.PreviewScope == "" {
+		u.PreviewScope = c.DefaultUser.PreviewScope
 	}
 
 	// Initialize commands if not initialized.
@@ -346,6 +350,9 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	// Initialize commands if not initialized.
 	if u.Commands == nil {
 		u.Commands = []string{}
+	}
+	if u.PreviewScope == "" {
+		u.PreviewScope = c.DefaultUser.PreviewScope
 	}
 
 	// Gets the current saved user from the in-memory map.
