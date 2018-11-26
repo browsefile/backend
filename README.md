@@ -1,15 +1,26 @@
 ℹ INFO: Nov 25 2018,  after tries to use nextcloud as a home cloud, it was not possible to use it due to performance issues. So I've decided to adopt filebrowser project to my needs. Here it is list of things I've done:
+
 -added thumbnail generation, it requires libvips, imagemagick and ffmpeg as system dependencies
+
 -added thumbnails user path at settings, and by default it must be set with "-v" short command. This path, should be <b>out</b> of the user's file scope path, otherwise it will recursively generate previews for self!
+
 -added better file type detection at the backend
--integrated photoswipe as image slider and aplayer as audio player, and left default slider for videos and other file types.
+
+-integrated photoswipe as image slider and aplayer as audio player, and left default slider for other file types.
+
 -added possibility to play music folder recursively by selecting required folders, and press music icon at the top. Mentioned button will play current folder without recursion. APlayer hidden by default
+
 -deleted staticgen
 
+
 planned to do:
+
 -make docker image with required dependencies
+
 -make ARM docker images
+
 -rewrite frontend to Angular material, or find somebody that would agree to support vue
+
 
 
 
