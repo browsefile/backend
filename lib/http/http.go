@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -113,7 +114,12 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	c.Router, r.URL.Path = splitURL(r.URL.Path)
 
 	c.PreviewType = r.URL.Query().Get("previewType")
-
+	c.IsRecursive, _ = strconv.ParseBool(r.URL.Query().Get("recursive"))
+	if c.IsRecursive {
+		q := r.URL.Query()
+		q.Del("recursive")
+		r.URL.RawQuery = q.Encode()
+	}
 	if !c.User.Allowed(r.URL.Path) {
 		return http.StatusForbidden, nil
 	}

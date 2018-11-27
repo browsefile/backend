@@ -103,7 +103,7 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int,
 	f.Kind = "listing"
 
 	// Tries to get the listing data.
-	if err := f.GetListing(c.User, r); err != nil {
+	if err := f.GetListing(c.User, c.IsRecursive); err != nil {
 		return ErrorToHTTP(err, true), err
 	}
 

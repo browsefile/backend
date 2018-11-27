@@ -11,7 +11,7 @@ import (
 	"hash"
 	"io"
 	"io/ioutil"
-	"net/http"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -99,33 +99,51 @@ func GetInfo(url *url.URL, c *Context) (*File, error) {
 }
 
 // GetListing gets the information about a specific directory and its files.
-func (i *File) GetListing(u *User, r *http.Request) error {
+func (i *File) GetListing(u *User, isRecursive bool) error {
 	// Gets the directory information using the Virtual File System of
 	// the user configuration.
-	f, err := u.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
 
-	// Reads the directory and gets the information about the files.
-	files, err := f.Readdir(-1)
-	if err != nil {
-		return err
-	}
+	var files []os.FileInfo
+	var paths []string
+	files = make([]os.FileInfo, 0, 1000)
+	paths = make([]string, 0, 1000)
 
+	if isRecursive {
+		err := filepath.Walk(filepath.Join(u.Scope, i.VirtualPath),
+			func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				files = append(files, info)
+				path = strings.Replace(path, u.Scope, "", -1)
+				paths = append(paths, path)
+				return nil
+			})
+		if err != nil {
+			log.Println(err)
+		}
+	} else {
+		f, err := u.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		// Reads the directory and gets the information about the files.
+		files, err = f.Readdir(-1)
+		if err != nil {
+			return err
+		}
+	}
 	var (
-		fileinfos                        []*File
+		fileinfos           []*File
 		dirCount, fileCount int
 	)
-	//pagination details
-
 	baseurl, err := url.PathUnescape(i.URL)
 	if err != nil {
 		return err
 	}
 
-	for _, f := range files {
+	for ind, f := range files {
 		name := f.Name()
 		allowed := u.Allowed("/" + name)
 
@@ -150,7 +168,18 @@ func (i *File) GetListing(u *User, r *http.Request) error {
 		}
 
 		// Absolute URL
-		url := url.URL{Path: baseurl + name}
+		var fUrl url.URL
+
+		if isRecursive {
+			if f.IsDir() {
+				fUrl = url.URL{Path: baseurl}
+			} else {
+				fUrl = url.URL{Path: "/files" + paths[ind]}
+			}
+
+		} else {
+			fUrl = url.URL{Path: baseurl + name}
+		}
 
 		i := &File{
 			Name:        f.Name(),
@@ -158,7 +187,7 @@ func (i *File) GetListing(u *User, r *http.Request) error {
 			ModTime:     f.ModTime(),
 			Mode:        f.Mode(),
 			IsDir:       f.IsDir(),
-			URL:         url.String(),
+			URL:         fUrl.String(),
 			Extension:   filepath.Ext(name),
 			VirtualPath: filepath.Join(i.VirtualPath, name),
 			Path:        filepath.Join(i.Path, name),

@@ -546,6 +546,8 @@ type Context struct {
 	Router string
 	//indicate that requested preview
 	PreviewType string
+	//return files list by recursion
+	IsRecursive bool
 }
 
 // HashPassword generates an hash from a password using bcrypt.
