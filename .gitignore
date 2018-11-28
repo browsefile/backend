@@ -2,7 +2,7 @@
 */dist/*
 *.db
 *.db.lock
-.idea
+*/.idea/*
 .vscode
 Dockerfile
 filebrowser

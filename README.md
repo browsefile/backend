@@ -15,6 +15,8 @@
 
 planned to do:
 
+-share permanent folders as separate path in menu between all users
+
 -make docker image with required dependencies
 
 -make ARM docker images
