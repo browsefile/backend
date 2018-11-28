@@ -53,6 +53,10 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 		ext = name
 	}
 	name = strings.ToLower(name)
+	res = strings.EqualFold(".pdf", ext)
+	if res {
+		return res, "pdf"
+	}
 	for iEx, eArr := range mimeExt {
 		for _, e := range eArr {
 			res = strings.EqualFold(e, ext)
