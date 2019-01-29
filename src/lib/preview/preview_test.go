@@ -1,7 +1,7 @@
 package preview
 
 import (
-	"github.com/filebrowser/filebrowser/lib/filehelper"
+	"github.com/filebrowser/filebrowser/src/lib/fileutils"
 	"os"
 	"testing"
 )
@@ -16,7 +16,7 @@ func TestImageThumbGen(t *testing.T) {
 	if e != nil {
 		t.Fatal(e, f)
 	}
-	inI, _, _ := filehelper.GenPreviewConvertPath(inI, "../../", "../../")
+	inI, _, _ := fileutils.GenPreviewConvertPath(inI, "../../", "../../")
 	cmd := getPrevCont()
 	cmd.SetPaths(inI, resI, "image")
 	g := getGen()
@@ -34,7 +34,7 @@ func TestVideoThumbGen(t *testing.T) {
 	if e != nil {
 		t.Fatal(e, f)
 	}
-	inV, _, _ := filehelper.GenPreviewConvertPath(inV, "../../", "../../")
+	inV, _, _ := fileutils.GenPreviewConvertPath(inV, "../../", "../../")
 	cmd := getPrevCont()
 	cmd.SetPaths(inV, resV, "video")
 	g := getGen()

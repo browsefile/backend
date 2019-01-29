@@ -1,11 +1,10 @@
-package http
+package web
 
 import (
 	"errors"
 	"fmt"
-	fb "github.com/filebrowser/filebrowser/lib"
-	"github.com/filebrowser/filebrowser/lib/filehelper"
-	"github.com/hacdias/fileutils"
+	fb "github.com/filebrowser/filebrowser/src/lib"
+	"github.com/filebrowser/filebrowser/src/lib/fileutils"
 	"io"
 	"io/ioutil"
 	"log"
@@ -35,22 +34,10 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	case http.MethodDelete:
 		return resourceDeleteHandler(c, w, r)
 	case http.MethodPut:
-		// Before save command handler.
-		path := filepath.Join(c.User.Scope, r.URL.Path)
-		if err := c.Runner("before_save", path, "", c.User); err != nil {
-			return http.StatusInternalServerError, err
-		}
-
 		code, err := resourcePostPutHandler(c, w, r)
 		if code != http.StatusOK {
 			return code, err
 		}
-
-		// After save command handler.
-		if err := c.Runner("after_save", path, "", c.User); err != nil {
-			return http.StatusInternalServerError, err
-		}
-
 		return code, err
 	case http.MethodPatch:
 		return resourcePatchHandler(c, w, r)
@@ -77,7 +64,8 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	// If it is a dir, go and serve the listing.
 	if f.IsDir {
 		c.File = f
-		return listingHandler(c, w, r)
+		listingHandler(c, w, r)
+		return renderJSON(w, f)
 	}
 
 	// Tries to get the file type.
@@ -124,19 +112,15 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int,
 	}
 
 	listing.ApplySort()
+	listing.AllowGeneratePreview = c.Config.DefaultUser.AllowGeneratePreview
 
-	return renderJSON(w, f)
+	return 0, nil
 }
 
 func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Prevent the removal of the root directory.
 	if r.URL.Path == "/" || !c.User.AllowEdit {
 		return http.StatusForbidden, nil
-	}
-
-	// Fire the before trigger.
-	if err := c.Runner("before_delete", r.URL.Path, "", c.User); err != nil {
-		return http.StatusInternalServerError, err
 	}
 	removePreview(c, r)
 
@@ -147,17 +131,12 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		return ErrorToHTTP(err, true), err
 	}
 
-	// Fire the after trigger.
-	if err := c.Runner("after_delete", r.URL.Path, "", c.User); err != nil {
-		return http.StatusInternalServerError, err
-	}
-
 	return http.StatusOK, nil
 }
 
 //Remove preview
 func removePreview(c *fb.Context, r *http.Request) {
-	_, errW, path, t := filehelper.GetFileInfo(c.User.Scope, c.User.PreviewScope, r.URL.Path, "thumb")
+	_, errW, path, t := fileutils.GetFileInfo(c.User.Scope, c.User.PreviewScope, r.URL.Path, "thumb")
 	if errW == nil && len(t) > 0 {
 		path = filepath.Join(c.User.Scope, filepath.Base(path))
 	} else {
@@ -171,8 +150,8 @@ func removePreview(c *fb.Context, r *http.Request) {
 func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 	info, _ := c.User.FileSystem.Stat(src)
 	if !info.IsDir() {
-		src, _ = filehelper.ReplacePrevExt(c.User.Scope, src)
-		dst, _ = filehelper.ReplacePrevExt(c.User.Scope, dst)
+		src, _ = fileutils.ReplacePrevExt(c.User.Scope, src)
+		dst, _ = fileutils.ReplacePrevExt(c.User.Scope, dst)
 
 	} else {
 		dst = filepath.Join(c.User.Scope, dst)
@@ -223,12 +202,6 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 			return http.StatusConflict, errors.New("There is already a file on that path")
 		}
 	}
-
-	// Fire the before trigger.
-	if err := c.Runner("before_upload", r.URL.Path, "", c.User); err != nil {
-		return http.StatusInternalServerError, err
-	}
-
 	// Create/Open the file.
 	f, err := c.User.FileSystem.OpenFile(r.URL.Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
 	if err != nil {
@@ -254,11 +227,6 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	etag := fmt.Sprintf(`"%x%x"`, fi.ModTime().UnixNano(), fi.Size())
 	w.Header().Set("ETag", etag)
 
-	// Fire the after trigger.
-	if err := c.Runner("after_upload", r.URL.Path, "", c.User); err != nil {
-		return http.StatusInternalServerError, err
-	}
-
 	return http.StatusOK, nil
 }
 
@@ -282,32 +250,15 @@ func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request)
 	}
 
 	if action == "copy" {
-		// Fire the after trigger.
-		if err := c.Runner("before_copy", src, dst, c.User); err != nil {
-			return http.StatusInternalServerError, err
-		}
 		modPreview(c, src, dst, true)
 		// Copy the file.
 		err = c.User.FileSystem.Copy(src, dst)
 
-		// Fire the after trigger.
-		if err := c.Runner("after_copy", src, dst, c.User); err != nil {
-			return http.StatusInternalServerError, err
-		}
 	} else {
-		// Fire the after trigger.
-		if err := c.Runner("before_rename", src, dst, c.User); err != nil {
-			return http.StatusInternalServerError, err
-		}
-
 		modPreview(c, src, dst, false)
 		// Rename the file.
 		err = c.User.FileSystem.Rename(src, dst)
 
-		// Fire the after trigger.
-		if err := c.Runner("after_rename", src, dst, c.User); err != nil {
-			return http.StatusInternalServerError, err
-		}
 	}
 
 	return ErrorToHTTP(err, true), err

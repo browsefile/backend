@@ -1,8 +1,8 @@
-package http
+package web
 
 import (
 	"encoding/json"
-	fb "github.com/filebrowser/filebrowser/lib"
+	fb "github.com/filebrowser/filebrowser/src/lib"
 	"net/http"
 )
 
@@ -58,9 +58,8 @@ func settingsHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 }
 
 type settingsGetRequest struct {
-	CSS       string              `json:"css"`
-	Commands  map[string][]string `json:"commands"`
-	StaticGen []option            `json:"staticGen"`
+	CSS       string   `json:"css"`
+	StaticGen []option `json:"staticGen"`
 }
 
 func settingsGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
@@ -69,7 +68,6 @@ func settingsGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	}
 
 	result := &settingsGetRequest{
-		Commands:  c.Commands,
 		StaticGen: []option{},
 		CSS:       c.CSS,
 	}
@@ -82,29 +80,9 @@ func settingsPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 		return http.StatusForbidden, nil
 	}
 
-	mod, err := parsePutSettingsRequest(r)
+	_, err := parsePutSettingsRequest(r)
 	if err != nil {
 		return http.StatusBadRequest, err
-	}
-
-	// Update the commands.
-	if mod.Which == "commands" {
-		if err := c.Store.Config.Save("commands", mod.Data.Commands); err != nil {
-			return http.StatusInternalServerError, err
-		}
-
-		c.Commands = mod.Data.Commands
-		return http.StatusOK, nil
-	}
-
-	// Update the global CSS.
-	if mod.Which == "css" {
-		if err := c.Store.Config.Save("css", mod.Data.CSS); err != nil {
-			return http.StatusInternalServerError, err
-		}
-
-		c.CSS = mod.Data.CSS
-		return http.StatusOK, nil
 	}
 
 	return http.StatusMethodNotAllowed, nil

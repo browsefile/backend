@@ -11,7 +11,7 @@ openssl aes-256-cbc -K $encrypted_9ca81b5594f5_key -iv $encrypted_9ca81b5594f5_i
 
 git clone git@github.com:filebrowser/caddy caddy
 cd caddy
-cp ../../lib/rice-box.go assets/
+cp ../../src/lib/rice-box.go assets/
 sed -i 's/package lib/package assets/g' assets/rice-box.go
 git checkout -b update-rice-box origin/master
 git config --local user.name "Filebrowser Bot"

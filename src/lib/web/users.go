@@ -1,15 +1,13 @@
-package http
+package web
 
 import (
 	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
-	"sort"
-	"strconv"
 	"strings"
 
-	fb "github.com/filebrowser/filebrowser/lib"
+	fb "github.com/filebrowser/filebrowser/src/lib"
 )
 
 type modifyRequest struct {
@@ -19,7 +17,7 @@ type modifyRequest struct {
 
 type modifyUserRequest struct {
 	modifyRequest
-	Data *fb.User `json:"data"`
+	Data *fb.UserModel `json:"data"`
 }
 
 // usersHandler is the entry point of the users API. It's just a router
@@ -45,26 +43,22 @@ func usersHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 	return http.StatusNotImplemented, nil
 }
 
-// getUserID returns the id from the user which is present
+// getUserName returns the id from the user which is present
 // in the request url. If the url is invalid and doesn't
 // contain a valid ID, it returns an fb.Error.
-func getUserID(r *http.Request) (int, error) {
+func getUserName(r *http.Request) (string, error) {
 	// Obtains the ID in string from the URL and converts
 	// it into an integer.
 	sid := strings.TrimPrefix(r.URL.Path, "/")
 	sid = strings.TrimSuffix(sid, "/")
-	id, err := strconv.Atoi(sid)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
 
-	return id, nil
+	return sid, nil
 }
 
 // getUser returns the user which is present in the request
 // body. If the body is empty or the JSON is invalid, it
 // returns an fb.Error.
-func getUser(c *fb.Context, r *http.Request) (*fb.User, string, error) {
+func getUser(c *fb.Context, r *http.Request) (*fb.UserModel, string, error) {
 	// Checks if the request body is empty.
 	if r.Body == nil {
 		return nil, "", fb.ErrEmptyRequest
@@ -90,14 +84,14 @@ func getUser(c *fb.Context, r *http.Request) (*fb.User, string, error) {
 func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Request for the default user data.
 	if r.URL.Path == "/base" {
-		return renderJSON(w, c.DefaultUser)
+		return renderJSON(w, c.Config.DefaultUser)
 	}
 
 	// Request for the listing of users.
 	if r.URL.Path == "/" {
-		users, err := c.Store.Users.Gets(c.NewFS)
-		if err != nil {
-			return http.StatusInternalServerError, err
+		users := c.Config.Gets(false)
+		if users != nil && len(users) > 0 {
+			return http.StatusInternalServerError, errors.New("cant find any users")
 		}
 
 		for _, u := range users {
@@ -106,20 +100,16 @@ func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			u.Password = ""
 		}
 
-		sort.Slice(users, func(i, j int) bool {
-			return users[i].ID < users[j].ID
-		})
-
 		return renderJSON(w, users)
 	}
 
-	id, err := getUserID(r)
+	name, err := getUserName(r)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
 
-	u, err := c.Store.Users.Get(id, c.NewFS)
-	if err == fb.ErrExist {
+	u, ok := c.Config.GetByUsername(name)
+	if !ok {
 		return http.StatusNotFound, err
 	}
 
@@ -156,27 +146,12 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 		return http.StatusBadRequest, fb.ErrEmptyPassword
 	}
 
-	// Initialize rules if they're not initialized.
-	if u.Rules == nil {
-		u.Rules = []*fb.Rule{}
-	}
-
 	// If the view mode is empty, initialize with the default one.
 	if u.ViewMode == "" {
-		u.ViewMode = c.DefaultUser.ViewMode
+		u.ViewMode = c.Config.DefaultUser.ViewMode
 	}
 	if u.PreviewScope == "" {
-		u.PreviewScope = c.DefaultUser.PreviewScope
-	}
-
-	// Initialize commands if not initialized.
-	if u.Commands == nil {
-		u.Commands = []string{}
-	}
-
-	// It's a new user so the ID will be auto created.
-	if u.ID != 0 {
-		u.ID = 0
+		u.PreviewScope = c.Config.DefaultUser.PreviewScope
 	}
 
 	// Checks if the scope exists.
@@ -194,7 +169,7 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	u.ViewMode = fb.MosaicViewMode
 
 	// Saves the user to the database.
-	err = c.Store.Users.Save(u)
+	err = c.Config.Add(u.UserConfig)
 	if err == fb.ErrExist {
 		return http.StatusConflict, err
 	}
@@ -204,7 +179,7 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	}
 
 	// Set the Location header and return.
-	w.Header().Set("Location", "/settings/users/"+strconv.Itoa(u.ID))
+	w.Header().Set("Location", "/settings/users/"+u.Username)
 	w.WriteHeader(http.StatusCreated)
 	return 0, nil
 }
@@ -237,13 +212,13 @@ func usersDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 		return http.StatusMethodNotAllowed, nil
 	}
 
-	id, err := getUserID(r)
+	name, err := getUserName(r)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
 
 	// Deletes the user from the database.
-	err = c.Store.Users.Delete(id)
+	err = c.Config.Delete(name)
 	if err == fb.ErrNotExist {
 		return http.StatusNotFound, fb.ErrNotExist
 	}
@@ -262,13 +237,13 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	}
 
 	// Gets the user ID from the URL and checks if it's valid.
-	id, err := getUserID(r)
+	name, err := getUserName(r)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
 
 	// Checks if the user has permission to access this page.
-	if !c.User.Admin && id != c.User.ID {
+	if !c.User.Admin && strings.Compare(name, c.User.Username) != 0 {
 		return http.StatusForbidden, nil
 	}
 
@@ -280,18 +255,17 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 	// If we're updating the default user. Only for NoAuth
 	// implementations. Used to change the viewMode.
-	if id == 0 && c.Auth.Method == "none" {
-		c.DefaultUser.ViewMode = u.ViewMode
+	if c.Config.Method == "none" {
+		c.Config.DefaultUser.ViewMode = u.ViewMode
 		return http.StatusOK, nil
 	}
 
 	// Updates the CSS and locale.
 	if which == "partial" {
-		c.User.CSS = u.CSS
 		c.User.Locale = u.Locale
 		c.User.ViewMode = u.ViewMode
 
-		err = c.Store.Users.Update(c.User, "CSS", "Locale", "ViewMode")
+		err = c.Config.Update(c.User.UserConfig)
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
@@ -305,7 +279,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			return http.StatusBadRequest, fb.ErrEmptyPassword
 		}
 
-		if id == c.User.ID && c.User.LockPassword {
+		if strings.Compare(name, c.User.Username) != 0 && c.User.LockPassword {
 			return http.StatusForbidden, nil
 		}
 
@@ -314,7 +288,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			return http.StatusInternalServerError, err
 		}
 
-		err = c.Store.Users.Update(c.User, "Password")
+		err = c.Config.Update(c.User.UserConfig)
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
@@ -342,22 +316,13 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		return code, err
 	}
 
-	// Initialize rules if they're not initialized.
-	if u.Rules == nil {
-		u.Rules = []*fb.Rule{}
-	}
-
-	// Initialize commands if not initialized.
-	if u.Commands == nil {
-		u.Commands = []string{}
-	}
 	if u.PreviewScope == "" {
-		u.PreviewScope = c.DefaultUser.PreviewScope
+		u.PreviewScope = c.Config.DefaultUser.PreviewScope
 	}
 
 	// Gets the current saved user from the in-memory map.
-	suser, err := c.Store.Users.Get(id, c.NewFS)
-	if err == fb.ErrNotExist {
+	suser, ok := c.Config.GetByUsername(name)
+	if !ok {
 		return http.StatusNotFound, nil
 	}
 
@@ -365,7 +330,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		return http.StatusInternalServerError, err
 	}
 
-	u.ID = id
+	u.Username = name
 
 	// Changes the password if the request wants it.
 	if u.Password != "" {
@@ -381,7 +346,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 	// Updates the whole User struct because we always are supposed
 	// to send a new entire object.
-	err = c.Store.Users.Update(u)
+	err = c.Config.Update(u.UserConfig)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}

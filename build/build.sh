@@ -12,7 +12,7 @@ if [ "$COMMIT_SHA" != "" ]; then
 fi
 
 echo "Build CLI"
-CGO_ENABLED=0 go build -a -o filebrowser
+env CGO_ENABLED=0 go build -a -ldflags="-s -w" -o ../filebrowser
 
 if [ "$COMMIT_SHA" != "" ]; then
   echo "Reset version to (untracked)"

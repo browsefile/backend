@@ -42,7 +42,7 @@ if [ "$USE_DOCKER" != "" ]; then
       docker cp filebrowser-tmp:/$WDIR/frontend/$d frontend
     done
     docker cp filebrowser-tmp:/$WDIR/cli/filebrowser ./filebrowser
-    docker cp filebrowser-tmp:/$WDIR/lib/rice-box.go ./lib/rice-box.go
+    docker cp filebrowser-tmp:/$WDIR/src/lib/rice-box.go ./src/lib/rice-box.go
   fi
   docker rm -f filebrowser-tmp
 else

@@ -5,7 +5,7 @@ you'll need to import both File Browser and File Browser HTTP packages.
 
 	import (
 		fm "github.com/filebrowser/filebrowser"
-		h "github.com/filebrowser/filebrowser/http"
+		h "github.com/filebrowser/filebrowser/web"
 	)
 
 Then, you should create a new FileBrowser object with your options. In this
@@ -67,11 +67,11 @@ But if you want to access it at '/admin', you would call:
 		m.SetBaseURL("/admin")
 
 Now, that you already have a File Browser instance created, you just need to
-add it to your handlers using m.ServeHTTP which is compatible to http.Handler.
+add it to your handlers using m.ServeHTTP which is compatible to web.Handler.
 We also have a m.ServeWithErrorsHTTP that returns the status code and an error.
 
 One simple implementation for this, at port 80, in the root of the domain, would be:
 
-		http.ListenAndServe(":80", h.Handler(m))
+		web.ListenAndServe(":80", h.Handler(m))
 */
 package lib

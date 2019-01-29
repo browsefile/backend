@@ -1,7 +1,8 @@
-package http
+package web
 
 import (
 	"encoding/json"
+	fb "github.com/filebrowser/filebrowser/src/lib"
 	"html/template"
 	"log"
 	"net/http"
@@ -9,12 +10,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
-
-	fb "github.com/filebrowser/filebrowser/lib"
 )
 
-// Handler returns a function compatible with http.HandleFunc.
+// Handler returns a function compatible with web.HandleFunc.
 func Handler(m *fb.FileBrowser) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		code, err := serve(&fb.Context{
@@ -73,10 +71,10 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 		return apiHandler(c, w, r)
 	}
 
-	if strings.HasPrefix(r.URL.Path, "/share/") {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/share/")
-		return sharePage(c, w, r)
-	}
+	/*	if strings.HasPrefix(r.URL.Path, "/share/") {
+			r.URL.Path = strings.TrimPrefix(r.URL.Path, "/share/")
+			return sharePage(c, w, r)
+		}*/
 
 	// Any other request should show the index.html file.
 	w.Header().Set("x-frame-options", "SAMEORIGIN")
@@ -120,9 +118,6 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 		q.Del("recursive")
 		r.URL.RawQuery = q.Encode()
 	}
-	if !c.User.Allowed(r.URL.Path) {
-		return http.StatusForbidden, nil
-	}
 
 	if c.Router == "checksum" || c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
 		var err error
@@ -140,10 +135,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 		code, err = downloadHandler(c, w, r)
 	case "checksum":
 		code, err = checksumHandler(c, w, r)
-	case "command":
-		code, err = command(c, w, r)
-	case "search":
-		code, err = search(c, w, r)
+		//case "search":
 	case "resource":
 		code, err = resourceHandler(c, w, r)
 	case "users":
@@ -215,7 +207,7 @@ func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) 
 
 	data := map[string]interface{}{
 		"baseurl":       c.RootURL(),
-		"NoAuth":        c.Auth.Method == "none",
+		"NoAuth":        c.Config.Method == "none",
 		"Version":       fb.Version,
 		"CSS":           template.CSS(c.CSS),
 		"ReCaptcha":     c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",
@@ -232,21 +224,22 @@ func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) 
 	return 0, nil
 }
 
+/*
 // sharePage build the share page.
-func sharePage(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func sharePage(c *fb.Context, w web.ResponseWriter, r *web.Request) (int, error) {
 	s, err := c.Store.Share.Get(r.URL.Path)
 	if err == fb.ErrNotExist {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(web.StatusNotFound)
 		return renderFile(c, w, "static/share/404.html")
 	}
 
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return web.StatusInternalServerError, err
 	}
 
 	if s.Expires && s.ExpireDate.Before(time.Now()) {
 		c.Store.Share.Delete(s.Hash)
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(web.StatusNotFound)
 		return renderFile(c, w, "static/share/404.html")
 	}
 
@@ -279,13 +272,13 @@ func sharePage(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, erro
 		})
 
 		if err != nil {
-			return http.StatusInternalServerError, err
+			return web.StatusInternalServerError, err
 		}
 		return 0, nil
 	}
 
 	return downloadHandler(c, w, r)
-}
+}*/
 
 // renderJSON prints the JSON version of data to the browser.
 func renderJSON(w http.ResponseWriter, data interface{}) (int, error) {

@@ -1,13 +1,22 @@
-package filehelper
+// Package fileutils implements some useful functions
+// to work with the file system.
+package fileutils
 
 import (
-	"github.com/hacdias/fileutils"
-	"io"
-	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
+
+// SlashClean is equivalent to but slightly more efficient than
+// path.Clean("/" + name).
+func SlashClean(name string) string {
+	if name == "" || name[0] != '/' {
+		name = "/" + name
+	}
+	return path.Clean(name)
+}
 
 // mimeExt is the sorted list of text mimeExt which
 // can be edited.
@@ -88,7 +97,7 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 
 //should get information about original file. Depending on previewType, it will return correct relative path at the file system
 func GetFileInfo(scope, pScope string, urlPath string, previewType string) (info os.FileInfo, err error, path string, t string) {
-	dir := fileutils.Dir(scope)
+	dir := Dir(scope)
 	info, err = dir.Stat(urlPath)
 	path = filepath.Join(scope, urlPath)
 	if err != nil {
@@ -96,7 +105,6 @@ func GetFileInfo(scope, pScope string, urlPath string, previewType string) (info
 	}
 
 	if len(previewType) > 0 {
-
 		//replace file extension
 		if !info.IsDir() {
 			path, t = ReplacePrevExt(scope, urlPath)
@@ -106,7 +114,6 @@ func GetFileInfo(scope, pScope string, urlPath string, previewType string) (info
 	}
 	return info, err, path, t
 }
-
 //modify existing file extension to the preview
 func ReplacePrevExt(scope string, srcPath string) (path string, t string) {
 	name := filepath.Base(srcPath)
@@ -124,7 +131,7 @@ func ReplacePrevExt(scope string, srcPath string) (path string, t string) {
 	return
 }
 
-func GetBasedOnContent(path string) (content []byte, mimetype string, err error) {
+/*func GetBasedOnContent(path string) (content []byte, mimetype string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, "", err
@@ -140,12 +147,11 @@ func GetBasedOnContent(path string) (content []byte, mimetype string, err error)
 
 	// Tries to get the file mimetype using its first
 	// 512 bytes.
-	mimetype = http.DetectContentType(buffer[:n])
+	mimetype = web.DetectContentType(buffer[:n])
 
 	if strings.HasPrefix(mimetype, "video") {
 		mimetype = "video"
 	}
-
 	if strings.HasPrefix(mimetype, "audio") {
 		mimetype = "audio"
 	}
@@ -163,7 +169,7 @@ func GetBasedOnContent(path string) (content []byte, mimetype string, err error)
 	}
 	return buffer, mimetype, err
 
-}
+}*/
 
 // Will return input and output to be processed to the bash convert/ffmpeg in order to generate preview
 func GenPreviewConvertPath(path string, scope string, previewScope string) (inp, outp string, err error) {

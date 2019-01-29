@@ -1,12 +1,14 @@
-package http
+package web
 
 import (
-	fb "github.com/filebrowser/filebrowser/lib"
-	"github.com/hacdias/fileutils"
-	"github.com/mholt/archiver"
+	fb "github.com/filebrowser/filebrowser/src/lib"
+	"github.com/filebrowser/filebrowser/src/lib/fileutils"
+	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -14,14 +16,12 @@ import (
 // downloadHandler creates an archive in one of the supported formats (zip, tar,
 // tar.gz or tar.bz2) and sends it to be downloaded.
 func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	// If the file isn't a directory, serve it using http.ServeFile. We display it
+	// If the file isn't a directory, serve it using web.ServeFile. We display it
 	// inline if it is requested.
 	if !c.File.IsDir {
 		return downloadFileHandler(c, w, r)
 	}
-
-	query := r.URL.Query().Get("format")
-	files := []string{}
+	files := []string{"-rqj", "-"}
 	names := strings.Split(r.URL.Query().Get("files"), ",")
 
 	// If there are files in the query, sanitize their names.
@@ -41,37 +41,32 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	} else {
 		files = append(files, c.File.Path)
 	}
-
-	var (
-		extension string
-		ar        archiver.Archiver
-	)
-
-	switch query {
-	// If the format is true, just set it to "zip".
-	case "zip", "true", "":
-		extension, ar = ".zip", archiver.Zip
-	case "tar":
-		extension, ar = ".tar", archiver.Tar
-	case "targz":
-		extension, ar = ".tar.gz", archiver.TarGz
-	case "tarbz2":
-		extension, ar = ".tar.bz2", archiver.TarBz2
-	case "tarxz":
-		extension, ar = ".tar.xz", archiver.TarXZ
-	default:
-		return http.StatusNotImplemented, nil
-	}
-
 	// Defines the file name.
 	name := c.File.Name
 	if name == "." || name == "" {
-		name = "archive"
+		name = "archive.zip"
+	} else {
+		name += ".zip"
 	}
-	name += extension
 
 	w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
-	err := ar.Write(w, files)
+	pr, pw := io.Pipe()
+
+	cmd := exec.Command("zip", files...)
+	cmd.Stdout = pw
+	cmd.Stderr = os.Stderr
+
+	go func() {
+		defer pr.Close()
+		// copy the data written to the PipeReader via the cmd to stdout
+		if _, err := io.Copy(w, pr); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	err := cmd.Run()
+
+	//err := ar.Write(w, files)
 
 	return 0, err
 }

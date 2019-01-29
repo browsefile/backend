@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"github.com/filebrowser/filebrowser/lib/filehelper"
+	"github.com/filebrowser/filebrowser/src/lib/fileutils"
 	"github.com/maruel/natural"
 	"hash"
 	"io"
@@ -49,8 +49,8 @@ type File struct {
 
 	*Listing `json:",omitempty"`
 
-	Metadata string `json:"metadata,omitempty"`
-	Language string `json:"language,omitempty"`
+	Metadata   string `json:"metadata,omitempty"`
+	Language   string `json:"language,omitempty"`
 }
 
 // A Listing is the context used to fill out a template.
@@ -65,13 +65,15 @@ type Listing struct {
 	Sort string `json:"sort"`
 	// And which order.
 	Order string `json:"order"`
+	//indicator to the frontend, to prevent request previews
+	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 }
 
 // GetInfo gets the file information and, in case of error, returns the
 // respective HTTP error code
 func GetInfo(url *url.URL, c *Context) (*File, error) {
 	var err error
-	info, err, path, t := filehelper.GetFileInfo(c.User.Scope, c.User.PreviewScope, url.Path, c.PreviewType)
+	info, err, path, t := fileutils.GetFileInfo(c.User.Scope, c.User.PreviewScope, url.Path, c.PreviewType)
 
 	i := &File{
 		URL:         "/files" + url.String(),
@@ -99,14 +101,19 @@ func GetInfo(url *url.URL, c *Context) (*File, error) {
 }
 
 // GetListing gets the information about a specific directory and its files.
-func (i *File) GetListing(u *User, isRecursive bool) error {
+func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 	// Gets the directory information using the Virtual File System of
 	// the user configuration.
-
 	var files []os.FileInfo
 	var paths []string
 	files = make([]os.FileInfo, 0, 1000)
 	paths = make([]string, 0, 1000)
+	var (
+		fileinfos           []*File
+		dirCount, fileCount int
+	)
+	// Absolute URL
+	var fUrl url.URL
 
 	if isRecursive {
 		err := filepath.Walk(filepath.Join(u.Scope, i.VirtualPath),
@@ -117,6 +124,7 @@ func (i *File) GetListing(u *User, isRecursive bool) error {
 				files = append(files, info)
 				path = strings.Replace(path, u.Scope, "", -1)
 				paths = append(paths, path)
+
 				return nil
 			})
 		if err != nil {
@@ -134,22 +142,13 @@ func (i *File) GetListing(u *User, isRecursive bool) error {
 			return err
 		}
 	}
-	var (
-		fileinfos           []*File
-		dirCount, fileCount int
-	)
+
 	baseurl, err := url.PathUnescape(i.URL)
 	if err != nil {
 		return err
 	}
-
 	for ind, f := range files {
 		name := f.Name()
-		allowed := u.Allowed("/" + name)
-
-		if !allowed {
-			continue
-		}
 
 		if strings.HasPrefix(f.Mode().String(), "L") {
 			// It's a symbolic link. We try to follow it. If it doesn't work,
@@ -166,10 +165,6 @@ func (i *File) GetListing(u *User, isRecursive bool) error {
 		} else {
 			fileCount++
 		}
-
-		// Absolute URL
-		var fUrl url.URL
-
 		if isRecursive {
 			if f.IsDir() {
 				fUrl = url.URL{Path: baseurl}
@@ -192,7 +187,6 @@ func (i *File) GetListing(u *User, isRecursive bool) error {
 			VirtualPath: filepath.Join(i.VirtualPath, name),
 			Path:        filepath.Join(i.Path, name),
 		}
-
 		i.SetFileType(false)
 		fileinfos = append(fileinfos, i)
 	}
@@ -208,34 +202,36 @@ func (i *File) GetListing(u *User, isRecursive bool) error {
 
 // SetFileType obtains the mimetype and converts it to a simple
 // type nomenclature.
-func (i *File) SetFileType(checkContent bool) error {
-	if len(i.Type) > 0 {
+func (f *File) SetFileType(checkContent bool) error {
+	if len(f.Type) > 0 {
 		return nil
 	}
 	var content []byte
 	var err error
-	isOk, mimetype := filehelper.GetBasedOnExtensions(i.Extension)
+	isOk, mimetype := fileutils.GetBasedOnExtensions(f.Extension)
 	// Tries to get the file mimetype using its extension.
 	if !isOk && checkContent {
-		content, mimetype, err = filehelper.GetBasedOnContent(i.Path)
+		return nil
+		log.Println("Can't detect file type, based on extension ", f.Name)
+		/*content, mimetype, err = fileutils.GetBasedOnContent(f.Path)
 		if err != nil {
 			return err
-		}
+		}*/
 	}
 
-	i.Type = mimetype
+	f.Type = mimetype
 
 	// If the file type is text, save its content.
-	if i.Type == "text" {
+	if f.Type == "text" {
 		if len(content) == 0 {
 			//todo: fix me, what if file too big ?
-			content, err = ioutil.ReadFile(i.Path)
+			content, err = ioutil.ReadFile(f.Path)
 			if err != nil {
 				return err
 			}
 		}
 
-		i.Content = string(content)
+		f.Content = string(content)
 	}
 
 	return nil
@@ -368,45 +364,4 @@ func (l byModified) Swap(i, j int) {
 func (l byModified) Less(i, j int) bool {
 	iModified, jModified := l.Items[i].ModTime, l.Items[j].ModTime
 	return iModified.Sub(jModified) < 0
-}
-
-// hasRune checks if the file has the frontmatter rune
-func hasRune(file string) bool {
-	return strings.HasPrefix(file, "---") ||
-		strings.HasPrefix(file, "+++") ||
-		strings.HasPrefix(file, "{")
-}
-
-func editorMode(language string) string {
-	switch language {
-	case "markdown", "asciidoc", "rst":
-		return "content+metadata"
-	}
-
-	return "content"
-}
-
-func editorLanguage(mode string) string {
-	mode = strings.TrimPrefix(mode, ".")
-
-	switch mode {
-	case "md", "markdown", "mdown", "mmark":
-		mode = "markdown"
-	case "yml":
-		mode = "yaml"
-	case "asciidoc", "adoc", "ad":
-		mode = "asciidoc"
-	case "rst":
-		mode = "rst"
-	case "html", "htm", "xml":
-		mode = "htmlmixed"
-	case "js":
-		mode = "javascript"
-	case "go":
-		mode = "golang"
-	case "":
-		mode = "text"
-	}
-
-	return mode
 }

@@ -19,7 +19,6 @@ func (p *PreviewGen) Setup() {
 }
 
 func (p *PreviewGen) ProcessSync(pc *PreviewData) {
-
 	p.mutex.Lock()
 	exists := p.sMap[pc.in]
 	if !exists {
