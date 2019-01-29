@@ -2,7 +2,9 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/filebrowser/filebrowser/src/config"
 	fb "github.com/filebrowser/filebrowser/src/lib"
+	"github.com/filebrowser/filebrowser/src/lib/fileutils"
 	"html/template"
 	"log"
 	"net/http"
@@ -121,7 +123,27 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 
 	if c.Router == "checksum" || c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
 		var err error
-		c.File, err = fb.GetInfo(r.URL, c)
+		isShare := strings.HasPrefix(r.URL.Path, "/share/")
+
+		if isShare {
+			r.URL.Path = strings.Replace(r.URL.Path, "/share", "", 1)
+
+			item, uc := config.GetShare(c.User.Username, r.URL.Path)
+			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
+
+			//share allowed
+			if item != nil && len(item.Path) > 0 {
+				r.URL.Path = strings.Replace(r.URL.Path, "/"+uc.Username, "", 1)
+				c.File, err = fb.GetInfo(r.URL, c)
+				if err != nil {
+					return http.StatusNotFound, nil
+				}
+			}
+
+		} else {
+			c.File, err = fb.GetInfo(r.URL, c)
+		}
+
 		if err != nil {
 			return ErrorToHTTP(err, false), err
 		}

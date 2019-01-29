@@ -32,7 +32,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	} else {
 		item, uc := config.GetShare(c.User.Username, r.URL.Path)
 
-		if len(item.Path) > 0 {
+		if item != nil && len(item.Path) > 0 {
 			//replace user as for normal listing
 			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
 			r.URL.Path = strings.Replace(r.URL.Path, "/"+uc.Username, "", 1)
