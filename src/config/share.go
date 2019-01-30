@@ -34,6 +34,25 @@ func (shr *ShareItem) IsAllowed(user string) (res bool) {
 	return
 }
 
+func (shr *ShareItem) ValidPath(path string) (res bool) {
+	res = false
+	rp := strings.Split(path, "/")
+	s := strings.Split(shr.Path, "/")
+	sLen := len(s)
+
+	if len(rp) >= sLen {
+		var c int
+		for i := 0; i < sLen; i++ {
+			if strings.EqualFold(s[i], rp[i]) {
+				c++
+			}
+		}
+		res = c == sLen
+	}
+
+	return res
+
+}
 func (shr *ShareItem) copyShare() (res *ShareItem) {
 	res = &ShareItem{
 		Path:          shr.Path,
@@ -57,7 +76,7 @@ func GetShare(ru, path string) (res *ShareItem, user *UserConfig) {
 	if ok {
 		path = strings.Replace(path, "/"+sUname, "", 1)
 		item := shareUser.GetShare(path)
-		if item != nil && item.IsAllowed(ru) {
+		if item != nil && item.IsAllowed(ru) && item.ValidPath(path) {
 			res = item
 			user = shareUser
 		}

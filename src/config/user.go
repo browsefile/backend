@@ -65,7 +65,7 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 
 func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
 	for i := 0; i < len(u.Shares); i++ {
-		if strings.HasPrefix(u.Shares[i].Path, relPath) {
+		if u.Shares[i].ValidPath(relPath) {
 			res = u.Shares[i].copyShare()
 			break
 		}
