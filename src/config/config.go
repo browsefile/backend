@@ -32,8 +32,8 @@ type GlobalConfig struct {
 	BaseUrl        string        `json:"baseUrl"`
 	PrefixUrl      string        `json:"prefixUrl"`
 	RefreshSeconds int           `json:"configRamRefreshSeconds"`
-	CaptchaConfig  `json:"captchaConfig"`
-	Auth           `json:"auth"`
+	*CaptchaConfig `json:"captchaConfig"`
+	*Auth          `json:"auth"`
 	updateLock     *sync.RWMutex `json:"-"`
 	needSave       int32         `json:"-"`
 }
@@ -50,6 +50,23 @@ type Auth struct {
 	Header string `json:"header"`
 
 	Key string `json:"key"`
+}
+
+func (auth *Auth) CopyAuth() *Auth {
+	return &Auth{
+		Key:    auth.Key,
+		Header: auth.Header,
+		Method: auth.Method,
+	}
+
+}
+func (c *CaptchaConfig) CopyCaptchaConfig() *CaptchaConfig {
+	return &CaptchaConfig{
+		Key:    c.Key,
+		Secret: c.Secret,
+		Host:   c.Host,
+	}
+
 }
 
 type CaptchaConfig struct {
@@ -141,6 +158,8 @@ func (cfg *GlobalConfig) SetupLog() {
 	}
 }
 func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
+	cfg.lockR()
+	defer cfg.unlockR()
 	if strings.EqualFold(username, cfg.DefaultUser.Username) {
 		return cfg.DefaultUser.copyUser(), true
 	}
@@ -153,6 +172,8 @@ func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 	return res.copyUser(), ok
 }
 func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
+	cfg.lockR()
+	defer cfg.unlockR()
 	ip = strings.Split(ip, ":")[0]
 
 	for _, ipAuth := range cfg.DefaultUser.IpAuth {
@@ -170,6 +191,8 @@ func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 }
 
 func (cfg *GlobalConfig) Gets(defUser bool) (res []*UserConfig) {
+	cfg.lockR()
+	defer cfg.unlockR()
 	res = make([]*UserConfig, len(cfg.Users))
 	for i, u := range cfg.Users {
 		res[i] = u.copyUser()
@@ -259,6 +282,38 @@ func (cfg *GlobalConfig) GetKeyBytes() ([]byte, error) {
 		return nil, errors.New("Key is empty")
 	}
 	return base64.StdEncoding.DecodeString(cfg.Auth.Key)
+}
+
+func (cfg *GlobalConfig) CopyConfig() (res *GlobalConfig) {
+	cfg.lockR()
+	defer cfg.unlockR()
+	res = &GlobalConfig{
+		Users:          cfg.Gets(false),
+		DefaultUser:    cfg.DefaultUser.copyUser(),
+		RefreshSeconds: cfg.RefreshSeconds,
+		BaseUrl:        cfg.BaseUrl,
+		PrefixUrl:      cfg.PrefixUrl,
+		Port:           cfg.Port,
+		IP:             cfg.IP,
+		Log:            cfg.Log,
+		CaptchaConfig:  cfg.CopyCaptchaConfig(),
+		Auth:           cfg.CopyAuth(),
+	}
+	return res
+}
+func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
+	cfg.lock()
+	defer cfg.unlock()
+	cfg.RefreshSeconds = u.RefreshSeconds
+	cfg.BaseUrl = u.BaseUrl
+	cfg.Port = u.Port
+	cfg.PrefixUrl = u.PrefixUrl
+	cfg.IP = u.IP
+	cfg.Log = u.Log
+	cfg.Users = u.Gets(false)
+	cfg.DefaultUser = u.DefaultUser.copyUser()
+	cfg.Auth = u.CopyAuth()
+	cfg.CaptchaConfig = u.CopyCaptchaConfig()
 }
 
 func (cfg *GlobalConfig) SetKey(k []byte) {
