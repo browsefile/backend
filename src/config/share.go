@@ -23,8 +23,8 @@ func (shr *ShareItem) IsAllowed(user string) (res bool) {
 	} else if shr.AllowExternal && len(user) == 0 {
 		res = true
 	} else {
-		for i := 0; i < len(shr.AllowUsers); i++ {
-			res = strings.EqualFold(shr.AllowUsers[i], user)
+		for _, uname := range shr.AllowUsers {
+			res = strings.EqualFold(uname, user)
 			if res {
 				break
 			}
@@ -34,25 +34,6 @@ func (shr *ShareItem) IsAllowed(user string) (res bool) {
 	return
 }
 
-func (shr *ShareItem) ValidPath(path string) (res bool) {
-	res = false
-	rp := strings.Split(path, "/")
-	s := strings.Split(shr.Path, "/")
-	sLen := len(s)
-
-	if len(rp) >= sLen {
-		var c int
-		for i := 0; i < sLen; i++ {
-			if strings.EqualFold(s[i], rp[i]) {
-				c++
-			}
-		}
-		res = c == sLen
-	}
-
-	return res
-
-}
 func (shr *ShareItem) copyShare() (res *ShareItem) {
 	res = &ShareItem{
 		Path:          shr.Path,
@@ -76,33 +57,28 @@ func GetShare(ru, path string) (res *ShareItem, user *UserConfig) {
 	if ok {
 		path = strings.Replace(path, "/"+sUname, "", 1)
 		item := shareUser.GetShare(path)
-		if item != nil && item.IsAllowed(ru) && item.ValidPath(path) {
+		if item != nil && item.IsAllowed(ru) {
 			res = item
 			user = shareUser
 		}
 	}
 
 	return
-
 }
 
 //filter out allowed shares
 func GetAllowedShares(user string, uNamePath bool) (res []*ShareItem) {
 	isExternal := len(user) == 0
 	res = make([]*ShareItem, 0, 100)
-	users := config.Gets(true)
-
 	//check user and allowed path
-	for i := 0; i < len(users); i++ {
-		for j := 0; j < len(users[i].Shares); j++ {
-			shr := users[i].Shares[j]
+	for _, ui := range config.Gets(true) {
+		for _, shr := range ui.Shares {
 			if shr.IsActive() && (isExternal && shr.AllowExternal || !isExternal && shr.AllowLocal || shr.IsAllowed(user)) {
 				res = append(res, shr)
 				if uNamePath {
-					shr.Path = filepath.Join(users[i].Username, shr.Path)
+					shr.Path = filepath.Join(ui.Username, shr.Path)
 				}
 			}
-
 		}
 	}
 	return res

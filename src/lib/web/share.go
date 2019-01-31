@@ -46,8 +46,8 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			if err != nil {
 				return http.StatusNotFound, nil
 			}
-			for i := 0; i < len(f.Listing.Items); i++ {
-				f.Listing.Items[i].URL = strings.Replace(f.Listing.Items[i].URL, "/files", "/share/"+c.User.Username, 1)
+			for _, itm := range f.Listing.Items {
+				itm.URL = strings.Replace(itm.URL, "/files", "/share/"+c.User.Username, 1)
 			}
 
 			f.URL = strings.Replace(f.URL, "/files", "/share/"+c.User.Username, 1)

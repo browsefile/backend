@@ -1,6 +1,9 @@
 package config
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // User contains the configuration for each user.
 type UserConfig struct {
@@ -57,19 +60,18 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 	}
 	copy(res.IpAuth, u.IpAuth)
 	res.Shares = make([]*ShareItem, len(u.Shares))
-	for i := 0; i < len(u.Shares); i++ {
-		res.Shares[i] = u.Shares[i].copyShare()
+	for i, uShr := range u.Shares {
+		res.Shares[i] = uShr.copyShare()
 	}
 	return
 }
 
 func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
-	for i := 0; i < len(u.Shares); i++ {
-		if u.Shares[i].ValidPath(relPath) {
-			res = u.Shares[i].copyShare()
+	for _, shr := range u.Shares {
+		if strings.HasPrefix(shr.Path, relPath) {
+			res = shr.copyShare()
 			break
 		}
-
 	}
 	return
 }
@@ -79,14 +81,15 @@ func (u *UserConfig) DeleteShare(relPath string) (res bool) {
 	defer config.unlock()
 	res = false
 
-	for i := 0; i < len(u.Shares); i++ {
-		if strings.HasPrefix(u.Shares[i].Path, relPath) {
+	for i, shr := range u.Shares {
+		if strings.HasPrefix(shr.Path, relPath) {
 			u.Shares = append(u.Shares[:i], u.Shares[i+1:]...)
 			res = true
 			break
 		}
 
 	}
+	u.sortShares()
 	return
 }
 func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
@@ -94,5 +97,12 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	defer config.unlock()
 
 	u.Shares = append(u.Shares, shr)
+	u.sortShares()
 	return
+}
+//sort users shares, in order to check them in correct way during runtime
+func (u *UserConfig) sortShares() {
+	sort.Slice(u.Shares[:], func(i, j int) bool {
+		return len(u.Shares[i].Path) < len(u.Shares[j].Path)
+	})
 }

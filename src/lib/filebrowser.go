@@ -89,12 +89,12 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		fb.Config.SetKey(bytes)
 	}
 	users := fb.Config.Gets(false)
-	for i := 0; i < len(users); i++ {
-		if users[i].FirstRun {
-			users[i].FirstRun = false
+	for _, u := range users {
+		if u.FirstRun {
+			u.FirstRun = false
 
 			needUpdate = true
-			users[i].Password, err = HashPassword(users[i].Password)
+			u.Password, err = HashPassword(u.Password)
 			if err != nil {
 				fmt.Println(err)
 			}

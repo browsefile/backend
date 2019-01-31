@@ -75,6 +75,10 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 	cfg.refreshRam()
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
+
+	for _, u := range cfg.Users {
+		u.sortShares()
+	}
 }
 
 func (cfg *GlobalConfig) StartMonitor() {
@@ -103,12 +107,12 @@ func (cfg *GlobalConfig) Store() {
 func (cfg *GlobalConfig) refreshRam() {
 	usersRam = make(map[string]*UserConfig)
 
-	for i := 0; i < len(cfg.Users); i++ {
+	for _, u := range cfg.Users {
 		//index usernames
-		usersRam[cfg.Users[i].Username] = cfg.Users[i]
-		for j := 0; j < len(cfg.Users[i].IpAuth); j++ {
+		usersRam[u.Username] = u
+		for _, ip := range u.IpAuth {
 			//index ips as well
-			usersRam[cfg.Users[i].IpAuth[j]] = cfg.Users[i]
+			usersRam[ip] = u
 		}
 
 	}
@@ -146,8 +150,8 @@ func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 	ip = strings.Split(ip, ":")[0]
 
-	for i := 0; i < len(cfg.DefaultUser.IpAuth); i++ {
-		if strings.EqualFold(ip, cfg.DefaultUser.IpAuth[i]) {
+	for _, ipAuth := range cfg.DefaultUser.IpAuth {
+		if strings.EqualFold(ip, ipAuth) {
 			return cfg.DefaultUser.copyUser(), true
 		}
 	}
@@ -162,8 +166,8 @@ func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 
 func (cfg *GlobalConfig) Gets(defUser bool) (res []*UserConfig) {
 	res = make([]*UserConfig, len(cfg.Users))
-	for i := 0; i < len(cfg.Users); i++ {
-		res[i] = cfg.Users[i].copyUser()
+	for i, u := range cfg.Users {
+		res[i] = u.copyUser()
 	}
 	if defUser {
 		res = append(res, cfg.DefaultUser)
@@ -212,8 +216,8 @@ func (cfg *GlobalConfig) UpdateUsers(users []*UserConfig, defUser *UserConfig) e
 	defer cfg.unlock()
 	if len(users) > 0 {
 		cfg.Users = make([]*UserConfig, len(users))
-		for i := 0; i < len(users); i++ {
-			cfg.Users[i] = users[i].copyUser()
+		for i, u := range users {
+			cfg.Users[i] = u.copyUser()
 		}
 	}
 	if defUser != nil {
@@ -237,8 +241,8 @@ func (cfg *GlobalConfig) Delete(username string) (error) {
 	return nil
 }
 func (cfg *GlobalConfig) getUserIndex(userName string) int {
-	for i := 0; i < len(cfg.Users); i++ {
-		if strings.EqualFold(cfg.Users[i].Username, userName) {
+	for i, u := range cfg.Users {
+		if strings.EqualFold(u.Username, userName) {
 			return i
 		}
 	}
