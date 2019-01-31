@@ -59,6 +59,11 @@ type CaptchaConfig struct {
 }
 
 func (cfg *GlobalConfig) Verify() {
+	for _, u := range cfg.Users {
+		for _, shr := range u.Shares {
+			shr.Path = strings.TrimSuffix(shr.Path, "/")
+		}
+	}
 
 	//todo
 }
