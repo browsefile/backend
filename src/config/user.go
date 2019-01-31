@@ -103,6 +103,6 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 //sort users shares, in order to check them in correct way during runtime
 func (u *UserConfig) sortShares() {
 	sort.Slice(u.Shares[:], func(i, j int) bool {
-		return len(u.Shares[i].Path) < len(u.Shares[j].Path)
+		return u.Shares[i].Path < u.Shares[j].Path
 	})
 }
