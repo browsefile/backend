@@ -9,7 +9,7 @@ import (
 type UserConfig struct {
 	FirstRun bool `json:"firstRun"`
 	// Tells if this user is an admin.
-	Admin bool `json:"isAdmin"`
+	Admin bool `json:"admin"`
 	// These indicate if the user can perform certain actions.
 	AllowEdit bool `json:"allowEdit"` // Edit/rename files
 	AllowNew  bool `json:"allowNew"`  // Create files and folders

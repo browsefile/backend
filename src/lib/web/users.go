@@ -90,7 +90,7 @@ func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	// Request for the listing of users.
 	if r.URL.Path == "/" {
 		users := c.Config.Gets(false)
-		if users != nil && len(users) > 0 {
+		if users == nil || len(users) == 0 {
 			return http.StatusInternalServerError, errors.New("cant find any users")
 		}
 

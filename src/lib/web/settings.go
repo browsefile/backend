@@ -8,11 +8,6 @@ import (
 
 type modifySettingsRequest struct {
 	modifyRequest
-	Data struct {
-		CSS       string                 `json:"css"`
-		Commands  map[string][]string    `json:"commands"`
-		StaticGen map[string]interface{} `json:"staticGen"`
-	} `json:"data"`
 }
 
 type option struct {
