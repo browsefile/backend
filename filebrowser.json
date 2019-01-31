@@ -2,7 +2,7 @@
     "users": [
         {
             "firstRun": false,
-            "isAdmin": false,
+            "admin": false,
             "allowEdit": true,
             "allowNew": true,
             "lockPassword": false,
@@ -16,33 +16,76 @@
             "shares": [
                 {
                     "path": "/share1",
-                    "allowExternal": false,
+                    "allowExternal": true,
                     "allowLocal": false,
                     "allowedUsers": [
-                        "admin"
+                        "admin",
+                        "user"
                     ]
+                },
+                {
+                    "path": "/share1/u1",
+                    "allowExternal": false,
+                    "allowLocal": false,
+                    "allowedUsers": []
+                },
+                {
+                    "path": "/share1/u1/tt",
+                    "allowExternal": true,
+                    "allowLocal": true,
+                    "allowedUsers": []
                 }
             ],
+            "ipAuth": []
+        },
+        {
+            "firstRun": false,
+            "admin": false,
+            "allowEdit": true,
+            "allowNew": true,
+            "lockPassword": false,
+            "locale": "en",
+            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "homePath": "/tmp/user2",
+            "username": "user2",
+            "viewMode": "mosaic",
+            "previewPath": "/tmp/preview",
+            "allowGeneratePreview": false,
+            "shares": [],
+            "ipAuth": []
+        },
+        {
+            "firstRun": false,
+            "admin": false,
+            "allowEdit": true,
+            "allowNew": true,
+            "lockPassword": false,
+            "locale": "en",
+            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "homePath": "/tmp/user2",
+            "username": "user3",
+            "viewMode": "mosaic",
+            "previewPath": "/tmp/preview",
+            "allowGeneratePreview": false,
+            "shares": [],
             "ipAuth": []
         }
     ],
     "defaultUser": {
         "firstRun": false,
-        "isAdmin": true,
+        "admin": true,
         "allowEdit": true,
         "allowNew": true,
         "lockPassword": false,
         "locale": "en",
-        "password": "",
+        "password": "$2a$10$YTl52W.JxyPzyswWryG1/eikgPF4aecTHOn5OG8j.xomW5oIa8MFW",
         "homePath": "/home/v/Camera",
         "username": "admin",
         "viewMode": "mosaic",
         "previewPath": "/tmp/preview",
         "allowGeneratePreview": true,
         "shares": [],
-        "ipAuth": [
-            "127.0.0.1"
-        ]
+        "ipAuth": []
     },
     "port": 8080,
     "ip": "127.0.0.1",
@@ -56,7 +99,7 @@
         "secret": ""
     },
     "auth": {
-        "method": "ip",
+        "method": "default",
         "header": "X-Forwarded-User",
         "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
     }
