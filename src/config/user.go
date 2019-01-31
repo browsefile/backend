@@ -68,6 +68,12 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 
 func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
 	for _, shr := range u.Shares {
+		if strings.HasSuffix(shr.Path, "/") {
+			shr.Path = strings.TrimSuffix(shr.Path, "/")
+		}
+		if strings.HasSuffix(relPath, "/") {
+			relPath = strings.TrimSuffix(relPath, "/")
+		}
 		if strings.HasPrefix(shr.Path, relPath) {
 			res = shr.copyShare()
 			break
@@ -100,6 +106,7 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	u.sortShares()
 	return
 }
+
 //sort users shares, in order to check them in correct way during runtime
 func (u *UserConfig) sortShares() {
 	sort.Slice(u.Shares[:], func(i, j int) bool {
