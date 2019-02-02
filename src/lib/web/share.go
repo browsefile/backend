@@ -30,9 +30,10 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		sharesList := config.GetAllowedShares(c.User.Username, true)
 		return renderJSON(w, sharesList)
 	} else {
-		item, uc := config.GetShare(c.User.Username, r.URL.Path)
+		item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
 
 		if item != nil && len(item.Path) > 0 {
+			suffix := "?shareUser=" + c.ShareUser
 			//replace user as for normal listing
 			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
 			r.URL.Path = strings.Replace(r.URL.Path, "/"+uc.Username, "", 1)
@@ -47,10 +48,10 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 				return http.StatusNotFound, nil
 			}
 			for _, itm := range f.Listing.Items {
-				itm.URL = strings.Replace(itm.URL, "/files", "/share/"+c.User.Username, 1)
+				itm.URL += suffix
 			}
 
-			f.URL = strings.Replace(f.URL, "/files", "/share/"+c.User.Username, 1)
+			f.URL += suffix
 			listingHandler(c, w, r)
 			f.Listing.AllowGeneratePreview = c.Config.DefaultUser.AllowGeneratePreview
 

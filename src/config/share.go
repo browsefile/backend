@@ -50,13 +50,14 @@ func (shr *ShareItem) IsActive() (res bool) {
 	return
 }
 
-func GetShare(ru, reqPath string) (res *ShareItem, user *UserConfig) {
+/**
+ru is request user
+ */
+func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 	res = new(ShareItem)
-	sUname := strings.Split(reqPath, "/")[1]
-	shareUser, ok := config.GetByUsername(sUname)
+	shareUser, ok := config.GetByUsername(su)
 	if ok {
-		reqPath = strings.Replace(reqPath, "/"+sUname, "", 1)
-		reqPath = strings.TrimSuffix(reqPath,"/")
+		reqPath = strings.TrimSuffix(reqPath, "/")
 		item := shareUser.GetShare(reqPath)
 		if item != nil && item.IsAllowed(ru) {
 			res = item

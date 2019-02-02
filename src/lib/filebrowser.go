@@ -213,6 +213,8 @@ type Context struct {
 	PreviewType string
 	//return files list by recursion
 	IsRecursive bool
+	//indicate about share request
+	ShareUser string
 }
 
 // HashPassword generates an hash from a password using bcrypt.

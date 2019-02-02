@@ -112,23 +112,19 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	}
 
 	c.Router, r.URL.Path = splitURL(r.URL.Path)
-
-	c.PreviewType = r.URL.Query().Get("previewType")
-	c.IsRecursive, _ = strconv.ParseBool(r.URL.Query().Get("recursive"))
+	queryValues := r.URL.Query()
+	c.PreviewType = queryValues.Get("previewType")
+	c.ShareUser = queryValues.Get("shareUser")
+	c.IsRecursive, _ = strconv.ParseBool(queryValues.Get("recursive"))
 	if c.IsRecursive {
-		q := r.URL.Query()
-		q.Del("recursive")
-		r.URL.RawQuery = q.Encode()
+		queryValues.Del("recursive")
+		r.URL.RawQuery = queryValues.Encode()
 	}
 
 	if c.Router == "checksum" || c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
 		var err error
-		isShare := strings.HasPrefix(r.URL.Path, "/share/")
-
-		if isShare {
-			r.URL.Path = strings.Replace(r.URL.Path, "/share", "", 1)
-
-			item, uc := config.GetShare(c.User.Username, r.URL.Path)
+		if len(c.ShareUser) > 0 {
+			item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
 			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
 
 			//share allowed
