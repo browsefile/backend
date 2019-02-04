@@ -4,53 +4,61 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"sync"
 )
 
 // should be 1 global object
 type PreviewGen struct {
-	sMap  map[string]bool
-	mutex *sync.Mutex
+	ch           chan *PreviewData
+	threadsCount int
 }
 
-func (p *PreviewGen) Setup() {
-	p.sMap = make(map[string]bool)
-	p.mutex = new(sync.Mutex)
+func genPrew(pd *PreviewData) {
+	if _, err := os.Stat(pd.out); os.IsNotExist(err) {
+		cmd := exec.Command("/bin/sh", pd.convert, pd.in, pd.out, pd.fType)
+		cmd.Dir = pd.dir
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
 }
-
-func (p *PreviewGen) ProcessSync(pc *PreviewData) {
-	p.mutex.Lock()
-	exists := p.sMap[pc.in]
-	if !exists {
-		p.sMap[pc.in] = true
-	}
-	p.mutex.Unlock()
-	//prevent double run
-	if exists {
-		return
-	}
-	cmd := exec.Command("/bin/sh", pc.convert, pc.in, pc.out, pc.fType)
-	cmd.Dir = pc.dir
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-
-	if err != nil {
-		log.Println(err)
-		p.mutex.Lock()
-		delete(p.sMap, pc.in)
-		p.mutex.Unlock()
-
+func (p *PreviewGen) Setup(t int) {
+	p.threadsCount = t
+	if p.threadsCount <= 0 {
+		p.threadsCount = 1
 	} else {
-		p.mutex.Lock()
-		delete(p.sMap, pc.in)
-		p.mutex.Unlock()
+		p.ch = make(chan *PreviewData, 100*p.threadsCount)
+		for ; p.threadsCount > 0; p.threadsCount-- {
+			go func() {
+			Begin:
+				genPrew(<-p.ch)
+				goto Begin
+			}()
+		}
+	}
+}
+func (p *PreviewGen) Process(pc *PreviewData) {
+	_, err := os.Stat(pc.out)
+	//prevent double run
+	if !os.IsExist(err) {
+		//now we can return result
+		if p.threadsCount == 1 {
+			genPrew(pc)
+			//otherwise run async, and cant be sure in return result
+		} else {
+			//run async, for immediate response
+			p.ch <- pc
+
+		}
 	}
 }
 
 func (pd PreviewGen) GetDefaultData() (rs *PreviewData) {
-
 	rs = new(PreviewData)
 	rs.Setup("./", "convert.sh")
 

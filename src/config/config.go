@@ -34,8 +34,16 @@ type GlobalConfig struct {
 	RefreshSeconds int           `json:"configRamRefreshSeconds"`
 	*CaptchaConfig `json:"captchaConfig"`
 	*Auth          `json:"auth"`
+	*PreviewConf   `json:"preview"`
 	updateLock     *sync.RWMutex `json:"-"`
 	needSave       int32         `json:"-"`
+}
+
+// Auth settings.
+type PreviewConf struct {
+	//enable preview generating by call .sh
+	AllowGeneratePreview bool `json:"allowGeneratePreview"`
+	Threads              int  `json:"threads"`
 }
 
 // Auth settings.
@@ -90,10 +98,15 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 	jsonFile, err := os.Open(file)
 	defer jsonFile.Close()
 	if err != nil {
-		fmt.Println(err)
+		log.Print("can't open filebrowser.json")
+		log.Print(err)
 	}
 	byteValue, _ := ioutil.ReadAll(jsonFile)
-	json.Unmarshal(byteValue, &cfg)
+	err = json.Unmarshal(byteValue, &cfg)
+	if err != nil {
+		log.Print("can't parse filebrowser.json")
+		log.Print(err)
+	}
 	cfg.refreshRam()
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
@@ -298,6 +311,7 @@ func (cfg *GlobalConfig) CopyConfig() (res *GlobalConfig) {
 		Log:            cfg.Log,
 		CaptchaConfig:  cfg.CopyCaptchaConfig(),
 		Auth:           cfg.CopyAuth(),
+		PreviewConf:    &PreviewConf{AllowGeneratePreview: cfg.AllowGeneratePreview, Threads: cfg.Threads},
 	}
 	return res
 }

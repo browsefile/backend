@@ -17,17 +17,23 @@ import (
 // Handler returns a function compatible with web.HandleFunc.
 func Handler(m *fb.FileBrowser) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		code, err := serve(&fb.Context{
+		c := &fb.Context{
 			FileBrowser: m,
 			User:        nil,
 			File:        nil,
-		}, w, r)
+		}
+
+		code, err := serve(c, w, r)
 
 		if code >= 400 {
 			w.WriteHeader(code)
 
 			txt := http.StatusText(code)
-			log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
+			if len(c.PreviewType) == 0 {
+				log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
+			} else {
+				err = nil
+			}
 			w.Write([]byte(txt + "\n"))
 		}
 
@@ -130,15 +136,10 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 			//share allowed
 			if item != nil && len(item.Path) > 0 {
 				r.URL.Path = strings.Replace(r.URL.Path, "/"+uc.Username, "", 1)
-				c.File, err = fb.GetInfo(r.URL, c)
-				if err != nil {
-					return http.StatusNotFound, nil
-				}
 			}
 
-		} else {
-			c.File, err = fb.GetInfo(r.URL, c)
 		}
+		c.File, err = fb.GetInfo(r.URL, c)
 
 		if err != nil {
 			return ErrorToHTTP(err, false), err

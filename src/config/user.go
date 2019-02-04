@@ -34,8 +34,6 @@ type UserConfig struct {
 	ViewMode string `json:"viewMode"`
 	// system path to store user's image/video previews
 	PreviewScope string `json:"previewPath"`
-	//enable preview generating by call .sh
-	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 
 	Shares []*ShareItem `json:"shares"`
 	//authenticate by IP, need to change auth.method
@@ -55,7 +53,6 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 		Admin:                u.Admin,
 		AllowEdit:            u.AllowEdit,
 		Locale:               u.Locale,
-		AllowGeneratePreview: u.AllowGeneratePreview,
 		IpAuth:               make([]string, len(u.IpAuth)),
 	}
 	copy(res.IpAuth, u.IpAuth)

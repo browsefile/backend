@@ -53,7 +53,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 			f.URL += suffix
 			listingHandler(c, w, r)
-			f.Listing.AllowGeneratePreview = c.Config.DefaultUser.AllowGeneratePreview
+			f.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 
 			return renderJSON(w, f)
 		} else {

@@ -112,7 +112,7 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int,
 	}
 
 	listing.ApplySort()
-	listing.AllowGeneratePreview = c.Config.DefaultUser.AllowGeneratePreview
+	listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 
 	return 0, nil
 }
@@ -220,8 +220,6 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		return ErrorToHTTP(err, false), err
 	}
-
-	c.GenPreview(r.URL.Path, false)
 
 	// Writes the ETag Header.
 	etag := fmt.Sprintf(`"%x%x"`, fi.ModTime().UnixNano(), fi.Size())

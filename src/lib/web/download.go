@@ -75,7 +75,7 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 	file, err := os.Open(c.File.Path)
 	if err != nil {
 		if len(c.PreviewType) > 0 {
-			c.GenPreview(r.URL.Path, false)
+			c.GenPreview(r.URL.Path)
 			file, err = os.Open(c.File.Path)
 
 		}

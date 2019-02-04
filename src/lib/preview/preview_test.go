@@ -20,7 +20,7 @@ func TestImageThumbGen(t *testing.T) {
 	cmd := getPrevCont()
 	cmd.SetPaths(inI, resI, "image")
 	g := getGen()
-	g.ProcessSync(cmd)
+	g.Process(cmd)
 	if _, err := os.Stat(resI); os.IsNotExist(err) {
 		os.Remove(resI)
 		t.Fatal("Thumbnail gen failed! path", resI)
@@ -38,7 +38,7 @@ func TestVideoThumbGen(t *testing.T) {
 	cmd := getPrevCont()
 	cmd.SetPaths(inV, resV, "video")
 	g := getGen()
-	g.ProcessSync(cmd)
+	g.Process(cmd)
 	if _, err := os.Stat(resV); os.IsNotExist(err) {
 		os.Remove(resV)
 		t.Fatal("Video gen failed! path", resV)

@@ -110,12 +110,13 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		fb.Config.UpdateUsers(users, fb.Config.DefaultUser)
 	}
 	fb.Pgen = new(preview.PreviewGen)
-	fb.Pgen.Setup()
+	fb.Pgen.Setup( fb.Config.Threads)
+
 
 	return needUpdate, nil
 }
-func (c *Context) GenPreview(path string, isAsync bool) {
-	if c.Config.DefaultUser.AllowGeneratePreview {
+func (c *Context) GenPreview(path string) {
+	if c.Config.AllowGeneratePreview {
 		_, t := fileutils.GetBasedOnExtensions(filepath.Base(path))
 		if t == "image" || t == "video" {
 			pData := c.Pgen.GetDefaultData()
@@ -130,14 +131,8 @@ func (c *Context) GenPreview(path string, isAsync bool) {
 				err = os.MkdirAll(dirPath, 0775)
 			}
 			if err == nil {
-
 				pData.SetPaths(in, out, t)
-				/*	if isAsync {
-					c.Pgen.ProcessAsync(pData)
-
-				} else {*/
-				c.Pgen.ProcessSync(pData)
-				//}
+				c.Pgen.Process(pData)
 			}
 		}
 	}
