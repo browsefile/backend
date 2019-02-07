@@ -44,6 +44,7 @@ type PreviewConf struct {
 	//enable preview generating by call .sh
 	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 	Threads              int  `json:"threads"`
+	FirstRun             bool `json:"firstRun"`
 }
 
 // Auth settings.

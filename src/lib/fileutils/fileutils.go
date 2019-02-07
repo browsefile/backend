@@ -3,6 +3,7 @@
 package fileutils
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -96,26 +97,42 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 }
 
 //should get information about original file. Depending on previewType, it will return correct relative path at the file system
-func GetFileInfo(scope, pScope string, urlPath string, previewType string) (info os.FileInfo, err error, path string, t string) {
+func GetFileInfo(scope, urlPath string) (info os.FileInfo, err error, path string, t string) {
 	dir := Dir(scope)
 	info, err = dir.Stat(urlPath)
 	path = filepath.Join(scope, urlPath)
 	if err != nil {
 		return info, err, path, ""
 	}
-
-	if len(previewType) > 0 {
-		//replace file extension
-		if !info.IsDir() {
-			path, t = ReplacePrevExt(scope, urlPath)
-		}
-		path = filepath.Join(pScope, path)
-
-	}
 	return info, err, path, t
 }
+func PreviewPathMod(orig, scope, pScope string) (p string) {
+	dir := Dir(scope)
+	rPath := strings.Replace(orig, scope, "", 1)
+	info, err := dir.Stat(rPath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	p = filepath.Join(pScope, rPath)
+	//replace file extension
+	if !info.IsDir() {
+		p, _ = ReplacePrevExt(p)
+	}
+	return
+}
+func Exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
+}
+
 //modify existing file extension to the preview
-func ReplacePrevExt(scope string, srcPath string) (path string, t string) {
+func ReplacePrevExt(srcPath string) (path string, t string) {
 	name := filepath.Base(srcPath)
 	extension := filepath.Ext(name)
 	var ext string
@@ -127,68 +144,14 @@ func ReplacePrevExt(scope string, srcPath string) (path string, t string) {
 	}
 	//modify extension and path to the preview
 	newName := strings.Replace(name, extension, ext, -1)
-	path = filepath.Join(scope, strings.Replace(srcPath, name, newName, -1))
+	path = strings.Replace(srcPath, name, newName, -1)
 	return
 }
 
-/*func GetBasedOnContent(path string) (content []byte, mimetype string, err error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, "", err
-	}
-	defer file.Close()
-
-	// Only the first 512 bytes are used to sniff the content type.
-	buffer := make([]byte, 512)
-	n, err := file.Read(buffer)
-	if err != nil && err != io.EOF {
-		return nil, "", err
-	}
-
-	// Tries to get the file mimetype using its first
-	// 512 bytes.
-	mimetype = web.DetectContentType(buffer[:n])
-
-	if strings.HasPrefix(mimetype, "video") {
-		mimetype = "video"
-	}
-	if strings.HasPrefix(mimetype, "audio") {
-		mimetype = "audio"
-	}
-
-	if strings.HasPrefix(mimetype, "image") {
-		mimetype = "image"
-	}
-
-	if strings.HasPrefix(mimetype, "text") || strings.HasPrefix(mimetype, "application/javascript") {
-		mimetype = "text"
-	} else {
-		// If the type isn't text (and is blob for example), it will check some
-		// common types that are mistaken not to be text.
-		mimetype = "blob"
-	}
-	return buffer, mimetype, err
-
-}*/
-
 // Will return input and output to be processed to the bash convert/ffmpeg in order to generate preview
-func GenPreviewConvertPath(path string, scope string, previewScope string) (inp, outp string, err error) {
-	var info os.FileInfo
-
-	info, err = os.Stat(filepath.Join(scope, path))
-	if err != nil {
-		return "", "", err
-	}
-	inp = filepath.Join(scope, path)
-
-	if !info.Mode().IsDir() {
-		isOk, t := GetBasedOnExtensions(info.Name())
-
-		if isOk && t != "text" || t == "" {
-			outp, _ = ReplacePrevExt(scope, path)
-			outp = filepath.Join(previewScope, outp)
-		}
-
+func GenPreviewConvertPath(path string, scope string, previewScope string) (outp string, err error) {
+	if !strings.EqualFold(filepath.Dir(path), path) {
+		outp = strings.Replace(path, scope, previewScope, 1)
 	}
 
 	return

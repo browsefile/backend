@@ -136,13 +136,15 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 
 //Remove preview
 func removePreview(c *fb.Context, r *http.Request) {
-	_, errW, path, t := fileutils.GetFileInfo(c.User.Scope, c.User.PreviewScope, r.URL.Path, "thumb")
-	if errW == nil && len(t) > 0 {
-		path = filepath.Join(c.User.Scope, filepath.Base(path))
+	info, _ := c.User.FileSystemPreview.Stat(r.URL.Path)
+	var src string
+	if !info.IsDir() {
+		src, _ = fileutils.ReplacePrevExt(r.URL.Path)
 	} else {
-		path = strings.TrimPrefix(path, c.User.PreviewScope)
+		src = r.URL.Path
 	}
-	err := c.User.FileSystemPreview.RemoveAll(path)
+
+	err := c.User.FileSystemPreview.RemoveAll(src)
 	if err != nil {
 		log.Println(err)
 	}
@@ -150,19 +152,15 @@ func removePreview(c *fb.Context, r *http.Request) {
 func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 	info, _ := c.User.FileSystem.Stat(src)
 	if !info.IsDir() {
-		src, _ = fileutils.ReplacePrevExt(c.User.Scope, src)
-		dst, _ = fileutils.ReplacePrevExt(c.User.Scope, dst)
+		src, _ = fileutils.ReplacePrevExt(src)
+		dst, _ = fileutils.ReplacePrevExt(dst)
 
-	} else {
-		dst = filepath.Join(c.User.Scope, dst)
-		src = filepath.Join(c.User.Scope, src)
 	}
 	if isCopy {
 		c.User.FileSystemPreview.Copy(src, dst)
 	} else {
 		c.User.FileSystemPreview.Rename(src, dst)
 	}
-
 }
 
 func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {

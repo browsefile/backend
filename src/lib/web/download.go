@@ -73,21 +73,23 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	file, err := os.Open(c.File.Path)
-	if err != nil {
-		if len(c.PreviewType) > 0 {
-			c.GenPreview(r.URL.Path)
-			file, err = os.Open(c.File.Path)
-
-		}
-		if err != nil {
-			return http.StatusNotFound, err
-		}
-	}
 	defer file.Close()
 
 	stat, err := file.Stat()
 	if err != nil {
 		return http.StatusNotFound, err
+	}
+	if len(c.PreviewType) > 0 {
+		modP := fileutils.PreviewPathMod(c.File.Path, c.User.Scope, c.User.PreviewScope)
+		ok, err := fileutils.Exists(modP)
+		if !ok {
+			c.GenPreview(modP)
+			file, err = os.Open(c.File.Path)
+			if err != nil {
+				return http.StatusNotFound, err
+			}
+		}
+		file, err = os.Open(modP)
 	}
 
 	if r.URL.Query().Get("inline") == "true" {

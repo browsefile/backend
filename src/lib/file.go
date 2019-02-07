@@ -49,8 +49,8 @@ type File struct {
 
 	*Listing `json:",omitempty"`
 
-	Metadata   string `json:"metadata,omitempty"`
-	Language   string `json:"language,omitempty"`
+	Metadata string `json:"metadata,omitempty"`
+	Language string `json:"language,omitempty"`
 }
 
 // A Listing is the context used to fill out a template.
@@ -73,7 +73,7 @@ type Listing struct {
 // respective HTTP error code
 func GetInfo(url *url.URL, c *Context) (*File, error) {
 	var err error
-	info, err, path, t := fileutils.GetFileInfo(c.User.Scope, c.User.PreviewScope, url.Path, c.PreviewType)
+	info, err, path, t := fileutils.GetFileInfo(c.User.Scope, url.Path)
 
 	i := &File{
 		URL:         "/files" + url.String(),
@@ -165,7 +165,10 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 		} else {
 			fileCount++
 		}
+		var vPath, path string
 		if isRecursive {
+			path = filepath.Join(i.Path, paths[ind])
+			vPath = filepath.Dir(paths[ind])
 			if f.IsDir() {
 				fUrl = url.URL{Path: baseurl}
 			} else {
@@ -173,6 +176,8 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 			}
 
 		} else {
+			path = filepath.Join(i.Path, name)
+			vPath = filepath.Join(i.VirtualPath, name)
 			fUrl = url.URL{Path: baseurl + name}
 		}
 
@@ -184,9 +189,10 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 			IsDir:       f.IsDir(),
 			URL:         fUrl.String(),
 			Extension:   filepath.Ext(name),
-			VirtualPath: filepath.Join(i.VirtualPath, name),
-			Path:        filepath.Join(i.Path, name),
+			Path:        path,
+			VirtualPath: vPath,
 		}
+
 		i.SetFileType(false)
 		fileinfos = append(fileinfos, i)
 	}

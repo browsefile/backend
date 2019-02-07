@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 // should be 1 global object
@@ -43,10 +44,14 @@ func (p *PreviewGen) Setup(t int) {
 	}
 }
 func (p *PreviewGen) Process(pc *PreviewData) {
-	_, err := os.Stat(pc.out)
-	//prevent double run
-	if !os.IsExist(err) {
-		//now we can return result
+	if _, err := os.Stat(pc.out); err != nil {
+
+		dirPath := filepath.Dir(pc.out)
+		_, err := os.Stat(dirPath)
+		if err != nil {
+			err = os.MkdirAll(dirPath, 0775)
+		}
+
 		if p.threadsCount == 1 {
 			genPrew(pc)
 			//otherwise run async, and cant be sure in return result
@@ -58,9 +63,12 @@ func (p *PreviewGen) Process(pc *PreviewData) {
 	}
 }
 
-func (pd PreviewGen) GetDefaultData() (rs *PreviewData) {
+func (pd PreviewGen) GetDefaultData(in, out, t string) (rs *PreviewData) {
 	rs = new(PreviewData)
 	rs.Setup("./", "convert.sh")
+	if len(in) > 0 && len(out) > 0 && len(t) > 0 {
+		rs.SetPaths(in, out, t)
+	}
 
 	return
 }

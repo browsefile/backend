@@ -1,120 +1,119 @@
 {
-  "users": [
-    {
-      "firstRun": false,
-      "admin": false,
-      "allowEdit": true,
-      "allowNew": true,
-      "lockPassword": false,
-      "locale": "en",
-      "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
-      "homePath": "/tmp/user1",
-      "username": "user1",
-      "viewMode": "mosaic",
-      "previewPath": "/tmp/preview",
-      "allowGeneratePreview": false,
-      "shares": [
+    "users": [
         {
-          "path": "/share1",
-          "allowExternal": true,
-          "allowLocal": false,
-          "allowedUsers": [
-            "admin",
-            "user"
-          ]
+            "firstRun": false,
+            "admin": false,
+            "allowEdit": true,
+            "allowNew": true,
+            "lockPassword": false,
+            "locale": "en",
+            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "homePath": "/tmp/user1",
+            "username": "user1",
+            "viewMode": "mosaic",
+            "previewPath": "/tmp/preview",
+            "shares": [
+                {
+                    "path": "/share1",
+                    "allowExternal": true,
+                    "allowLocal": false,
+                    "allowedUsers": [
+                        "admin",
+                        "user"
+                    ]
+                },
+                {
+                    "path": "/share1/u1",
+                    "allowExternal": false,
+                    "allowLocal": false,
+                    "allowedUsers": []
+                },
+                {
+                    "path": "/share1/u1/tt",
+                    "allowExternal": true,
+                    "allowLocal": true,
+                    "allowedUsers": []
+                }
+            ],
+            "ipAuth": []
         },
         {
-          "path": "/share1/u1",
-          "allowExternal": false,
-          "allowLocal": false,
-          "allowedUsers": []
+            "firstRun": false,
+            "admin": false,
+            "allowEdit": true,
+            "allowNew": true,
+            "lockPassword": false,
+            "locale": "en",
+            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "homePath": "/tmp/user2",
+            "username": "user2",
+            "viewMode": "mosaic",
+            "previewPath": "/tmp/preview",
+            "shares": [
+                {
+                    "path": "/share",
+                    "allowExternal": true,
+                    "allowLocal": false,
+                    "allowedUsers": [
+                        "admin",
+                        "user1"
+                    ]
+                }
+            ],
+            "ipAuth": []
         },
         {
-          "path": "/share1/u1/tt",
-          "allowExternal": true,
-          "allowLocal": true,
-          "allowedUsers": []
+            "firstRun": false,
+            "admin": false,
+            "allowEdit": true,
+            "allowNew": true,
+            "lockPassword": false,
+            "locale": "en",
+            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "homePath": "/tmp/user2",
+            "username": "user3",
+            "viewMode": "mosaic",
+            "previewPath": "/tmp/preview",
+            "shares": [],
+            "ipAuth": []
         }
-      ],
-      "ipAuth": []
+    ],
+    "defaultUser": {
+        "firstRun": false,
+        "admin": true,
+        "allowEdit": true,
+        "allowNew": true,
+        "lockPassword": false,
+        "locale": "en",
+        "password": "$2a$10$YTl52W.JxyPzyswWryG1/eikgPF4aecTHOn5OG8j.xomW5oIa8MFW",
+        "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp",
+        "username": "admin",
+        "viewMode": "mosaic",
+        "previewPath": "/tmp/preview",
+        "shares": [],
+        "ipAuth": [
+            "127.0.0.1"
+        ]
     },
-    {
-      "firstRun": false,
-      "admin": false,
-      "allowEdit": true,
-      "allowNew": true,
-      "lockPassword": false,
-      "locale": "en",
-      "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
-      "homePath": "/tmp/user2",
-      "username": "user2",
-      "viewMode": "mosaic",
-      "previewPath": "/tmp/preview",
-      "allowGeneratePreview": false,
-      "shares": [
-        {
-          "path": "/share",
-          "allowExternal": true,
-          "allowLocal": false,
-          "allowedUsers": [
-            "admin",
-            "user1"
-          ]
-        }
-      ],
-      "ipAuth": []
+    "port": 8080,
+    "ip": "127.0.0.1",
+    "log": "stdout",
+    "baseUrl": "",
+    "prefixUrl": "",
+    "configRamRefreshSeconds": 10,
+    "captchaConfig": {
+        "host": "",
+        "key": "",
+        "secret": ""
     },
-    {
-      "firstRun": false,
-      "admin": false,
-      "allowEdit": true,
-      "allowNew": true,
-      "lockPassword": false,
-      "locale": "en",
-      "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
-      "homePath": "/tmp/user2",
-      "username": "user3",
-      "viewMode": "mosaic",
-      "previewPath": "/tmp/preview",
-      "shares": [],
-      "ipAuth": []
+    "auth": {
+        "method": "ip",
+        "header": "X-Forwarded-User",
+        "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
+    },
+    "preview": {
+        "allowGeneratePreview": true,
+        "threads": 4,
+        "firstRun": false
     }
-  ],
-  "defaultUser": {
-    "firstRun": false,
-    "admin": true,
-    "allowEdit": true,
-    "allowNew": true,
-    "lockPassword": false,
-    "locale": "en",
-    "password": "$2a$10$YTl52W.JxyPzyswWryG1/eikgPF4aecTHOn5OG8j.xomW5oIa8MFW",
-    "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp",
-    "username": "admin",
-    "viewMode": "mosaic",
-    "previewPath": "/tmp/preview",
-    "shares": [],
-    "ipAuth": [
-      "127.0.0.1"
-    ]
-  },
-  "preview": {
-    "allowGeneratePreview": true,
-    "threads": 4
-  },
-  "port": 8080,
-  "ip": "127.0.0.1",
-  "log": "stdout",
-  "baseUrl": "",
-  "prefixUrl": "",
-  "configRamRefreshSeconds": 10,
-  "captchaConfig": {
-    "host": "",
-    "key": "",
-    "secret": ""
-  },
-  "auth": {
-    "method": "ip",
-    "header": "X-Forwarded-User",
-    "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
-  }
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/filebrowser/filebrowser/src/lib/fileutils"
 	"github.com/filebrowser/filebrowser/src/lib/preview"
 	"golang.org/x/crypto/bcrypt"
+	"log"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -110,30 +110,50 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		fb.Config.UpdateUsers(users, fb.Config.DefaultUser)
 	}
 	fb.Pgen = new(preview.PreviewGen)
-	fb.Pgen.Setup( fb.Config.Threads)
+	fb.Pgen.Setup(fb.Config.Threads)
 
+	//generate all previews for the first run
+	if fb.Config.FirstRun {
+		needUpdate = true
+		fb.Config.FirstRun = false
+		go func() {
+			allUs := fb.Config.Gets(true)
+			for i := 0; i < len(allUs); i++ {
+				u := allUs[i]
+				f := &File{
+					URL:         "/files",
+					VirtualPath: "/",
+					Path:        u.Scope,
+				}
+				um := &UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope),}
+				err := f.GetListing(um, true)
+				if err != nil {
+					log.Fatal(err)
+				}
+				c := Context{
+					FileBrowser: fb,
+					User:        um,
+				}
+				for j := 0; j < len(f.Listing.Items); j++ {
+					c.File = f.Listing.Items[j]
+					out, err := fileutils.GenPreviewConvertPath(c.File.Path, c.User.Scope, c.User.PreviewScope)
+					if err == nil {
+						c.GenPreview(out)
+					}
+
+				}
+
+			}
+		}()
+	}
 
 	return needUpdate, nil
 }
-func (c *Context) GenPreview(path string) {
+func (c *Context) GenPreview(out string) {
 	if c.Config.AllowGeneratePreview {
-		_, t := fileutils.GetBasedOnExtensions(filepath.Base(path))
+		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
 		if t == "image" || t == "video" {
-			pData := c.Pgen.GetDefaultData()
-			in, out, _ := fileutils.GenPreviewConvertPath(path, c.User.Scope, c.User.PreviewScope)
-			if _, err := os.Stat(out); os.IsExist(err) {
-				return
-			}
-
-			dirPath := filepath.Dir(out)
-			_, err := os.Stat(dirPath)
-			if err != nil {
-				err = os.MkdirAll(dirPath, 0775)
-			}
-			if err == nil {
-				pData.SetPaths(in, out, t)
-				c.Pgen.Process(pData)
-			}
+			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 		}
 	}
 }
@@ -170,9 +190,9 @@ var DefaultUser = UserModel{
 		LockPassword: false,
 		Admin:        true,
 		Locale:       "",
-		Scope:        "/tmp/scope",
+		Scope:        "./scope",
 		ViewMode:     "mosaic",
-		PreviewScope: "/tmp/prev-scope/",
+		PreviewScope: "./preview",
 	},
 	FileSystem:        fileutils.Dir("."),
 	FileSystemPreview: fileutils.Dir("."),
