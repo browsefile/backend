@@ -85,11 +85,11 @@
         "allowNew": true,
         "lockPassword": false,
         "locale": "en",
-        "password": "$2a$10$YTl52W.JxyPzyswWryG1/eikgPF4aecTHOn5OG8j.xomW5oIa8MFW",
-        "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp",
+        "password": "$2a$10$NmNZ6Y8ZoDZcTq5N5hn/aeJYW1n2bmrs/VUJGzuqoxlriwFC1jtTG",
+        "homePath": "/home/v/hmara/apps-data/filebrowser/vitaliy/data",
         "username": "admin",
         "viewMode": "mosaic",
-        "previewPath": "/tmp/preview",
+        "previewPath": "/home/v/hmara/apps-data/filebrowser/vitaliy/preview",
         "shares": [],
         "ipAuth": [
             "127.0.0.1"

@@ -13,7 +13,7 @@ import (
 
 func main() {
 	cfg := new(config.GlobalConfig)
-	cfg.ReadConfigFile("filebrowser.json")
+	cfg.ReadConfigFile(config.FileName)
 	cfg.SetupLog()
 	cfg.Verify()
 	// Builds the address and a listener.

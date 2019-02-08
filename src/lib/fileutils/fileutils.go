@@ -45,7 +45,7 @@ var mimeExt = [][]string{{
 	".avi", ".divx", ".f4v", ".evo", ".flv",
 	".MKV", ".MK3D", ".MKA", ".MKS", ".webm",
 	".mcf", ".mp4", ".mpg", ".mpeg", ".m2p",
-	".ps", ".ts", ".m2ts", ".mxf", ".ogg",
+	".ps", ".ts", ".m2ts", ".mxf",
 	".mov", ".qt", ".rmvb", ".vob",
 }, {
 	".jpg", ".png", ".jpeg", ".tiff", ".tif", ".bmp",
@@ -53,7 +53,7 @@ var mimeExt = [][]string{{
 }, {
 	".aa", ".aac", ".mp3", ".aiff", ".amr", ".act", ".aax",
 	".au", ".awb", ".flac", ".m4a", ".m4b", ".m4p", ".ra", ".rm", ".wav",
-	".alac",
+	".alac", ".ogg",
 }}
 
 // getBasedOnExtensions checks if a file can be edited by its mimeExt.
@@ -152,6 +152,7 @@ func ReplacePrevExt(srcPath string) (path string, t string) {
 func GenPreviewConvertPath(path string, scope string, previewScope string) (outp string, err error) {
 	if !strings.EqualFold(filepath.Dir(path), path) {
 		outp = strings.Replace(path, scope, previewScope, 1)
+		outp, _ = ReplacePrevExt(outp)
 	}
 
 	return

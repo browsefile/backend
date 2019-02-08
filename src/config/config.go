@@ -17,7 +17,7 @@ import (
 
 var config *GlobalConfig
 var usersRam map[string]*UserConfig
-var fileName = "filebrowser.json"
+var FileName = "browsefile.json"
 
 /*
 Single config for everything.
@@ -94,18 +94,18 @@ func (cfg *GlobalConfig) Verify() {
 	//todo
 }
 func (cfg *GlobalConfig) ReadConfigFile(file string) {
-	fileName = file
+	FileName = file
 	// Open our jsonFile
 	jsonFile, err := os.Open(file)
 	defer jsonFile.Close()
 	if err != nil {
-		log.Print("can't open filebrowser.json")
+		log.Print("can't open " + FileName)
 		log.Print(err)
 	}
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	err = json.Unmarshal(byteValue, &cfg)
 	if err != nil {
-		log.Print("can't parse filebrowser.json")
+		log.Print("can't parse " + FileName)
 		log.Print(err)
 	}
 	cfg.refreshRam()
@@ -127,7 +127,7 @@ func (cfg *GlobalConfig) StartMonitor() {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				err = ioutil.WriteFile(fileName, jsonData, 0644)
+				err = ioutil.WriteFile(FileName, jsonData, 0644)
 			}
 			cfg.updateLock.Unlock()
 		}

@@ -1,6 +1,7 @@
 package preview
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -44,7 +45,10 @@ func (p *PreviewGen) Setup(t int) {
 	}
 }
 func (p *PreviewGen) Process(pc *PreviewData) {
-	if _, err := os.Stat(pc.out); err != nil {
+	if len(pc.in) == 0 || len(pc.out) == 0 {
+		fmt.Printf("Error, in(%s) or out(%s) paths are empty ", pc.in, pc.out)
+		fmt.Println("Error, in or out paths are empty ")
+	} else if _, err := os.Stat(pc.out); err != nil {
 
 		dirPath := filepath.Dir(pc.out)
 		_, err := os.Stat(dirPath)
