@@ -4,6 +4,7 @@ package fileutils
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -91,6 +92,10 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 		if res {
 			break
 		}
+	}
+	if !res {
+		log.Print("can't detect type: %s", ext)
+		t = "blob"
 	}
 
 	return
