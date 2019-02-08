@@ -165,7 +165,7 @@ func printToken(c *fb.Context, w http.ResponseWriter) (int, error) {
 type extractor []string
 
 func (e extractor) ExtractToken(r *http.Request) (string, error) {
-	token, _ := request.AuthorizationHeaderExtractor.ExtractToken(r)
+	token, _ := request.HeaderExtractor{"X-Auth"}.ExtractToken(r)
 
 	// Checks if the token isn't empty and if it contains two dots.
 	// The former prevents incompatibility with URLs that previously
