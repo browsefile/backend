@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	fb "github.com/filebrowser/filebrowser/src/lib"
+	fb "github.com/browsefile/backend/src/lib"
 )
 
 type modifyRequest struct {
@@ -84,12 +84,12 @@ func getUser(c *fb.Context, r *http.Request) (*fb.UserModel, string, error) {
 func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Request for the default user data.
 	if r.URL.Path == "/base" {
-		return renderJSON(w, c.Config.DefaultUser)
+		return renderJSON(w, c.Config.GetAdmin())
 	}
 
 	// Request for the listing of users.
 	if r.URL.Path == "/" {
-		users := c.Config.Gets(false)
+		users := c.Config.Gets()
 		if users == nil || len(users) == 0 {
 			return http.StatusInternalServerError, errors.New("cant find any users")
 		}
@@ -147,11 +147,12 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	}
 
 	// If the view mode is empty, initialize with the default one.
-	if u.ViewMode == "" {
-		u.ViewMode = c.Config.DefaultUser.ViewMode
+	admin := c.Config.GetAdmin()
+	if u.ViewMode == "" && admin != nil {
+		u.ViewMode = admin.ViewMode
 	}
-	if u.PreviewScope == "" {
-		u.PreviewScope = c.Config.DefaultUser.PreviewScope
+	if u.PreviewScope == "" && admin != nil {
+		u.PreviewScope = admin.PreviewScope
 	}
 
 	// Checks if the scope exists.
@@ -256,7 +257,9 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	// If we're updating the default user. Only for NoAuth
 	// implementations. Used to change the viewMode.
 	if c.Config.Method == "none" {
-		c.Config.DefaultUser.ViewMode = u.ViewMode
+		admin := c.Config.GetAdmin()
+		admin.ViewMode = u.ViewMode
+		c.Config.Update(admin)
 		return http.StatusOK, nil
 	}
 
@@ -296,10 +299,21 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		return http.StatusOK, nil
 	}
 
-	// If can only be all.
-	if which != "all" {
-		return http.StatusBadRequest, fb.ErrInvalidUpdateField
+	if which == "viewMode" {
+		c.User.ViewMode = u.ViewMode
+		err = c.Config.Update(c.User.UserConfig)
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+
+		return http.StatusOK, nil
+
 	}
+
+	/*	// If can only be all.
+		if which != "all" {
+			return http.StatusBadRequest, fb.ErrInvalidUpdateField
+		}*/
 
 	// Checks if username isn't empty.
 	if u.Username == "" {
@@ -315,9 +329,9 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	if code, err := checkFS(u.Scope); err != nil {
 		return code, err
 	}
-
-	if u.PreviewScope == "" {
-		u.PreviewScope = c.Config.DefaultUser.PreviewScope
+	admin := c.Config.GetAdmin()
+	if u.PreviewScope == "" && admin != nil {
+		u.PreviewScope = admin.PreviewScope
 	}
 
 	// Gets the current saved user from the in-memory map.

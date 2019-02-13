@@ -2,9 +2,9 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/filebrowser/filebrowser/src/config"
-	fb "github.com/filebrowser/filebrowser/src/lib"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
+	"github.com/browsefile/backend/src/config"
+	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib/fileutils"
 	"net/http"
 	"strings"
 )
@@ -26,16 +26,21 @@ func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 
 func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	//list of all shares
-	if strings.HasPrefix(r.URL.Path, "/list") {
+	switch c.ShareUser {
+	case "my-list":
+		return renderJSON(w, c.User.Shares)
+	case "my":
+		return renderJSON(w, c.User.GetShare(r.URL.Path))
+	case "list":
 		sharesList := config.GetAllowedShares(c.User.Username, true)
 		return renderJSON(w, sharesList)
-	} else {
+	default:
 		item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
 
 		if item != nil && len(item.Path) > 0 {
-			suffix := "?shareUser=" + c.ShareUser
+			suffix := "?share=" + c.ShareUser
 			//replace user as for normal listing
-			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
+			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
 			r.URL.Path = strings.Replace(r.URL.Path, "/"+uc.Username, "", 1)
 			f, err := fb.GetInfo(r.URL, c)
 			c.File = f
@@ -56,9 +61,9 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			f.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 
 			return renderJSON(w, f)
-		} else {
-			return http.StatusNotFound, nil
+
 		}
+
 	}
 	//
 

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/filebrowser/filebrowser/src/config"
-	"github.com/filebrowser/filebrowser/src/lib"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
-	"github.com/filebrowser/filebrowser/src/lib/web"
+	"github.com/browsefile/backend/src/config"
+	"github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/web"
 	"log"
 	"net"
 	"net/http"

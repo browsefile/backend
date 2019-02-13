@@ -3,8 +3,8 @@ package web
 import (
 	"errors"
 	"fmt"
-	fb "github.com/filebrowser/filebrowser/src/lib"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
+	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib/fileutils"
 	"io"
 	"io/ioutil"
 	"log"
@@ -133,10 +133,12 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 
 	return http.StatusOK, nil
 }
-
-//Remove preview
 func removePreview(c *fb.Context, r *http.Request) {
-	info, _ := c.User.FileSystemPreview.Stat(r.URL.Path)
+	info, err := c.User.FileSystemPreview.Stat(r.URL.Path)
+	if err != nil {
+		log.Printf("resource: preview file locked or it does not exists %s", err)
+		return
+	}
 	var src string
 	if !info.IsDir() {
 		src, _ = fileutils.ReplacePrevExt(r.URL.Path)
@@ -144,13 +146,17 @@ func removePreview(c *fb.Context, r *http.Request) {
 		src = r.URL.Path
 	}
 
-	err := c.User.FileSystemPreview.RemoveAll(src)
+	err = c.User.FileSystemPreview.RemoveAll(src)
 	if err != nil {
 		log.Println(err)
 	}
 } //rename preview
 func modPreview(c *fb.Context, src, dst string, isCopy bool) {
-	info, _ := c.User.FileSystem.Stat(src)
+	info, err := c.User.FileSystem.Stat(src)
+	if err != nil {
+		log.Printf("resource: preview file locked or it does not exists %s", err)
+		return
+	}
 	if !info.IsDir() {
 		src, _ = fileutils.ReplacePrevExt(src)
 		dst, _ = fileutils.ReplacePrevExt(dst)
@@ -218,7 +224,18 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		return ErrorToHTTP(err, false), err
 	}
+	if !fi.IsDir() {
+		inf, err := fb.GetInfo(r.URL, c)
+		if err == nil {
+			c.File = inf
+			modP := fileutils.PreviewPathMod(r.URL.Path, c.User.Scope, c.User.PreviewScope)
+			ok, _ := fileutils.Exists(modP)
+			if !ok {
+				c.GenPreview(modP)
+			}
+		}
 
+	}
 	// Writes the ETag Header.
 	etag := fmt.Sprintf(`"%x%x"`, fi.ModTime().UnixNano(), fi.Size())
 	w.Header().Set("ETag", etag)

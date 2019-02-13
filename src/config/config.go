@@ -25,7 +25,6 @@ update automatically
 */
 type GlobalConfig struct {
 	Users          []*UserConfig `json:"users"`
-	DefaultUser    *UserConfig   `json:"defaultUser"`
 	Port           int           `json:"port"`
 	IP             string        `json:"ip"`
 	Log            string        `json:"log"`
@@ -116,6 +115,16 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 		u.sortShares()
 	}
 }
+func (cfg *GlobalConfig) GetAdmin() *UserConfig {
+	cfg.lockR()
+	defer cfg.unlockR()
+	for _, usr := range cfg.Users {
+		if usr.Admin {
+			return usr.copyUser()
+		}
+	}
+	return nil
+}
 
 func (cfg *GlobalConfig) StartMonitor() {
 	go func() {
@@ -174,10 +183,6 @@ func (cfg *GlobalConfig) SetupLog() {
 func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 	cfg.lockR()
 	defer cfg.unlockR()
-	if strings.EqualFold(username, cfg.DefaultUser.Username) {
-		return cfg.DefaultUser.copyUser(), true
-	}
-
 	res, ok := usersRam[username]
 	if !ok {
 		return nil, ok
@@ -189,13 +194,6 @@ func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 	cfg.lockR()
 	defer cfg.unlockR()
 	ip = strings.Split(ip, ":")[0]
-
-	for _, ipAuth := range cfg.DefaultUser.IpAuth {
-		if strings.EqualFold(ip, ipAuth) {
-			return cfg.DefaultUser.copyUser(), true
-		}
-	}
-
 	res, ok := usersRam[ip]
 	if !ok {
 		return nil, ok
@@ -204,16 +202,14 @@ func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 	return res.copyUser(), ok
 }
 
-func (cfg *GlobalConfig) Gets(defUser bool) (res []*UserConfig) {
+func (cfg *GlobalConfig) Gets() (res []*UserConfig) {
 	cfg.lockR()
 	defer cfg.unlockR()
 	res = make([]*UserConfig, len(cfg.Users))
 	for i, u := range cfg.Users {
 		res[i] = u.copyUser()
 	}
-	if defUser {
-		res = append(res, cfg.DefaultUser)
-	}
+
 	return res
 }
 
@@ -233,12 +229,6 @@ func (cfg *GlobalConfig) Add(u *UserConfig) error {
 func (cfg *GlobalConfig) Update(u *UserConfig) error {
 	cfg.lock()
 	defer cfg.unlock()
-
-	if strings.EqualFold(u.Username, cfg.DefaultUser.Username) {
-		cfg.DefaultUser = u.copyUser()
-		return nil
-	}
-
 	_, exists := usersRam[u.Username]
 	if !exists {
 		return errors.New("User does not exists " + u.Username)
@@ -253,7 +243,7 @@ func (cfg *GlobalConfig) Update(u *UserConfig) error {
 	return nil
 }
 
-func (cfg *GlobalConfig) UpdateUsers(users []*UserConfig, defUser *UserConfig) error {
+func (cfg *GlobalConfig) UpdateUsers(users []*UserConfig) error {
 	cfg.lock()
 	defer cfg.unlock()
 	if len(users) > 0 {
@@ -262,14 +252,12 @@ func (cfg *GlobalConfig) UpdateUsers(users []*UserConfig, defUser *UserConfig) e
 			cfg.Users[i] = u.copyUser()
 		}
 	}
-	if defUser != nil {
-		cfg.DefaultUser = defUser.copyUser()
-	}
+
 	cfg.refreshRam()
 	return nil
 }
 
-func (cfg *GlobalConfig) Delete(username string) (error) {
+func (cfg *GlobalConfig) Delete(username string) error {
 	cfg.lock()
 	defer cfg.unlock()
 
@@ -302,8 +290,7 @@ func (cfg *GlobalConfig) CopyConfig() (res *GlobalConfig) {
 	cfg.lockR()
 	defer cfg.unlockR()
 	res = &GlobalConfig{
-		Users:          cfg.Gets(false),
-		DefaultUser:    cfg.DefaultUser.copyUser(),
+		Users:          cfg.Gets(),
 		RefreshSeconds: cfg.RefreshSeconds,
 		BaseUrl:        cfg.BaseUrl,
 		PrefixUrl:      cfg.PrefixUrl,
@@ -325,8 +312,7 @@ func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.PrefixUrl = u.PrefixUrl
 	cfg.IP = u.IP
 	cfg.Log = u.Log
-	cfg.Users = u.Gets(false)
-	cfg.DefaultUser = u.DefaultUser.copyUser()
+	cfg.Users = u.Gets()
 	cfg.Auth = u.CopyAuth()
 	cfg.CaptchaConfig = u.CopyCaptchaConfig()
 }

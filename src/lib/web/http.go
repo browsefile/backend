@@ -2,9 +2,10 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/filebrowser/filebrowser/src/config"
-	fb "github.com/filebrowser/filebrowser/src/lib"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
+	"github.com/browsefile/backend/src/config"
+	"github.com/browsefile/backend/src/errors"
+	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib/fileutils"
 	"html/template"
 	"log"
 	"net/http"
@@ -80,9 +81,9 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	}
 
 	/*	if strings.HasPrefix(r.URL.Path, "/share/") {
-			r.URL.Path = strings.TrimPrefix(r.URL.Path, "/share/")
-			return sharePage(c, w, r)
-		}*/
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/share/")
+		return sharePage(c, w, r)
+	}*/
 
 	// Any other request should show the index.html file.
 	w.Header().Set("x-content-type-options", "nosniff")
@@ -119,18 +120,18 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	c.Router, r.URL.Path = splitURL(r.URL.Path)
 	queryValues := r.URL.Query()
 	c.PreviewType = queryValues.Get("previewType")
-	c.ShareUser = queryValues.Get("shareUser")
+	c.ShareUser = queryValues.Get("share")
 	c.IsRecursive, _ = strconv.ParseBool(queryValues.Get("recursive"))
 	if c.IsRecursive {
 		queryValues.Del("recursive")
 		r.URL.RawQuery = queryValues.Encode()
 	}
-
-	if c.Router == "checksum" || c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
+	checksum := r.URL.Query().Get("checksum")
+	if checksum != "" || c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
 		var err error
 		if len(c.ShareUser) > 0 {
 			item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
-			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
+			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
 
 			//share allowed
 			if item != nil && len(item.Path) > 0 {
@@ -139,6 +140,17 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 
 		}
 		c.File, err = fb.GetInfo(r.URL, c)
+		if checksum != "" {
+			err = c.File.Checksum(checksum)
+			if err == errors.ErrInvalidOption {
+				return http.StatusBadRequest, nil
+			} else if err != nil {
+				return http.StatusInternalServerError, err
+			}
+			// do not waste bandwidth if we just want the checksum
+			c.File.Content = ""
+			return renderJSON(w, c.File)
+		}
 
 		if err != nil {
 			return ErrorToHTTP(err, false), err
@@ -151,9 +163,6 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	switch c.Router {
 	case "download":
 		code, err = downloadHandler(c, w, r)
-	case "checksum":
-		code, err = checksumHandler(c, w, r)
-		//case "search":
 	case "resource":
 		code, err = resourceHandler(c, w, r)
 	case "users":
@@ -171,21 +180,6 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	}
 
 	return code, err
-}
-
-// serveChecksum calculates the hash of a file. Supports MD5, SHA1, SHA256 and SHA512.
-func checksumHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	query := r.URL.Query().Get("algo")
-
-	val, err := c.File.Checksum(query)
-	if err == fb.ErrInvalidOption {
-		return http.StatusBadRequest, err
-	} else if err != nil {
-		return http.StatusInternalServerError, err
-	}
-
-	w.Write([]byte(val))
-	return 0, nil
 }
 
 // splitURL splits the path and returns everything that stands

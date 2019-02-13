@@ -2,8 +2,8 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/filebrowser/filebrowser/src/config"
-	fb "github.com/filebrowser/filebrowser/src/lib"
+	"github.com/browsefile/backend/src/config"
+	fb "github.com/browsefile/backend/src/lib"
 	"net/http"
 )
 

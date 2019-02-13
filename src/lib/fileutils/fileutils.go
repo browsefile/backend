@@ -3,7 +3,6 @@
 package fileutils
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -94,7 +93,7 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 		}
 	}
 	if !res {
-		log.Print("can't detect type: %s", ext)
+		log.Printf("fileutils can't detect type: %s", ext)
 		t = "blob"
 	}
 
@@ -116,7 +115,7 @@ func PreviewPathMod(orig, scope, pScope string) (p string) {
 	rPath := strings.Replace(orig, scope, "", 1)
 	info, err := dir.Stat(rPath)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	p = filepath.Join(pScope, rPath)
 	//replace file extension

@@ -3,11 +3,10 @@ package lib
 import (
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"github.com/GeertJohan/go.rice"
-	"github.com/filebrowser/filebrowser/src/config"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
-	"github.com/filebrowser/filebrowser/src/lib/preview"
+	"github.com/browsefile/backend/src/config"
+	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/preview"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"os"
@@ -88,26 +87,20 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		needUpdate = true
 		fb.Config.SetKey(bytes)
 	}
-	users := fb.Config.Gets(false)
+	users := fb.Config.Gets()
 	for _, u := range users {
 		if u.FirstRun {
 			u.FirstRun = false
-
 			needUpdate = true
 			u.Password, err = HashPassword(u.Password)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 			}
 		}
 	}
-	if fb.Config.DefaultUser.FirstRun {
-		fb.Config.DefaultUser.Password, err = HashPassword(fb.Config.DefaultUser.Password)
-		needUpdate = true
-		fb.Config.DefaultUser.FirstRun = false
-	}
 
 	if needUpdate {
-		fb.Config.UpdateUsers(users, fb.Config.DefaultUser)
+		fb.Config.UpdateUsers(users)
 	}
 	fb.Pgen = new(preview.PreviewGen)
 	fb.Pgen.Setup(fb.Config.Threads)
@@ -117,32 +110,10 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		needUpdate = true
 		fb.Config.FirstRun = false
 		go func() {
-			allUs := fb.Config.Gets(true)
+			allUs := fb.Config.Gets()
 			for i := 0; i < len(allUs); i++ {
 				u := allUs[i]
-				f := &File{
-					URL:         "/files",
-					VirtualPath: "/",
-					Path:        u.Scope,
-				}
-				um := &UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope),}
-				err := f.GetListing(um, true)
-				if err != nil {
-					log.Fatal(err)
-				}
-				c := Context{
-					FileBrowser: fb,
-					User:        um,
-				}
-				for j := 0; j < len(f.Listing.Items); j++ {
-					c.File = f.Listing.Items[j]
-					out, err := fileutils.GenPreviewConvertPath(c.File.Path, c.User.Scope, c.User.PreviewScope)
-					if err == nil {
-						c.GenPreview(out)
-					}
-
-				}
-
+				fb.Pgen.ProcessUser(u.Scope, u.PreviewScope)
 			}
 		}()
 	}

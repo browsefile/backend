@@ -2,17 +2,17 @@ package web
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/filebrowser/filebrowser/src/config"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
+	"github.com/browsefile/backend/src/config"
+	"github.com/browsefile/backend/src/lib/fileutils"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	fb "github.com/browsefile/backend/src/lib"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
-	fb "github.com/filebrowser/filebrowser/src/lib"
 )
 
 const reCaptchaAPI = "/recaptcha/api/siteverify"
@@ -71,7 +71,7 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 		if !ok {
 			return http.StatusForbidden, nil
 		}
-		c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
+		c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
 
 		return printToken(c, w)
 	}
@@ -105,7 +105,7 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 		return http.StatusForbidden, nil
 	}
 
-	c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope),}
+	c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
 	return printToken(c, w)
 }
 
@@ -139,7 +139,7 @@ func printToken(c *fb.Context, w http.ResponseWriter) (int, error) {
 		u,
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
-			Issuer:    "File Browser",
+			Issuer:    "Browse File",
 		},
 	}
 
@@ -148,6 +148,11 @@ func printToken(c *fb.Context, w http.ResponseWriter) (int, error) {
 	k, err := c.Config.GetKeyBytes()
 	if err != nil {
 		return http.StatusInternalServerError, err
+	}
+
+	//expired
+	if !claims.VerifyExpiresAt(time.Now().Add(time.Hour).Unix(), true) {
+		w.Header().Add("X-Renew-Token", "true")
 	}
 
 	signed, err := token.SignedString(k)
@@ -174,19 +179,24 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 		return token, nil
 	}
 
-	cookie, err := r.Cookie("auth")
-	if err != nil {
+	auth := r.URL.Query().Get("auth")
+	if auth == "" {
 		return "", request.ErrNoTokenInRequest
 	}
 
-	return cookie.Value, nil
+	return auth, nil
 }
 
 // validateAuth is used to validate the authentication and returns the
 // User if it is valid.
 func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 	if c.Config.Method == "none" {
-		c.User = &fb.UserModel{c.Config.DefaultUser, c.Config.DefaultUser.Username, fileutils.Dir(c.Config.DefaultUser.Scope), fileutils.Dir(c.Config.DefaultUser.PreviewScope),}
+		admin := c.Config.GetAdmin()
+		if admin == nil {
+			return false, nil
+		}
+
+		c.User = &fb.UserModel{admin, admin.Username, fileutils.Dir(admin.Scope), fileutils.Dir(admin.PreviewScope)}
 		return true, c.User
 	}
 
@@ -197,7 +207,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 		if !ok {
 			return false, nil
 		}
-		c.User = &fb.UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope),}
+		c.User = &fb.UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope)}
 		return true, c.User
 	}
 
@@ -219,7 +229,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 		token, err := request.ParseFromRequest(r, extractor{}, keyFunc, request.WithClaims(&claims))
 
 		if err != nil || !token.Valid {
-			fmt.Println(err)
+			log.Println(err)
 			return false, nil
 		}
 
@@ -228,7 +238,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 			return false, nil
 		}
 	}
-	c.User = &fb.UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope),}
+	c.User = &fb.UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope)}
 	return true, c.User
 
 }

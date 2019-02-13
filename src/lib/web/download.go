@@ -1,8 +1,8 @@
 package web
 
 import (
-	fb "github.com/filebrowser/filebrowser/src/lib"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
+	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib/fileutils"
 	"io"
 	"log"
 	"net/http"
@@ -65,8 +65,6 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	}()
 
 	err := cmd.Run()
-
-	//err := ar.Write(w, files)
 
 	return 0, err
 }

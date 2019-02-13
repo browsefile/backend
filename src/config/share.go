@@ -52,7 +52,7 @@ func (shr *ShareItem) IsActive() (res bool) {
 
 /**
 ru is request user
- */
+*/
 func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 	res = new(ShareItem)
 	shareUser, ok := config.GetByUsername(su)
@@ -73,7 +73,7 @@ func GetAllowedShares(user string, uNamePath bool) (res []*ShareItem) {
 	isExternal := len(user) == 0
 	res = make([]*ShareItem, 0, 100)
 	//check user and allowed path
-	for _, ui := range config.Gets(true) {
+	for _, ui := range config.Gets() {
 		for _, shr := range ui.Shares {
 			if shr.IsActive() && (isExternal && shr.AllowExternal || !isExternal && shr.AllowLocal || shr.IsAllowed(user)) {
 				res = append(res, shr)

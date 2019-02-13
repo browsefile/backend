@@ -6,7 +6,8 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
+	"github.com/browsefile/backend/src/errors"
+	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/maruel/natural"
 	"hash"
 	"io"
@@ -47,9 +48,9 @@ type File struct {
 	// Stores the content of a text file.
 	Content string `json:"content,omitempty"`
 
-	*Listing `json:",omitempty"`
+	Checksums map[string]string `json:"checksums,omitempty"`
+	*Listing  `json:",omitempty"`
 
-	Metadata string `json:"metadata,omitempty"`
 	Language string `json:"language,omitempty"`
 }
 
@@ -209,7 +210,7 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 // SetFileType obtains the mimetype and converts it to a simple
 // type nomenclature.
 func (f *File) SetFileType(checkContent bool) error {
-	if len(f.Type) > 0 {
+	if len(f.Type) > 0 || f.IsDir {
 		return nil
 	}
 	var content []byte
@@ -244,10 +245,18 @@ func (f *File) SetFileType(checkContent bool) error {
 }
 
 // Checksum retrieves the checksum of a file.
-func (i File) Checksum(algo string) (string, error) {
+func (i *File) Checksum(algo string) error {
+	if i.IsDir {
+		return errors.ErrIsDirectory
+	}
+
+	if i.Checksums == nil {
+		i.Checksums = make(map[string]string)
+	}
+
 	file, err := os.Open(i.Path)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	defer file.Close()
@@ -264,15 +273,16 @@ func (i File) Checksum(algo string) (string, error) {
 	case "sha512":
 		h = sha512.New()
 	default:
-		return "", ErrInvalidOption
+		return ErrInvalidOption
 	}
 
 	_, err = io.Copy(h, file)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return hex.EncodeToString(h.Sum(nil)), nil
+	i.Checksums[algo] = hex.EncodeToString(h.Sum(nil))
+	return nil
 }
 
 // CanBeEdited checks if the extension of a file is supported by the editor

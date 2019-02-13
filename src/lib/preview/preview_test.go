@@ -1,14 +1,9 @@
 package preview
 
-import (
-	"github.com/filebrowser/filebrowser/src/lib/fileutils"
-	"os"
-	"testing"
-)
-
 const inI, resI string = "imgIn.jpg", "../../resI.jpg"
 const inV, resV string = "vidIn.mp4", "../../vidIn.gif"
 
+/*
 func TestImageThumbGen(t *testing.T) {
 	os.Remove(resI)
 
@@ -44,7 +39,7 @@ func TestVideoThumbGen(t *testing.T) {
 		t.Fatal("Video gen failed! path", resV)
 	}
 	os.Remove(resV)
-}
+}*/
 
 func getPrevCont() (res *PreviewData) {
 	res = new(PreviewData)
