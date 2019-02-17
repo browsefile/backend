@@ -103,18 +103,18 @@ func GetInfo(url *url.URL, c *Context) (*File, error) {
 
 // GetListing gets the information about a specific directory and its files.
 func (i *File) GetListing(u *UserModel, isRecursive bool) error {
-	// Gets the directory information using the Virtual File System of
+	// GetUsers the directory information using the Virtual File System of
 	// the user configuration.
-	var files []os.FileInfo
-	var paths []string
-	files = make([]os.FileInfo, 0, 1000)
-	paths = make([]string, 0, 1000)
 	var (
+		files               []os.FileInfo
+		paths               []string
 		fileinfos           []*File
 		dirCount, fileCount int
+		// Absolute URL
+		fUrl url.URL
 	)
-	// Absolute URL
-	var fUrl url.URL
+	files = make([]os.FileInfo, 0, 1000)
+	paths = make([]string, 0, 1000)
 
 	if isRecursive {
 		err := filepath.Walk(filepath.Join(u.Scope, i.VirtualPath),

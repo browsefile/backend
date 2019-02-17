@@ -42,18 +42,18 @@ type UserConfig struct {
 
 func (u *UserConfig) copyUser() (res *UserConfig) {
 	res = &UserConfig{
-		Username:             u.Username,
-		FirstRun:             u.FirstRun,
-		Password:             u.Password,
-		AllowNew:             u.AllowNew,
-		LockPassword:         u.LockPassword,
-		PreviewScope:         u.PreviewScope,
-		Scope:                u.Scope,
-		ViewMode:             u.ViewMode,
-		Admin:                u.Admin,
-		AllowEdit:            u.AllowEdit,
-		Locale:               u.Locale,
-		IpAuth:               make([]string, len(u.IpAuth)),
+		Username:     u.Username,
+		FirstRun:     u.FirstRun,
+		Password:     u.Password,
+		AllowNew:     u.AllowNew,
+		LockPassword: u.LockPassword,
+		PreviewScope: u.PreviewScope,
+		Scope:        u.Scope,
+		ViewMode:     u.ViewMode,
+		Admin:        u.Admin,
+		AllowEdit:    u.AllowEdit,
+		Locale:       u.Locale,
+		IpAuth:       make([]string, len(u.IpAuth)),
 	}
 	copy(res.IpAuth, u.IpAuth)
 	res.Shares = make([]*ShareItem, len(u.Shares))
@@ -64,8 +64,11 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 }
 
 func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
+	config.lockR()
+	defer config.unlockR()
+
 	for _, shr := range u.Shares {
-		if strings.HasPrefix(shr.Path, relPath) {
+		if strings.HasPrefix(relPath, shr.Path) {
 			res = shr.copyShare()
 			break
 		}
@@ -79,7 +82,7 @@ func (u *UserConfig) DeleteShare(relPath string) (res bool) {
 	res = false
 
 	for i, shr := range u.Shares {
-		if strings.HasPrefix(shr.Path, relPath) {
+		if strings.HasPrefix(relPath, shr.Path) {
 			u.Shares = append(u.Shares[:i], u.Shares[i+1:]...)
 			res = true
 			break
@@ -89,18 +92,20 @@ func (u *UserConfig) DeleteShare(relPath string) (res bool) {
 	u.sortShares()
 	return
 }
+
 func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	config.lock()
 	defer config.unlock()
 
 	u.Shares = append(u.Shares, shr)
 	u.sortShares()
+	res = true
 	return
 }
 
 //sort users shares, in order to check them in correct way during runtime
 func (u *UserConfig) sortShares() {
 	sort.Slice(u.Shares[:], func(i, j int) bool {
-		return len([]rune( u.Shares[i].Path)) < len([]rune( u.Shares[j].Path))
+		return len([]rune(u.Shares[i].Path)) < len([]rune(u.Shares[j].Path))
 	})
 }

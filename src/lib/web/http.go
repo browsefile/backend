@@ -2,10 +2,8 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/browsefile/backend/src/config"
 	"github.com/browsefile/backend/src/errors"
 	fb "github.com/browsefile/backend/src/lib"
-	"github.com/browsefile/backend/src/lib/fileutils"
 	"html/template"
 	"log"
 	"net/http"
@@ -118,58 +116,61 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	}
 
 	c.Router, r.URL.Path = splitURL(r.URL.Path)
-	queryValues := r.URL.Query()
-	c.PreviewType = queryValues.Get("previewType")
-	c.ShareUser = queryValues.Get("share")
-	c.IsRecursive, _ = strconv.ParseBool(queryValues.Get("recursive"))
-	if c.IsRecursive {
-		queryValues.Del("recursive")
-		r.URL.RawQuery = queryValues.Encode()
-	}
-	checksum := r.URL.Query().Get("checksum")
-	if checksum != "" || c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
-		var err error
-		if len(c.ShareUser) > 0 {
-			item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
-			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
+	isShares := c.Router == "shares"
 
-			//share allowed
-			if item != nil && len(item.Path) > 0 {
-				r.URL.Path = strings.Replace(r.URL.Path, "/"+uc.Username, "", 1)
-			}
+	processParams(c, r)
 
+	//redirect to the real handler in shares case
+	if isShares {
+		if !isShareHandler(c.ShareUser) {
+			c.Router, r.URL.Path = splitURL(r.URL.Path)
 		}
+
+		if c.Router == "download" {
+			c.Router = "download-share"
+		} else if c.Router == "resource" {
+			c.Router = "shares"
+		}
+	}
+
+	checksum := r.URL.Query().Get("checksum")
+	if c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
+		var err error
 		c.File, err = fb.GetInfo(r.URL, c)
-		if checksum != "" {
-			err = c.File.Checksum(checksum)
-			if err == errors.ErrInvalidOption {
-				return http.StatusBadRequest, nil
-			} else if err != nil {
-				return http.StatusInternalServerError, err
-			}
-			// do not waste bandwidth if we just want the checksum
-			c.File.Content = ""
-			return renderJSON(w, c.File)
+		c.File.SetFileType(false)
+		if len(c.File.Type) > 0 {
+			w.Header().Set("Content-Type", c.File.Type)
 		}
 
 		if err != nil {
 			return ErrorToHTTP(err, false), err
 		}
 	}
-
+	if checksum != "" {
+		err := c.File.Checksum(checksum)
+		if err == errors.ErrInvalidOption {
+			return http.StatusBadRequest, nil
+		} else if err != nil {
+			return http.StatusInternalServerError, err
+		}
+		// do not waste bandwidth if we just want the checksum
+		c.File.Content = ""
+		return renderJSON(w, c.File)
+	}
 	var code int
 	var err error
-
 	switch c.Router {
 	case "download":
 		code, err = downloadHandler(c, w, r)
+	case "download-share":
+		code, err = downloadSharesHandler(c, w, r)
 	case "resource":
 		code, err = resourceHandler(c, w, r)
 	case "users":
 		code, err = usersHandler(c, w, r)
 	case "settings":
 		code, err = settingsHandler(c, w, r)
-	case "share":
+	case "shares":
 		code, err = shareHandler(c, w, r)
 	case "subtitles":
 		code, err = subtitlesHandler(c, w, r)
@@ -180,6 +181,21 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	}
 
 	return code, err
+}
+
+func processParams(c *fb.Context, r *http.Request) {
+	queryValues := r.URL.Query()
+	c.PreviewType = queryValues.Get("previewType")
+	c.ShareUser = queryValues.Get("share")
+	if len(c.ShareUser) > 0 {
+		queryValues.Del("share")
+		r.URL.RawQuery = queryValues.Encode()
+	}
+	c.IsRecursive, _ = strconv.ParseBool(queryValues.Get("recursive"))
+	if c.IsRecursive {
+		queryValues.Del("recursive")
+		r.URL.RawQuery = queryValues.Encode()
+	}
 }
 
 // splitURL splits the path and returns everything that stands
@@ -235,62 +251,6 @@ func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) 
 
 	return 0, nil
 }
-
-/*
-// sharePage build the share page.
-func sharePage(c *fb.Context, w web.ResponseWriter, r *web.Request) (int, error) {
-	s, err := c.Store.Share.Get(r.URL.Path)
-	if err == fb.ErrNotExist {
-		w.WriteHeader(web.StatusNotFound)
-		return renderFile(c, w, "static/share/404.html")
-	}
-
-	if err != nil {
-		return web.StatusInternalServerError, err
-	}
-
-	if s.Expires && s.ExpireDate.Before(time.Now()) {
-		c.Store.Share.Delete(s.Hash)
-		w.WriteHeader(web.StatusNotFound)
-		return renderFile(c, w, "static/share/404.html")
-	}
-
-	r.URL.Path = s.Path
-
-	info, err := os.Stat(s.Path)
-	if err != nil {
-		c.Store.Share.Delete(s.Hash)
-		return ErrorToHTTP(err, false), err
-	}
-
-	c.File = &fb.File{
-		Path:    s.Path,
-		Name:    info.Name(),
-		ModTime: info.ModTime(),
-		Mode:    info.Mode(),
-		IsDir:   info.IsDir(),
-		Size:    info.Size(),
-	}
-
-	dl := r.URL.Query().Get("dl")
-
-	if dl == "" || dl == "0" {
-		tpl := template.Must(template.New("file").Parse(c.Assets.MustString("static/share/index.html")))
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-		err := tpl.Execute(w, map[string]interface{}{
-			"baseurl": c.RootURL(),
-			"File":    c.File,
-		})
-
-		if err != nil {
-			return web.StatusInternalServerError, err
-		}
-		return 0, nil
-	}
-
-	return downloadHandler(c, w, r)
-}*/
 
 // renderJSON prints the JSON version of data to the browser.
 func renderJSON(w http.ResponseWriter, data interface{}) (int, error) {

@@ -49,7 +49,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 }
 
 func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	// Gets the information of the directory/file.
+	// GetUsers the information of the directory/file.
 	f, err := fb.GetInfo(r.URL, c)
 	if err != nil {
 		return ErrorToHTTP(err, false), err
@@ -104,7 +104,7 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int,
 	}
 
 	// Copy the query values into the Listing struct
-	if sort, order, err := handleSortOrder(w, r, cookieScope); err == nil {
+	if sort, order, err := HandleSortOrder(w, r, cookieScope); err == nil {
 		listing.Sort = sort
 		listing.Order = order
 	} else {
@@ -219,7 +219,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		return ErrorToHTTP(err, false), err
 	}
 
-	// Gets the info about the file.
+	// GetUsers the info about the file.
 	fi, err := f.Stat()
 	if err != nil {
 		return ErrorToHTTP(err, false), err
@@ -277,9 +277,9 @@ func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request)
 	return ErrorToHTTP(err, true), err
 }
 
-// handleSortOrder gets and stores for a Listing the 'sort' and 'order',
+// HandleSortOrder gets and stores for a Listing the 'sort' and 'order',
 // and reads 'limit' if given. The latter is 0 if not given. Sets cookies.
-func handleSortOrder(w http.ResponseWriter, r *http.Request, scope string) (sort string, order string, err error) {
+func HandleSortOrder(w http.ResponseWriter, r *http.Request, scope string) (sort string, order string, err error) {
 	sort = r.URL.Query().Get("sort")
 	order = r.URL.Query().Get("order")
 

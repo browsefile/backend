@@ -120,7 +120,7 @@ func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 	defer cfg.unlockR()
 	for _, usr := range cfg.Users {
 		if usr.Admin {
-			return usr.copyUser()
+			return usr
 		}
 	}
 	return nil
@@ -188,7 +188,7 @@ func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 		return nil, ok
 	}
 
-	return res.copyUser(), ok
+	return res, ok
 }
 func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 	cfg.lockR()
@@ -199,15 +199,15 @@ func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 		return nil, ok
 	}
 
-	return res.copyUser(), ok
+	return res, ok
 }
 
-func (cfg *GlobalConfig) Gets() (res []*UserConfig) {
+func (cfg *GlobalConfig) GetUsers() (res []*UserConfig) {
 	cfg.lockR()
 	defer cfg.unlockR()
 	res = make([]*UserConfig, len(cfg.Users))
 	for i, u := range cfg.Users {
-		res[i] = u.copyUser()
+		res[i] = u
 	}
 
 	return res
@@ -235,11 +235,22 @@ func (cfg *GlobalConfig) Update(u *UserConfig) error {
 	}
 
 	i := cfg.getUserIndex(u.Username)
-
-	if strings.EqualFold(cfg.Users[i].Username, u.Username) {
-		cfg.Users[i] = cfg.Users[i].copyUser()
-		cfg.refreshRam()
+	if i >= 0 {
+		//update only specific fields
+		cfg.Users[i].Admin = u.Admin
+		cfg.Users[i].PreviewScope = u.PreviewScope
+		cfg.Users[i].ViewMode = u.ViewMode
+		cfg.Users[i].Scope = u.Scope
+		cfg.Users[i].FirstRun = u.FirstRun
+		cfg.Users[i].Shares = u.Shares
+		cfg.Users[i].IpAuth = u.IpAuth
+		cfg.Users[i].Locale = u.Locale
+		cfg.Users[i].AllowEdit = u.AllowEdit
+		cfg.Users[i].AllowNew = u.AllowNew
+		cfg.Users[i].LockPassword = u.LockPassword
 	}
+
+	cfg.refreshRam()
 	return nil
 }
 
@@ -247,10 +258,7 @@ func (cfg *GlobalConfig) UpdateUsers(users []*UserConfig) error {
 	cfg.lock()
 	defer cfg.unlock()
 	if len(users) > 0 {
-		cfg.Users = make([]*UserConfig, len(users))
-		for i, u := range users {
-			cfg.Users[i] = u.copyUser()
-		}
+		cfg.Users = users
 	}
 
 	cfg.refreshRam()
@@ -290,7 +298,7 @@ func (cfg *GlobalConfig) CopyConfig() (res *GlobalConfig) {
 	cfg.lockR()
 	defer cfg.unlockR()
 	res = &GlobalConfig{
-		Users:          cfg.Gets(),
+		Users:          cfg.GetUsers(),
 		RefreshSeconds: cfg.RefreshSeconds,
 		BaseUrl:        cfg.BaseUrl,
 		PrefixUrl:      cfg.PrefixUrl,
@@ -312,7 +320,7 @@ func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.PrefixUrl = u.PrefixUrl
 	cfg.IP = u.IP
 	cfg.Log = u.Log
-	cfg.Users = u.Gets()
+	cfg.Users = u.GetUsers()
 	cfg.Auth = u.CopyAuth()
 	cfg.CaptchaConfig = u.CopyCaptchaConfig()
 }

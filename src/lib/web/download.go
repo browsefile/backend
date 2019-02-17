@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"io"
@@ -41,21 +42,79 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	} else {
 		files = append(files, c.File.Path)
 	}
+	return 0, serveDownload(c, w, files)
+}
+func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+	var paths []string
+
+	queryValues := r.URL.Query()
+	fParm := queryValues.Get("files")
+	if len(fParm) > 0 {
+		fArr := strings.Split(fParm, ",")
+		for _, fp := range fArr {
+			urlPath, err := url.Parse(fp)
+			if err != nil {
+				return http.StatusNotFound, nil
+			}
+			uname := urlPath.Query().Get("share")
+			itm, usr := config.GetShare(c.User.Username, uname, urlPath.Path)
+			//share found and allowed
+			if itm != nil {
+				paths = append(paths, fileutils.SlashClean(filepath.Join(usr.Scope, urlPath.Path)))
+			}
+		}
+
+	} else {
+		var err error
+
+		item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
+
+		if item != nil && len(item.Path) > 0 {
+			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
+
+		} else if err != nil {
+			return http.StatusNotFound, err
+		}
+		c.File, err = fb.GetInfo(r.URL, c)
+		if err != nil {
+			return http.StatusNotFound, err
+		}
+
+		return downloadFileHandler(c, w, r)
+	}
+
+	files := []string{"-rqj", "-"}
+
+	// If there are files in the query, sanitize their names.
+	// Otherwise, just append the current path.
+	if len(paths) != 0 {
+		for _, name := range paths {
+			// Unescape the name.
+			files = append(files, name)
+		}
+	} else {
+		files = append(files, c.File.Path)
+	}
+
+	return 0, serveDownload(c, w, files)
+}
+
+func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) error {
 	// Defines the file name.
-	name := c.File.Name
+	name := ""
+	if c.File != nil {
+		name = c.File.Name
+	}
 	if name == "." || name == "" {
 		name = "archive.zip"
 	} else {
 		name += ".zip"
 	}
-
 	w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
 	pr, pw := io.Pipe()
-
 	cmd := exec.Command("zip", files...)
 	cmd.Stdout = pw
 	cmd.Stderr = os.Stderr
-
 	go func() {
 		defer pr.Close()
 		// copy the data written to the PipeReader via the cmd to stdout
@@ -63,10 +122,8 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			log.Println(err)
 		}
 	}()
-
 	err := cmd.Run()
-
-	return 0, err
+	return err
 }
 
 func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {

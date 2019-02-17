@@ -1,7 +1,6 @@
 package config
 
 import (
-	"path/filepath"
 	"strings"
 )
 
@@ -15,9 +14,17 @@ type ShareItem struct {
 	//allowed by only specific users
 	AllowUsers []string `json:"allowedUsers"`
 }
+type AllowedShare struct {
+	*UserConfig
+	*ShareItem
+}
 
 func (shr *ShareItem) IsAllowed(user string) (res bool) {
 	_, ok := config.GetByUsername(user)
+
+	config.lockR()
+	defer config.unlockR()
+
 	if ok && shr.AllowLocal {
 		res = true
 	} else if shr.AllowExternal && len(user) == 0 {
@@ -54,8 +61,11 @@ func (shr *ShareItem) IsActive() (res bool) {
 ru is request user
 */
 func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
-	res = new(ShareItem)
 	shareUser, ok := config.GetByUsername(su)
+
+	config.lockR()
+	defer config.unlockR()
+
 	if ok {
 		reqPath = strings.TrimSuffix(reqPath, "/")
 		item := shareUser.GetShare(reqPath)
@@ -68,18 +78,26 @@ func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 	return
 }
 
-//filter out allowed shares
-func GetAllowedShares(user string, uNamePath bool) (res []*ShareItem) {
+//filter out allowed shares, and returns modified path, starting with username
+func GetAllowedShares(user string) (res map[string][]*AllowedShare) {
+	users := config.GetUsers()
+
+	config.lockR()
+	defer config.unlockR()
+
 	isExternal := len(user) == 0
-	res = make([]*ShareItem, 0, 100)
+	res = make(map[string][]*AllowedShare)
 	//check user and allowed path
-	for _, ui := range config.Gets() {
+	for _, ui := range users {
 		for _, shr := range ui.Shares {
 			if shr.IsActive() && (isExternal && shr.AllowExternal || !isExternal && shr.AllowLocal || shr.IsAllowed(user)) {
-				res = append(res, shr)
-				if uNamePath {
-					shr.Path = filepath.Join(ui.Username, shr.Path)
+				if res[ui.Username] == nil {
+					res[ui.Username] = make([]*AllowedShare, 0, 10)
 				}
+				res[ui.Username] = append(res[ui.Username], &AllowedShare{
+					ui,
+					shr,
+				})
 			}
 		}
 	}

@@ -89,7 +89,7 @@ func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 	// Request for the listing of users.
 	if r.URL.Path == "/" {
-		users := c.Config.Gets()
+		users := c.Config.GetUsers()
 		if users == nil || len(users) == 0 {
 			return http.StatusInternalServerError, errors.New("cant find any users")
 		}
@@ -237,7 +237,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		return http.StatusMethodNotAllowed, nil
 	}
 
-	// Gets the user ID from the URL and checks if it's valid.
+	// GetUsers the user ID from the URL and checks if it's valid.
 	name, err := getUserName(r)
 	if err != nil {
 		return http.StatusInternalServerError, err
@@ -248,7 +248,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		return http.StatusForbidden, nil
 	}
 
-	// Gets the user from the request body.
+	// GetUsers the user from the request body.
 	u, which, err := getUser(c, r)
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -334,7 +334,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		u.PreviewScope = admin.PreviewScope
 	}
 
-	// Gets the current saved user from the in-memory map.
+	// GetUsers the current saved user from the in-memory map.
 	suser, ok := c.Config.GetByUsername(name)
 	if !ok {
 		return http.StatusNotFound, nil

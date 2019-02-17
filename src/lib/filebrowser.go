@@ -87,7 +87,7 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		needUpdate = true
 		fb.Config.SetKey(bytes)
 	}
-	users := fb.Config.Gets()
+	users := fb.Config.GetUsers()
 	for _, u := range users {
 		if u.FirstRun {
 			u.FirstRun = false
@@ -110,7 +110,7 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		needUpdate = true
 		fb.Config.FirstRun = false
 		go func() {
-			allUs := fb.Config.Gets()
+			allUs := fb.Config.GetUsers()
 			for i := 0; i < len(allUs); i++ {
 				u := allUs[i]
 				fb.Pgen.ProcessUser(u.Scope, u.PreviewScope)
