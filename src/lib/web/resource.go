@@ -201,7 +201,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	// If using POST method, we are trying to create a new file so it is not
 	// desirable to override an already existent file. Thus, we check
 	// if the file already exists. If so, we just return a 409 Conflict.
-	if r.Method == http.MethodPost && r.Header.Get("Action") != "override" {
+	if r.Method == http.MethodPost && r.URL.Query().Get("override") != "true" {
 		if _, err := c.User.FileSystem.Stat(r.URL.Path); err == nil {
 			return http.StatusConflict, errors.New("There is already a file on that path")
 		}
@@ -250,7 +250,7 @@ func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request)
 	}
 
 	dst := r.Header.Get("Destination")
-	action := r.Header.Get("Action")
+	action := r.Header.Get("action")
 	dst, err := url.QueryUnescape(dst)
 	if err != nil {
 		return ErrorToHTTP(err, true), err
