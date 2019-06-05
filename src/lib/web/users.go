@@ -25,7 +25,7 @@ type modifyUserRequest struct {
 func usersHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	// If the user isn't admin and isn't making a PUT
 	// request, then return forbidden.
-	if !c.User.Admin && r.Method != http.MethodPut {
+	if !c.User.Admin && r.Method != http.MethodGet {
 		return http.StatusForbidden, nil
 	}
 
@@ -264,9 +264,12 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	}
 
 	// Updates the CSS and locale.
-	if which == "partial" {
-		c.User.Locale = u.Locale
-		c.User.ViewMode = u.ViewMode
+	if which == "partial" || which == "locale" {
+		if which == "locale" {
+			c.User.Locale = u.Locale
+		} else {
+			c.User.ViewMode = u.ViewMode
+		}
 
 		err = c.Config.Update(c.User.UserConfig)
 		if err != nil {

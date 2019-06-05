@@ -107,13 +107,13 @@ func (fb *FileBrowser) Setup() (bool, error) {
 
 	//generate all previews for the first run
 	if fb.Config.FirstRun {
-		needUpdate = true
 		fb.Config.FirstRun = false
+		needUpdate = true
 		go func() {
 			allUs := fb.Config.GetUsers()
 			for i := 0; i < len(allUs); i++ {
 				u := allUs[i]
-				fb.Pgen.ProcessUser(u.Scope, u.PreviewScope)
+				fb.Pgen.ProcessPath(u.Scope, u.PreviewScope)
 			}
 		}()
 	}

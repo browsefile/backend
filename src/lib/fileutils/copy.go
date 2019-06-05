@@ -23,7 +23,6 @@ func CopyFile(source string, dest string) error {
 	if err != nil {
 		return err
 	}
-
 	// Create the destination file.
 	dst, err := os.Create(dest)
 	if err != nil {

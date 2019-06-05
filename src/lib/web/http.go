@@ -54,12 +54,6 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 
 	r.URL.Path = p
 
-	// Check if this request is made to the service worker. If so,
-	// pass it through a template to add the needed variables.
-	if r.URL.Path == "/sw.js" {
-		return renderFile(c, w, "sw.js")
-	}
-
 	// Checks if this request is made to the static assets folder. If so, and
 	// if it is a GET request, returns with the asset. Otherwise, returns
 	// a status not implemented.
@@ -93,11 +87,12 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 // staticHandler handles the static assets path.
 func staticHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	if r.URL.Path != "/static/manifest.json" {
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/static")
 		http.FileServer(c.Assets.HTTPBox()).ServeHTTP(w, r)
 		return 0, nil
 	}
 
-	return renderFile(c, w, "static/manifest.json")
+	return renderFile(c, w, "manifest.json")
 }
 
 // apiHandler is the main entry point for the /api endpoint.
@@ -122,6 +117,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 
 	//redirect to the real handler in shares case
 	if isShares {
+		//possibility to process shares view/download
 		if !isShareHandler(c.ShareUser) {
 			c.Router, r.URL.Path = splitURL(r.URL.Path)
 		}
@@ -217,8 +213,6 @@ func splitURL(path string) (string, string) {
 
 // renderFile renders a file using a template with some needed variables.
 func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) {
-	tpl := template.Must(template.New("file").Parse(c.Assets.MustString(file)))
-
 	var contentType string
 	switch filepath.Ext(file) {
 	case ".html":
@@ -227,23 +221,39 @@ func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) 
 		contentType = "application/javascript"
 	case ".json":
 		contentType = "application/json"
+	case ".css":
+		contentType = "text/css"
+
 	default:
 		contentType = "text"
 	}
 
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
-
 	data := map[string]interface{}{
-		"baseurl":       c.RootURL(),
-		"NoAuth":        c.Config.Method == "none",
-		"Version":       fb.Version,
-		"CSS":           template.CSS(c.CSS),
-		"ReCaptcha":     c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",
-		"ReCaptchaHost": c.ReCaptcha.Host,
-		"ReCaptchaKey":  c.ReCaptcha.Key,
+		"Name":            "Browsefile",
+		"DisableExternal": false,
+		"BaseURL":         c.Config.BaseUrl,
+		"Version":         fb.Version,
+		"StaticURL":       strings.TrimPrefix(c.Config.BaseUrl+"/static", "/"),
+		"Signup":          true,
+		"NoAuth":          strings.ToLower(c.Config.Method) == "noauth",
+		"ReCaptcha":       c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",
+		"ReCaptchaHost":   c.ReCaptcha.Host,
+		"ReCaptchaKey":    c.ReCaptcha.Key,
 	}
 
-	err := tpl.Execute(w, data)
+	b, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	data["Json"] = template.JS(string(b))
+
+	index := template.Must(template.New("index").Delims("[{[", "]}]").Parse(c.Assets.MustString(file)))
+
+	err = index.Execute(w, data)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
 
 	if err != nil {
 		return http.StatusInternalServerError, err

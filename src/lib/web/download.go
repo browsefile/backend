@@ -131,6 +131,8 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 	defer file.Close()
 
 	stat, err := file.Stat()
+	s := stat.Sys()
+	log.Print("%v", s)
 	if err != nil {
 		return http.StatusNotFound, err
 	}
@@ -154,7 +156,9 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(c.File.Name))
 	}
 
-	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
+	if file != nil {
+		http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
+	}
 
-	return 0, nil
+	return http.StatusNotFound, nil
 }

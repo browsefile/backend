@@ -68,12 +68,12 @@ func (p *PreviewGen) Process(pc *PreviewData) {
 
 func (pd PreviewGen) GetDefaultData(in, out, t string) (rs *PreviewData) {
 	rs = new(PreviewData)
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	/*dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		log.Println("could not determinate current working folder")
 		log.Fatal(err)
-	}
-	rs.Setup(dir, "convert.sh")
+	}*/
+	rs.Setup("./", "convert.sh")
 	if len(in) > 0 && len(out) > 0 && len(t) > 0 {
 		rs.SetPaths(in, out, t)
 	}
@@ -82,7 +82,7 @@ func (pd PreviewGen) GetDefaultData(in, out, t string) (rs *PreviewData) {
 }
 
 //will generate previews recursively for scope
-func (p *PreviewGen) ProcessUser(scope string, previewScope string) {
+func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 	err := filepath.Walk(scope,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -90,8 +90,8 @@ func (p *PreviewGen) ProcessUser(scope string, previewScope string) {
 			}
 			out, err := fileutils.GenPreviewConvertPath(path, scope, previewScope)
 			ok, t := fileutils.GetBasedOnExtensions(path)
-			if ok && len(t) > 0 && (strings.EqualFold("image", t) || strings.EqualFold("video", t)) {
-				//yep generate in 1 thread, because in case n files, it just can run out of ram on devices with low ram, just because it put all file paths in ram!
+			if ok && (strings.EqualFold("image", t) || strings.EqualFold("video", t)) {
+				//yep generate in 1 thread, because in case n files, it just can run out of ram on devices with low ram, just because it puts all file paths in ram!
 				genPrew(p.GetDefaultData(path, out, t))
 			}
 

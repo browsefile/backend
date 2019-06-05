@@ -48,6 +48,25 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		if !checkShareErr(err, shr.Path) {
 			merge(res.Listing, item)
 		}
+	case "my-meta":
+		if "/" == r.URL.Path {
+			return renderJSON(w, c.User.Shares)
+		} else {
+			shr := c.User.GetShare(r.URL.Path)
+			var userNames []string
+			for _, usr := range c.Config.GetUsers() {
+				if strings.EqualFold(usr.Username, c.User.Username) {
+					continue
+				}
+				userNames = append(userNames, usr.Username)
+			}
+			if shr == nil {
+				shr = &config.ShareItem{}
+			}
+			shr.AllowUsers = userNames
+			return renderJSON(w, shr)
+		}
+
 	case "list":
 		for _, v := range config.GetAllowedShares(c.User.Username) {
 			for _, item := range v {
@@ -169,17 +188,32 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	itm := &config.ShareItem{}
 	err := json.NewDecoder(r.Body).Decode(itm)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-	itm.Path = r.URL.Path
+	switch c.ShareUser {
+	case "my-meta":
+		shr := c.User.GetShare(r.URL.Path)
+		if shr != nil {
+			if !c.User.DeleteShare(shr.Path) {
+				return http.StatusBadRequest, err
+			}
+		}
+		itm.Path = strings.Replace(itm.Path, "/files", "", 1)
+		if !c.User.AddShare(itm) {
+			return http.StatusBadRequest, err
+		}
 
-	ok := c.User.AddShare(itm)
-	if !ok {
-		return http.StatusNotFound, nil
-	}
+	default:
 
-	return http.StatusOK, nil
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
+		itm.Path = r.URL.Path
+
+		ok := c.User.AddShare(itm)
+		if !ok {
+			return http.StatusNotFound, nil
+		}
+	}
+	return renderJSON(w, itm)
 }
 
 func shareDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
