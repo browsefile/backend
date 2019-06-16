@@ -188,7 +188,7 @@ func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 		return nil, ok
 	}
 
-	return res, ok
+	return res.copyUser(), ok
 }
 func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 	cfg.lockR()

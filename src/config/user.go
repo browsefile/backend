@@ -38,6 +38,10 @@ type UserConfig struct {
 	Shares []*ShareItem `json:"shares"`
 	//authenticate by IP, need to change auth.method
 	IpAuth []string `json:"ipAuth"`
+
+	//create files/folders according this ownership
+	UID int `json:"uid"`
+	GID int `json:"gid"`
 }
 
 func (u *UserConfig) copyUser() (res *UserConfig) {

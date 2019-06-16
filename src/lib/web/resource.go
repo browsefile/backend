@@ -152,20 +152,23 @@ func removePreview(c *fb.Context, r *http.Request) {
 	}
 } //rename preview
 func modPreview(c *fb.Context, src, dst string, isCopy bool) {
+
 	info, err := c.User.FileSystem.Stat(src)
+	_, t := fileutils.GetBasedOnExtensions(src)
 	if err != nil {
 		log.Printf("resource: preview file locked or it does not exists %s", err)
 		return
 	}
-	if !info.IsDir() {
-		src, _ = fileutils.ReplacePrevExt(src)
-		dst, _ = fileutils.ReplacePrevExt(dst)
-
-	}
-	if isCopy {
-		c.User.FileSystemPreview.Copy(src, dst)
-	} else {
-		c.User.FileSystemPreview.Rename(src, dst)
+	if t == "image" || t == "video" {
+		if !info.IsDir() {
+			src, _ = fileutils.ReplacePrevExt(src)
+			dst, _ = fileutils.ReplacePrevExt(dst)
+		}
+		if isCopy {
+			c.User.FileSystemPreview.Copy(src, dst)
+		} else {
+			c.User.FileSystemPreview.Rename(src, dst)
+		}
 	}
 }
 
@@ -194,7 +197,10 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 
 		// Otherwise we try to create the directory.
 		err := c.User.FileSystem.Mkdir(r.URL.Path, 0775)
-		c.User.FileSystemPreview.Mkdir(filepath.Join(c.User.Scope, r.URL.Path), 0775)
+
+		p := filepath.Join(c.User.Scope, r.URL.Path)
+		os.Chown(p, c.User.UID, c.User.GID)
+		c.User.FileSystemPreview.Mkdir(p, 0775)
 		return ErrorToHTTP(err, false), err
 	}
 
@@ -248,9 +254,14 @@ func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request)
 	if !c.User.AllowEdit {
 		return http.StatusForbidden, nil
 	}
-
 	dst := r.Header.Get("Destination")
+	if len(dst) == 0 {
+		dst = r.URL.Query().Get("destination")
+	}
 	action := r.Header.Get("action")
+	if len(action) == 0 {
+		action = r.URL.Query().Get("action")
+	}
 	dst, err := url.QueryUnescape(dst)
 	if err != nil {
 		return ErrorToHTTP(err, true), err

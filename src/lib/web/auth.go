@@ -199,8 +199,6 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 		c.User = &fb.UserModel{admin, admin.Username, fileutils.Dir(admin.Scope), fileutils.Dir(admin.PreviewScope)}
 		return true, c.User
 	}
-
-	isIpAuth := c.Config.Method == "ip"
 	// If proxy auth is used do not verify the JWT token if the header is provided.
 	if c.Config.Method == "proxy" {
 		u, ok := c.Config.GetByUsername(r.Header.Get(c.Config.Header))
@@ -219,7 +217,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 	var u *config.UserConfig
 	var ok bool
 
-	if isIpAuth {
+	if c.Config.Method == "ip" {
 		u, ok = c.Config.GetByIp(r.RemoteAddr)
 		if !ok {
 			return false, nil

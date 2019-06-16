@@ -25,7 +25,7 @@ func Handler(m *fb.FileBrowser) http.Handler {
 		code, err := serve(c, w, r)
 
 		if code >= 400 {
-			w.WriteHeader(code)
+			//w.WriteHeader(code)
 
 			txt := http.StatusText(code)
 			if len(c.PreviewType) == 0 {
@@ -33,7 +33,7 @@ func Handler(m *fb.FileBrowser) http.Handler {
 			} else {
 				err = nil
 			}
-			w.Write([]byte(txt + "\n"))
+			//w.Write([]byte(txt + "\n"))
 		}
 
 		if err != nil {
@@ -111,7 +111,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	}
 
 	c.Router, r.URL.Path = splitURL(r.URL.Path)
-	isShares := c.Router == "shares"
+	isShares := strings.HasPrefix(c.Router, "shares")
 
 	processParams(c, r)
 

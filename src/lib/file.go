@@ -40,9 +40,9 @@ type File struct {
 	// Indicates if this file is a directory.
 	IsDir bool `json:"isDir"`
 	// Absolute path.
-	Path string `json:"path"`
+	Path string `json:"-"`
 	// Relative path to user's virtual File System.
-	VirtualPath string `json:"virtualPath"`
+	VirtualPath string `json:"-"`
 	// Indicates the file content type: video, text, image, music or blob.
 	Type string `json:"type"`
 	// Stores the content of a text file.
@@ -166,10 +166,9 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 		} else {
 			fileCount++
 		}
-		var vPath, path string
+
 		if isRecursive {
-			path = filepath.Join(i.Path, paths[ind])
-			vPath = filepath.Dir(paths[ind])
+
 			if f.IsDir() {
 				fUrl = url.URL{Path: baseurl}
 			} else {
@@ -177,21 +176,17 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 			}
 
 		} else {
-			path = filepath.Join(i.Path, name)
-			vPath = filepath.Join(i.VirtualPath, name)
 			fUrl = url.URL{Path: baseurl + name}
 		}
 
 		i := &File{
-			Name:        f.Name(),
-			Size:        f.Size(),
-			ModTime:     f.ModTime(),
-			Mode:        f.Mode(),
-			IsDir:       f.IsDir(),
-			URL:         fUrl.String(),
-			Extension:   filepath.Ext(name),
-			Path:        path,
-			VirtualPath: vPath,
+			Name:      f.Name(),
+			Size:      f.Size(),
+			ModTime:   f.ModTime(),
+			Mode:      f.Mode(),
+			IsDir:     f.IsDir(),
+			URL:       fUrl.String(),
+			Extension: filepath.Ext(name),
 		}
 
 		i.SetFileType(false)

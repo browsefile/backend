@@ -7,7 +7,7 @@
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
-            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "password": "$2a$10$wWxfOR4o2Uw2dafsVEHUiueCdH/bSb4esUJlmi8gIN.SebX3Lt/5O",
             "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp2",
             "username": "user1",
             "viewMode": "mosaic",
@@ -23,7 +23,9 @@
                     ]
                 }
             ],
-            "ipAuth": []
+            "ipAuth": [],
+            "uid": 0,
+            "gid": 0
         },
         {
             "firstRun": false,
@@ -32,7 +34,7 @@
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
-            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "password": "$2a$10$vxDANZNGJqEVpdIYsjwpX.TiWtQjwPhncQb7UgWKVPi2gceivIQSW",
             "homePath": "/tmp/user2",
             "username": "user2",
             "viewMode": "mosaic",
@@ -48,7 +50,9 @@
                     ]
                 }
             ],
-            "ipAuth": []
+            "ipAuth": [],
+            "uid": 0,
+            "gid": 0
         },
         {
             "firstRun": false,
@@ -57,13 +61,15 @@
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
-            "password": "$2a$10$VGdWWREs4C9vcrvK2Jk.4u5HUOxQMj6mTwAEdoTWUl8G1S77I1UIq",
+            "password": "$2a$10$6u8xE1gC/UG5cQCQrp8h0O81RxzrdGD91bumnSsZp24/x15habVoS",
             "homePath": "/tmp/user2",
             "username": "user3",
             "viewMode": "mosaic",
             "previewPath": "/tmp/preview",
             "shares": [],
-            "ipAuth": []
+            "ipAuth": [],
+            "uid": 0,
+            "gid": 0
         },
         {
             "firstRun": false,
@@ -72,19 +78,31 @@
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
-            "password": "",
+            "password": "$2a$10$MxsDQ9P8E4a8R..69coBQO88PogHtA1RI6M37uFo1nNvB5w2DN17S",
             "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp",
             "username": "admin",
-            "viewMode": "list",
+            "viewMode": "mosaic",
             "previewPath": "/tmp/preview",
-            "shares": [],
+            "shares": [
+                {
+                    "path": "/11",
+                    "allowExternal": true,
+                    "allowLocal": false,
+                    "allowedUsers": [
+                        "user1",
+                        "user3"
+                    ]
+                }
+            ],
             "ipAuth": [
                 "127.0.0.1"
-            ]
+            ],
+            "uid": 0,
+            "gid": 0
         }
     ],
     "port": 8081,
-    "ip": "127.0.0.1",
+    "ip": "0.0.0.0",
     "log": "stdout",
     "baseUrl": "",
     "prefixUrl": "",
@@ -95,7 +113,7 @@
         "secret": ""
     },
     "auth": {
-        "method": "ip",
+        "method": "default",
         "header": "X-Forwarded-User",
         "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
     },
