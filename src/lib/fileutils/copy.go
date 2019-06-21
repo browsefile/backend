@@ -9,7 +9,7 @@ import (
 
 // CopyFile copies a file from source to dest and returns
 // an error if any.
-func CopyFile(source string, dest string) error {
+func CopyFile(source string, dest string, uid, gid int) error {
 	// Open the source file.
 	src, err := os.Open(source)
 	if err != nil {
@@ -41,6 +41,7 @@ func CopyFile(source string, dest string) error {
 	info, err := os.Stat(source)
 	if err != nil {
 		err = os.Chmod(dest, info.Mode())
+		ModPermission(uid, gid, dest)
 		if err != nil {
 			return err
 		}
@@ -52,7 +53,7 @@ func CopyFile(source string, dest string) error {
 // CopyDir copies a directory from source to dest and all
 // of its sub-directories. It doesn't stop if it finds an error
 // during the copy. Returns an error if any.
-func CopyDir(source string, dest string) error {
+func CopyDir(source string, dest string, uid, gid int) error {
 	// Get properties of source.
 	srcinfo, err := os.Stat(source)
 	if err != nil {
@@ -71,33 +72,27 @@ func CopyDir(source string, dest string) error {
 		return err
 	}
 
-	var errs []error
-
+	var errString string
 	for _, obj := range obs {
 		fsource := source + "/" + obj.Name()
 		fdest := dest + "/" + obj.Name()
 
 		if obj.IsDir() {
 			// Create sub-directories, recursively.
-			err = CopyDir(fsource, fdest)
+			err = CopyDir(fsource, fdest, uid, gid)
 			if err != nil {
-				errs = append(errs, err)
+				errString += err.Error() + "\n"
 			}
 		} else {
 			// Perform the file copy.
-			err = CopyFile(fsource, fdest)
+			err = CopyFile(fsource, fdest, uid, gid)
 			if err != nil {
-				errs = append(errs, err)
+				errString += err.Error() + "\n"
 			}
 		}
 	}
 
-	var errString string
-	for _, err := range errs {
-		errString += err.Error() + "\n"
-	}
-
-	if errString != "" {
+	if len(errString) > 0 {
 		return errors.New(errString)
 	}
 

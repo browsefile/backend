@@ -165,7 +165,7 @@ func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 			dst, _ = fileutils.ReplacePrevExt(dst)
 		}
 		if isCopy {
-			c.User.FileSystemPreview.Copy(src, dst)
+			c.User.FileSystemPreview.Copy(src, dst, c.User.UID, c.User.GID)
 		} else {
 			c.User.FileSystemPreview.Rename(src, dst)
 		}
@@ -196,11 +196,11 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		}
 
 		// Otherwise we try to create the directory.
-		err := c.User.FileSystem.Mkdir(r.URL.Path, 0775)
+		err := c.User.FileSystem.Mkdir(r.URL.Path, 0775, c.User.UID, c.User.GID)
 
 		p := filepath.Join(c.User.Scope, r.URL.Path)
 		os.Chown(p, c.User.UID, c.User.GID)
-		c.User.FileSystemPreview.Mkdir(p, 0775)
+		c.User.FileSystemPreview.Mkdir(p, 0775, c.User.UID, c.User.GID)
 		return ErrorToHTTP(err, false), err
 	}
 
@@ -213,7 +213,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		}
 	}
 	// Create/Open the file.
-	f, err := c.User.FileSystem.OpenFile(r.URL.Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
+	f, err := c.User.FileSystem.OpenFile(r.URL.Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775, c.User.UID, c.User.GID)
 	if err != nil {
 		return ErrorToHTTP(err, false), err
 	}
@@ -276,7 +276,7 @@ func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request)
 	if action == "copy" {
 		modPreview(c, src, dst, true)
 		// Copy the file.
-		err = c.User.FileSystem.Copy(src, dst)
+		err = c.User.FileSystem.Copy(src, dst, c.User.UID, c.User.GID)
 
 	} else {
 		modPreview(c, src, dst, false)

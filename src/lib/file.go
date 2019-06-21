@@ -132,7 +132,7 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 			log.Println(err)
 		}
 	} else {
-		f, err := u.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0)
+		f, err := u.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, u.UID, u.GID)
 		if err != nil {
 			return err
 		}
@@ -215,10 +215,6 @@ func (f *File) SetFileType(checkContent bool) error {
 	if !isOk && checkContent {
 		return nil
 		log.Println("Can't detect file type, based on extension ", f.Name)
-		/*content, mimetype, err = fileutils.GetBasedOnContent(f.Path)
-		if err != nil {
-			return err
-		}*/
 	}
 
 	f.Type = mimetype

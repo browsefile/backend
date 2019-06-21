@@ -162,3 +162,13 @@ func GenPreviewConvertPath(path string, scope string, previewScope string) (outp
 	return
 
 }
+func ModPermission(uid, gid int, path string) (err error) {
+	if uid > 0 && gid > 0 {
+		err = os.Chown(path, uid, gid)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	return err
+
+}

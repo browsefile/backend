@@ -171,12 +171,12 @@ var DefaultUser = UserModel{
 
 // FileSystem is the interface to work with the file system.
 type FileSystem interface {
-	Mkdir(name string, perm os.FileMode) error
-	OpenFile(name string, flag int, perm os.FileMode) (*os.File, error)
+	Mkdir(name string, perm os.FileMode, uid, gid int) error
+	OpenFile(name string, flag int, perm os.FileMode, uid, gid int) (*os.File, error)
 	RemoveAll(name string) error
 	Rename(oldName, newName string) error
 	Stat(name string) (os.FileInfo, error)
-	Copy(src, dst string) error
+	Copy(src, dst string, uid, gid int) error
 }
 
 type UserModel struct {

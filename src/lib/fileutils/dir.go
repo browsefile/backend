@@ -31,15 +31,19 @@ func (d Dir) String() string {
 }
 
 // Mkdir implements os.Mkdir in this directory context.
-func (d Dir) Mkdir(name string, perm os.FileMode) error {
+func (d Dir) Mkdir(name string, perm os.FileMode, uid, gid int) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
-	return os.MkdirAll(name, perm)
+	err := os.MkdirAll(name, perm)
+	if err == nil {
+		ModPermission(uid, gid, name)
+	}
+	return err
 }
 
 // OpenFile implements os.OpenFile in this directory context.
-func (d Dir) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
+func (d Dir) OpenFile(name string, flag int, perm os.FileMode, uid, gid int) (*os.File, error) {
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
@@ -47,6 +51,7 @@ func (d Dir) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error)
 	if err != nil {
 		return nil, err
 	}
+	ModPermission(uid, gid, name)
 	return f, nil
 }
 
@@ -89,7 +94,7 @@ func (d Dir) Stat(name string) (os.FileInfo, error) {
 
 // Copy copies a file or directory from src to dst. If it is
 // a directory, all of the files and sub-directories will be copied.
-func (d Dir) Copy(src, dst string) error {
+func (d Dir) Copy(src, dst string, uid, gid int) error {
 	if src = d.resolve(src); src == "" {
 		return os.ErrNotExist
 	}
@@ -113,8 +118,8 @@ func (d Dir) Copy(src, dst string) error {
 	}
 
 	if info.IsDir() {
-		return CopyDir(src, dst)
+		return CopyDir(src, dst, uid, gid)
 	}
 
-	return CopyFile(src, dst)
+	return CopyFile(src, dst, uid, gid)
 }
