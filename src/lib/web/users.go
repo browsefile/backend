@@ -98,6 +98,15 @@ func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			// Removes the user password so it won't
 			// be sent to the front-end.
 			u.Password = ""
+			//allow view users, in order to share
+			if !c.User.Admin {
+				u.Scope = ""
+				u.UID = -1
+				u.GID = -1
+				u.IpAuth = nil
+				u.Shares = nil
+				u.ViewMode = ""
+			}
 		}
 
 		return renderJSON(w, users)

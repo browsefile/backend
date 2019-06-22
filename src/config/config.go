@@ -145,6 +145,7 @@ func (cfg *GlobalConfig) StartMonitor() {
 	}()
 }
 
+//indicate that changes made
 func (cfg *GlobalConfig) Store() {
 	cfg.needSave = atomic.AddInt32(&cfg.needSave, 1)
 }
@@ -207,7 +208,7 @@ func (cfg *GlobalConfig) GetUsers() (res []*UserConfig) {
 	defer cfg.unlockR()
 	res = make([]*UserConfig, len(cfg.Users))
 	for i, u := range cfg.Users {
-		res[i] = u
+		res[i] = u.copyUser()
 	}
 
 	return res

@@ -236,7 +236,7 @@ func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) 
 		"Version":         fb.Version,
 		"StaticURL":       strings.TrimPrefix(c.Config.BaseUrl+"/static", "/"),
 		"Signup":          true,
-		"NoAuth":          strings.ToLower(c.Config.Method) == "noauth",
+		"NoAuth":          strings.ToLower(c.Config.Method) == "noauth" || strings.ToLower(c.Config.Method) == "ip",
 		"ReCaptcha":       c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",
 		"ReCaptchaHost":   c.ReCaptcha.Host,
 		"ReCaptchaKey":    c.ReCaptcha.Key,

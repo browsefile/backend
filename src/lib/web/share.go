@@ -53,17 +53,10 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			return renderJSON(w, c.User.Shares)
 		} else {
 			shr := c.User.GetShare(r.URL.Path)
-			var userNames []string
-			for _, usr := range c.Config.GetUsers() {
-				if strings.EqualFold(usr.Username, c.User.Username) {
-					continue
-				}
-				userNames = append(userNames, usr.Username)
-			}
 			if shr == nil {
 				shr = &config.ShareItem{}
+				shr.Path = r.URL.Path
 			}
-			shr.AllowUsers = userNames
 			return renderJSON(w, shr)
 		}
 
@@ -188,6 +181,9 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	itm := &config.ShareItem{}
 	err := json.NewDecoder(r.Body).Decode(itm)
+	if strings.EqualFold(itm.Path, "") {
+		return http.StatusBadRequest, err
+	}
 	switch c.ShareUser {
 	case "my-meta":
 		shr := c.User.GetShare(r.URL.Path)
@@ -200,7 +196,6 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 		if !c.User.AddShare(itm) {
 			return http.StatusBadRequest, err
 		}
-
 	default:
 
 		if err != nil {
@@ -213,6 +208,7 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 			return http.StatusNotFound, nil
 		}
 	}
+	c.Config.Update(c.User.UserConfig)
 	return renderJSON(w, itm)
 }
 
@@ -222,6 +218,6 @@ func shareDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	if !ok {
 		return http.StatusNotFound, nil
 	}
-
+	c.Config.Update(c.User.UserConfig)
 	return http.StatusOK, nil
 }

@@ -35,6 +35,7 @@ func (p *PreviewGen) Setup(t int) {
 	if p.threadsCount <= 0 {
 		p.threadsCount = 1
 	} else {
+		//todo make async
 		p.ch = make(chan *PreviewData, 10000)
 		for ; p.threadsCount > 0; p.threadsCount-- {
 			go func() {
@@ -88,10 +89,12 @@ func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 			if err != nil {
 				return err
 			}
-			out, err := fileutils.GenPreviewConvertPath(path, scope, previewScope)
+
 			ok, t := fileutils.GetBasedOnExtensions(path)
 			if ok && (strings.EqualFold("image", t) || strings.EqualFold("video", t)) {
-				//yep generate in 1 thread, because in case n files, it just can run out of ram on devices with low ram, just because it puts all file paths in ram!
+				var out string
+				out, err = fileutils.GenPreviewConvertPath(path, scope, previewScope)
+				//yep generate in 1 thread, because in case n files, it can run out of ram on devices with low ram
 				genPrew(p.GetDefaultData(path, out, t))
 			}
 
