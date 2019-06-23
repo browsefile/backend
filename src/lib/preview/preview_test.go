@@ -43,7 +43,7 @@ func TestVideoThumbGen(t *testing.T) {
 
 func getPrevCont() (res *PreviewData) {
 	res = new(PreviewData)
-	res.Setup(".", "../../convert.sh")
+	res.Setup(".", "../../bfconvert.sh")
 
 	return
 }

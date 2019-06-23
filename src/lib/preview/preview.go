@@ -74,7 +74,7 @@ func (pd PreviewGen) GetDefaultData(in, out, t string) (rs *PreviewData) {
 		log.Println("could not determinate current working folder")
 		log.Fatal(err)
 	}*/
-	rs.Setup("./", "convert.sh")
+	rs.Setup("./", "bfconvert.sh")
 	if len(in) > 0 && len(out) > 0 && len(t) > 0 {
 		rs.SetPaths(in, out, t)
 	}

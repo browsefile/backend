@@ -8,5 +8,5 @@ elif [ "$3" = 'video' ]; then
   ffmpeg -n -v error -ss 0 -t 10 -i "$1" -vf fps=10,scale=100:-1 -gifflags -transdiff -n "$2"
 elif [ "$3" != 'audio' ] && [ "$3" != 'text' ]; then
   #echo " convert $1"
-  convert -background White -alpha Background -resize 100x100 -flatten "$1" "$2"
+  #convert -background White -alpha Background -resize 100x100 -flatten "$1" "$2"
 fi
