@@ -75,6 +75,7 @@ archives:
 
     files:
       - browsefile.json
+      - bfconvert.sh
     format: tar.gz
     format_overrides:
       - goos: windows
