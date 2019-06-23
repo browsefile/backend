@@ -11,18 +11,14 @@ build:
   env:
     - CGO_ENABLED=0
   ldflags:
-    - -s -w -X github.com/browsefile/backend/v0.1.0/version.Version={{ .Version }} -X github.com/browsefile/backend/v0.1.0/version.CommitSHA={{ .ShortCommit }}
+    - -s -w -X github.com/browsefile/backend/v0.1/version.Version={{ .Version }} -X github.com/browsefile/backend/v0.1/version.CommitSHA={{ .ShortCommit }}
   main: src/main.go
   binary: bf
   goos:
-    - darwin
     - linux
-    - windows
     - freebsd
     - netbsd
     - openbsd
-    - dragonfly
-    - solaris
   goarch:
     - amd64
     - 386
@@ -30,38 +26,56 @@ build:
     - arm64
     - mips
     - mipsle
+    - mips64
+    - mips64le
   goarm:
     - 5
     - 6
     - 7
   ignore:
-    - goos: darwin
-      goarch: 386
     - goos: openbsd
       goarch: arm
     - goos: freebsd
       goarch: arm
     - goos: netbsd
       goarch: arm
-    - goos: solaris
-      goarch: arm
+    - goos: openbsd
+      goarch: arm64
+    - goos: freebsd
+      goarch: arm64
+    - goos: netbsd
+      goarch: arm64
+    - goos: openbsd
+      goarch: mips
+    - goos: freebsd
+      goarch: mips
+    - goos: netbsd
+      goarch: mips
+    - goos: openbsd
+      goarch: mipsle
+    - goos: freebsd
+      goarch: mipsle
+    - goos: netbsd
+      goarch: mipsle
+    - goos: openbsd
+      goarch: mips64
+    - goos: freebsd
+      goarch: mips64
+    - goos: netbsd
+      goarch: mips64
+    - goos: openbsd
+      goarch: mips64le
+    - goos: freebsd
+      goarch: mips64le
+    - goos: netbsd
+      goarch: mips64le
 
 archives:
-  -
-    name_template: "{{.Os}}-{{.Arch}}{{if .Arm}}v{{.Arm}}{{end}}-{{ .ProjectName }}"
+  - name_template: "{{.Os}}-{{.Arch}}{{if .Arm}}v{{.Arm}}{{end}}-{{ .ProjectName }}"
+
+    files:
+      - browsefile.json
     format: tar.gz
     format_overrides:
       - goos: windows
         format: zip
-
-dockers:
-  -
-    goos: linux
-    goarch: amd64
-    goarm: ''
-    image_templates:
-      - "filebrowser/filebrowser:latest"
-      - "filebrowser/filebrowser:{{ .Tag }}"
-      - "filebrowser/filebrowser:v{{ .Major }}"
-    extra_files:
-      - .docker.json

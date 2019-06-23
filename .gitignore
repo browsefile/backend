@@ -7,7 +7,7 @@ dist/*
 .idea
 .vscode
 Dockerfile
-filebrowser
+browsefile
 rice-box.go
 vendor
 npm-debug.log*
