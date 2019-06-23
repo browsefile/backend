@@ -79,7 +79,7 @@ func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 }
 
 //filter out allowed shares, and returns modified path, starting with username
-func GetAllowedShares(user string) (res map[string][]*AllowedShare) {
+func GetAllowedShares(user string, excludeSelf bool) (res map[string][]*AllowedShare) {
 	users := config.GetUsers()
 
 	config.lockR()
@@ -91,6 +91,10 @@ func GetAllowedShares(user string) (res map[string][]*AllowedShare) {
 	for _, ui := range users {
 		for _, shr := range ui.Shares {
 			if shr.IsActive() && (isExternal && shr.AllowExternal || !isExternal && shr.AllowLocal || shr.IsAllowed(user)) {
+				//ignore own files
+				if excludeSelf && strings.EqualFold(ui.Username, user) {
+					continue
+				}
 				if res[ui.Username] == nil {
 					res[ui.Username] = make([]*AllowedShare, 0, 10)
 				}

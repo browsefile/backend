@@ -61,7 +61,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		}
 
 	case "list":
-		for _, v := range config.GetAllowedShares(c.User.Username) {
+		for _, v := range config.GetAllowedShares(c.User.Username, true) {
 			for _, item := range v {
 				err, resLoc := shareListing(item.UserConfig, item.ShareItem, c, w, r)
 				if !checkShareErr(err, item.Path) {
