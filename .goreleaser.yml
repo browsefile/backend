@@ -1,4 +1,4 @@
-project_name: browsefile
+project_name: bf
 
 env:
   - GO111MODULE=on
@@ -11,9 +11,9 @@ build:
   env:
     - CGO_ENABLED=0
   ldflags:
-    - -s -w -X github.com/browsefile/backend/v2/version.Version={{ .Version }} -X github.com/browsefile/backend/v2/version.CommitSHA={{ .ShortCommit }}
+    - -s -w -X github.com/browsefile/backend/v0.1.0/version.Version={{ .Version }} -X github.com/browsefile/backend/v0.1.0/version.CommitSHA={{ .ShortCommit }}
   main: main.go
-  binary: browsefile
+  binary: bf
   goos:
     - darwin
     - linux

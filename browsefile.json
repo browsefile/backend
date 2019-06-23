@@ -81,9 +81,18 @@
             "password": "$2a$10$MxsDQ9P8E4a8R..69coBQO88PogHtA1RI6M37uFo1nNvB5w2DN17S",
             "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp",
             "username": "admin",
-            "viewMode": "mosaic",
+            "viewMode": "list",
             "previewPath": "/tmp/preview",
-            "shares": [],
+            "shares": [
+                {
+                    "path": "/movies",
+                    "allowExternal": false,
+                    "allowLocal": true,
+                    "allowedUsers": [
+                        "user1"
+                    ]
+                }
+            ],
             "ipAuth": [
                 "127.0.0.1"
             ],
