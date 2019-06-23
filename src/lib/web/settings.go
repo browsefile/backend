@@ -45,7 +45,8 @@ func settingsPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
+	mod.Init()
 	c.Config.UpdateConfig(mod)
 
-	return http.StatusMethodNotAllowed, nil
+	return http.StatusOK, nil
 }

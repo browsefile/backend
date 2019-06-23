@@ -115,6 +115,11 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 		u.sortShares()
 	}
 }
+func (cfg *GlobalConfig) Init() {
+	cfg.updateLock = new(sync.RWMutex)
+	config = cfg
+	cfg.refreshRam()
+}
 func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 	cfg.lockR()
 	defer cfg.unlockR()
