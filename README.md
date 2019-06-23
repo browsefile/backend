@@ -8,7 +8,7 @@ Browse files on your router or raspberry or any other embedded device through we
 - planned mobile/desktop clients
 
 For configuration details see wiki
-![alt text](https://drive.google.com/file/d/1LQ16lsJxws5zYfKCHMQtQ3Yb64nA3EXX/view)
+![alt text](https://lh5.googleusercontent.com/MMH_UOn6EDAkT5CVjxChms1VOgdqlacuGUUogAnrsPwUafnX1TA5d4EmXPblTNFLCOQuO1fFEfGtpgP96pR1=w1920-h976-rw)
 
 ℹ INFO: June 2019
 
