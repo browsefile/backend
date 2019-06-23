@@ -106,6 +106,8 @@
     "baseUrl": "",
     "prefixUrl": "",
     "configRamRefreshSeconds": 10,
+    "tlsKey": "/tmp/tls/server.key",
+    "tlsCert": "/tmp/tls/server.crt",
     "captchaConfig": {
         "host": "",
         "key": "",

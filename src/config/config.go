@@ -31,6 +31,8 @@ type GlobalConfig struct {
 	BaseUrl        string        `json:"baseUrl"`
 	PrefixUrl      string        `json:"prefixUrl"`
 	RefreshSeconds int           `json:"configRamRefreshSeconds"`
+	TLSKey         string        `json:"tlsKey"`
+	TLSCert        string        `json:"tlsCert"`
 	*CaptchaConfig `json:"captchaConfig"`
 	*Auth          `json:"auth"`
 	*PreviewConf   `json:"preview"`

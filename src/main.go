@@ -25,8 +25,13 @@ func main() {
 	// Tell the user the port in which is listening.
 	log.Println("Listening on", listener.Addr().String())
 
+	if len(cfg.TLSCert) > 0 && len(cfg.TLSCert) > 0 {
+		err = http.ServeTLS(listener, handler(cfg), cfg.TLSCert, cfg.TLSKey)
+	} else {
+		err = http.Serve(listener, handler(cfg))
+	}
 	// Starts the server.
-	if err := http.Serve(listener, handler(cfg)); err != nil {
+	if err != nil {
 		log.Fatal(err)
 	}
 }
