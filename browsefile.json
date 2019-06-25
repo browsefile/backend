@@ -103,8 +103,6 @@
     "port": 8081,
     "ip": "0.0.0.0",
     "log": "stdout",
-    "baseUrl": "",
-    "prefixUrl": "",
     "configRamRefreshSeconds": 10,
     "tlsKey": "",
     "tlsCert": "",

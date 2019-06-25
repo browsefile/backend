@@ -45,8 +45,6 @@ func handler(cfg *config.GlobalConfig) http.Handler {
 		},
 	}
 
-	fb.SetBaseURL(cfg.BaseUrl)
-	fb.SetPrefixURL(cfg.PrefixUrl)
 	needUpd, err := fb.Setup()
 	if err != nil {
 		log.Fatal(err)

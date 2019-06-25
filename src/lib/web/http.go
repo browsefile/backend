@@ -44,16 +44,6 @@ func Handler(m *fb.FileBrowser) http.Handler {
 
 // serve is the main entry point of this HTML application.
 func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	// Checks if the URL contains the baseURL and strips it. Otherwise, it just
-	// returns a 404 fb.Error because we're not supposed to be here!
-	p := strings.TrimPrefix(r.URL.Path, c.BaseURL)
-
-	if len(p) >= len(r.URL.Path) && c.BaseURL != "" {
-		return http.StatusNotFound, nil
-	}
-
-	r.URL.Path = p
-
 	// Checks if this request is made to the static assets folder. If so, and
 	// if it is a GET request, returns with the asset. Otherwise, returns
 	// a status not implemented.
@@ -232,9 +222,8 @@ func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) 
 	data := map[string]interface{}{
 		"Name":            "Browsefile",
 		"DisableExternal": false,
-		"BaseURL":         c.Config.BaseUrl,
 		"Version":         fb.Version,
-		"StaticURL":       strings.TrimPrefix(c.Config.BaseUrl+"/static", "/"),
+		"StaticURL":       strings.TrimPrefix("/static", "/"),
 		"Signup":          true,
 		"NoAuth":          strings.ToLower(c.Config.Method) == "noauth" || strings.ToLower(c.Config.Method) == "ip",
 		"ReCaptcha":       c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",

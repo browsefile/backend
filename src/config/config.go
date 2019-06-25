@@ -28,8 +28,7 @@ type GlobalConfig struct {
 	Port           int           `json:"port"`
 	IP             string        `json:"ip"`
 	Log            string        `json:"log"`
-	BaseUrl        string        `json:"baseUrl"`
-	PrefixUrl      string        `json:"prefixUrl"`
+
 	RefreshSeconds int           `json:"configRamRefreshSeconds"`
 	TLSKey         string        `json:"tlsKey"`
 	TLSCert        string        `json:"tlsCert"`
@@ -308,8 +307,6 @@ func (cfg *GlobalConfig) CopyConfig() (res *GlobalConfig) {
 	res = &GlobalConfig{
 		Users:          cfg.GetUsers(),
 		RefreshSeconds: cfg.RefreshSeconds,
-		BaseUrl:        cfg.BaseUrl,
-		PrefixUrl:      cfg.PrefixUrl,
 		Port:           cfg.Port,
 		IP:             cfg.IP,
 		Log:            cfg.Log,
@@ -323,9 +320,7 @@ func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.lock()
 	defer cfg.unlock()
 	cfg.RefreshSeconds = u.RefreshSeconds
-	cfg.BaseUrl = u.BaseUrl
 	cfg.Port = u.Port
-	cfg.PrefixUrl = u.PrefixUrl
 	cfg.IP = u.IP
 	cfg.Log = u.Log
 	cfg.Users = u.GetUsers()

@@ -10,7 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"os"
-	"strings"
 )
 
 const (
@@ -43,18 +42,8 @@ type ReCaptcha struct {
 type FileBrowser struct {
 	// The static assets.
 	Assets *rice.Box
-	// PrefixURL is a part of the URL that is already trimmed from the request URL before it
-	// arrives to our handlers. It may be useful when using File Browser as a middleware
-	// such as in caddy-filemanager plugin. It is only useful in certain situations.
-	PrefixURL string
-	// BaseURL is the path where the GUI will be accessible. It musn't end with
-	// a trailing slash and mustn't contain PrefixURL, if set. It shouldn't be
-	// edited directly. Use SetBaseURL.
-	BaseURL string
 	// ReCaptcha host, key and secret.
 	ReCaptcha *ReCaptcha
-	// Global stylesheet.
-	CSS string
 	// NewFS should build a new file system for a given path.
 	NewFS FSBuilder
 	//generates preview
@@ -128,31 +117,6 @@ func (c *Context) GenPreview(out string) {
 		}
 	}
 }
-
-// RootURL returns the actual URL where
-// File Browser interface can be accessed.
-func (m FileBrowser) RootURL() string {
-	return m.PrefixURL + m.BaseURL
-}
-
-// SetPrefixURL updates the prefixURL of a File
-// Manager object.
-func (m *FileBrowser) SetPrefixURL(url string) {
-	url = strings.TrimPrefix(url, "/")
-	url = strings.TrimSuffix(url, "/")
-	url = "/" + url
-	m.PrefixURL = strings.TrimSuffix(url, "/")
-}
-
-// SetBaseURL updates the baseURL of a File Browser
-// object.
-func (m *FileBrowser) SetBaseURL(url string) {
-	url = strings.TrimPrefix(url, "/")
-	url = strings.TrimSuffix(url, "/")
-	url = "/" + url
-	m.BaseURL = strings.TrimSuffix(url, "/")
-}
-
 // DefaultUser is used on New, when no 'base' user is provided.
 var DefaultUser = UserModel{
 	UserConfig: &config.UserConfig{

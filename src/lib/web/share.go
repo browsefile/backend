@@ -115,12 +115,8 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		res.IsDir = true
 		res.VirtualPath = "/"
 		res.Kind = "listing"
-		cookieScope := c.RootURL()
-		if cookieScope == "" {
-			cookieScope = "/"
-		}
 		// Copy the query values into the Listing struct
-		if sort, order, err := HandleSortOrder(w, r, cookieScope); err == nil {
+		if sort, order, err := HandleSortOrder(w, r, "/"); err == nil {
 			res.Sort = sort
 			res.Order = order
 			res.ApplySort()

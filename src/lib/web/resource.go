@@ -97,14 +97,8 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int,
 
 	listing := f.Listing
 
-	// Defines the cookie scope.
-	cookieScope := c.RootURL()
-	if cookieScope == "" {
-		cookieScope = "/"
-	}
-
 	// Copy the query values into the Listing struct
-	if sort, order, err := HandleSortOrder(w, r, cookieScope); err == nil {
+	if sort, order, err := HandleSortOrder(w, r,  "/"); err == nil {
 		listing.Sort = sort
 		listing.Order = order
 	} else {
