@@ -77,7 +77,7 @@ func GetInfo(url *url.URL, c *Context) (*File, error) {
 	info, err, path, t := fileutils.GetFileInfo(c.User.Scope, url.Path)
 
 	i := &File{
-		URL:         "/files" + url.String(),
+		URL:         url.String(),
 		VirtualPath: url.Path,
 		Path:        path,
 	}
@@ -102,7 +102,7 @@ func GetInfo(url *url.URL, c *Context) (*File, error) {
 }
 
 // GetListing gets the information about a specific directory and its files.
-func (i *File) GetListing(u *UserModel, isRecursive bool) error {
+func (i *File) GetListing(u *UserModel, isRecursive bool, fitFilter func(f *File) bool) error {
 	// GetUsers the directory information using the Virtual File System of
 	// the user configuration.
 	var (
@@ -172,7 +172,7 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 			if f.IsDir() {
 				fUrl = url.URL{Path: baseurl}
 			} else {
-				fUrl = url.URL{Path: "/files" + paths[ind]}
+				fUrl = url.URL{Path: paths[ind]}
 			}
 
 		} else {
@@ -190,7 +190,22 @@ func (i *File) GetListing(u *UserModel, isRecursive bool) error {
 		}
 
 		i.SetFileType(false)
-		fileinfos = append(fileinfos, i)
+
+		if fitFilter != nil {
+			if fitFilter(i) {
+				fileinfos = append(fileinfos, i)
+			} else {
+				if f.IsDir() {
+					dirCount--
+				} else {
+					fileCount--
+				}
+
+			}
+
+		} else {
+			fileinfos = append(fileinfos, i)
+		}
 	}
 
 	i.Listing = &Listing{

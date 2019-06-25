@@ -30,7 +30,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 	switch r.Method {
 	case http.MethodGet:
-		return resourceGetHandler(c, w, r)
+		return resourceGetHandler(c, w, r, nil)
 	case http.MethodDelete:
 		return resourceDeleteHandler(c, w, r)
 	case http.MethodPut:
@@ -48,7 +48,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	return http.StatusNotImplemented, nil
 }
 
-func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
 	// GetUsers the information of the directory/file.
 	f, err := fb.GetInfo(r.URL, c)
 	if err != nil {
@@ -64,7 +64,7 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	// If it is a dir, go and serve the listing.
 	if f.IsDir {
 		c.File = f
-		listingHandler(c, w, r)
+		listingHandler(c, w, r, fitFilter)
 		return renderJSON(w, f)
 	}
 
@@ -86,19 +86,19 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	return renderJSON(w, f)
 }
 
-func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
 	f := c.File
 	f.Kind = "listing"
 
 	// Tries to get the listing data.
-	if err := f.GetListing(c.User, c.IsRecursive); err != nil {
+	if err := f.GetListing(c.User, c.IsRecursive, fitFilter); err != nil {
 		return ErrorToHTTP(err, true), err
 	}
 
 	listing := f.Listing
 
 	// Copy the query values into the Listing struct
-	if sort, order, err := HandleSortOrder(w, r,  "/"); err == nil {
+	if sort, order, err := HandleSortOrder(w, r, "/"); err == nil {
 		listing.Sort = sort
 		listing.Order = order
 	} else {

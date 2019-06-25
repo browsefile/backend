@@ -165,6 +165,8 @@ type Context struct {
 	IsRecursive bool
 	//indicate about share request
 	ShareUser string
+	SearchType string
+	SearchString string
 }
 
 // HashPassword generates an hash from a password using bcrypt.

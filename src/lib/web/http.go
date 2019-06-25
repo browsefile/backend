@@ -162,6 +162,8 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 		code, err = subtitlesHandler(c, w, r)
 	case "subtitle":
 		code, err = subtitleHandler(c, w, r)
+	case "search":
+		code, err = searchHandler(c, w, r)
 	default:
 		code = http.StatusNotFound
 	}
@@ -173,6 +175,21 @@ func processParams(c *fb.Context, r *http.Request) {
 	queryValues := r.URL.Query()
 	c.PreviewType = queryValues.Get("previewType")
 	c.ShareUser = queryValues.Get("share")
+
+	q := r.URL.Query().Get("query")
+	if len(q) > 0 {
+		if strings.Contains(q, "type") {
+			arr := strings.Split(q, ":")
+			arr = strings.Split(arr[1], " ")
+			c.SearchString = arr[1]
+			c.SearchType = arr[0]
+		} else {
+			c.SearchString = q
+		}
+		queryValues.Del("query")
+		r.URL.RawQuery = queryValues.Encode()
+	}
+
 	if len(c.ShareUser) > 0 {
 		queryValues.Del("share")
 		r.URL.RawQuery = queryValues.Encode()
@@ -182,6 +199,7 @@ func processParams(c *fb.Context, r *http.Request) {
 		queryValues.Del("recursive")
 		r.URL.RawQuery = queryValues.Encode()
 	}
+
 }
 
 // splitURL splits the path and returns everything that stands

@@ -110,7 +110,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	if !isDef && res.NumFiles == 0 && res.NumDirs == 0 {
 		return http.StatusNotFound, nil
 	}
-	res.URL = "/?share=" + c.ShareUser
+	res.URL += "/?share=" + c.ShareUser
 	if !isDef {
 		res.IsDir = true
 		res.VirtualPath = "/"
@@ -154,20 +154,18 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 		if err != nil {
 			return err, nil
 		}
-		err = c.File.GetListing(c.User, false)
+		err = c.File.GetListing(c.User, false, nil)
 		if err != nil {
 			return err, nil
 		}
 
-		listingHandler(c, w, r)
+		listingHandler(c, w, r, nil)
 		c.File.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 		r.URL.Path = orig
 		res = c.File.Listing
 		suffix := "?share=" + uc.Username
 		for _, itm := range res.Items {
 			itm.URL += suffix
-			itm.URL = strings.Replace(itm.URL, "/files", "/shares", 1)
-			itm.Path = ""
 		}
 	}
 
