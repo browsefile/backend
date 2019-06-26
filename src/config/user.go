@@ -57,6 +57,8 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 		Admin:        u.Admin,
 		AllowEdit:    u.AllowEdit,
 		Locale:       u.Locale,
+		UID:          u.UID,
+		GID:          u.GID,
 		IpAuth:       make([]string, len(u.IpAuth)),
 	}
 	copy(res.IpAuth, u.IpAuth)
