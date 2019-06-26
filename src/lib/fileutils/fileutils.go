@@ -32,7 +32,7 @@ var mimeExt = [][]string{{
 	".java", ".js", ".json",
 	".markdown", ".md", ".mdown", ".mmark",
 	".nim",
-	".php", ".pl", ".ps1", ".py",
+	".php", ".pl", ".ps1", ".py", ".go",
 	".rss", ".rst", ".rtf",
 	".sass", ".scss", ".sh", ".sty",
 	".tex", ".tml", ".toml", ".txt",
