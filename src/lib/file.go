@@ -70,11 +70,24 @@ type Listing struct {
 	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 }
 
-// GetInfo gets the file information and, in case of error, returns the
+// MakeInfo gets the file information and, in case of error, returns the
 // respective HTTP error code
-func GetInfo(url *url.URL, c *Context) (*File, error) {
+func MakeInfo(url *url.URL, c *Context) (*File, error) {
 	var err error
-	info, err, path, t := fileutils.GetFileInfo(c.GetUserHomePath(), url.Path)
+	homePath, previewPath := c.GetUserHomePath(), c.GetUserPreviewPath()
+
+	info, err, path, t := fileutils.GetFileInfo(homePath, url.Path)
+
+	//create user paths if not exists
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(homePath, 0775)
+		os.MkdirAll(previewPath, 0775)
+		fileutils.ModPermission(c.User.UID, c.User.GID, homePath)
+		if err != nil {
+			return nil, err
+		}
+		info, err, path, t = fileutils.GetFileInfo(homePath, url.Path)
+	}
 
 	i := &File{
 		URL:         url.String(),
@@ -132,7 +145,7 @@ func (i *File) GetListing(c *Context, fitFilter func(f *File) bool) error {
 			log.Println(err)
 		}
 	} else {
-		f, err := c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID,  c.User.GID)
+		f, err := c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
 		if err != nil {
 			return err
 		}

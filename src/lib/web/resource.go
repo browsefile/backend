@@ -50,7 +50,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
 	// GetUsers the information of the directory/file.
-	f, err := fb.GetInfo(r.URL, c)
+	f, err := fb.MakeInfo(r.URL, c)
 	if err != nil {
 		return ErrorToHTTP(err, false), err
 	}
@@ -225,7 +225,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		return ErrorToHTTP(err, false), err
 	}
 	if !fi.IsDir() {
-		inf, err := fb.GetInfo(r.URL, c)
+		inf, err := fb.MakeInfo(r.URL, c)
 		if err == nil {
 			c.File = inf
 			modP := fileutils.PreviewPathMod(r.URL.Path, c.GetUserHomePath(), c.GetUserPreviewPath())

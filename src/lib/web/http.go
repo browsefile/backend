@@ -119,7 +119,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	checksum := r.URL.Query().Get("checksum")
 	if c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
 		var err error
-		c.File, err = fb.GetInfo(r.URL, c)
+		c.File, err = fb.MakeInfo(r.URL, c)
 		c.File.SetFileType(false)
 		if len(c.File.Type) > 0 {
 			w.Header().Set("Content-Type", c.File.Type)

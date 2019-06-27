@@ -75,7 +75,7 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		} else if err != nil {
 			return http.StatusNotFound, err
 		}
-		c.File, err = fb.GetInfo(r.URL, c)
+		c.File, err = fb.MakeInfo(r.URL, c)
 		if err != nil {
 			return http.StatusNotFound, err
 		}

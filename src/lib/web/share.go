@@ -145,7 +145,7 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 	orig := r.URL.Path
 
 	r.URL.Path = shr.Path
-	c.File, err = fb.GetInfo(r.URL, c)
+	c.File, err = fb.MakeInfo(r.URL, c)
 	if err != nil {
 		log.Println(err)
 	}
