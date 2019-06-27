@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -25,10 +26,12 @@ func main() {
 	// Tell the user the port in which is listening.
 	log.Println("Listening on", listener.Addr().String())
 
+	srv := &http.Server{Handler: handler(cfg), ReadTimeout: 5 * time.Hour, WriteTimeout: 5 * time.Hour}
+
 	if len(cfg.TLSCert) > 0 && len(cfg.TLSCert) > 0 {
-		err = http.ServeTLS(listener, handler(cfg), cfg.TLSCert, cfg.TLSKey)
+		err = srv.ServeTLS(listener, cfg.TLSCert, cfg.TLSKey)
 	} else {
-		err = http.Serve(listener, handler(cfg))
+		err = srv.Serve(listener)
 	}
 	// Starts the server.
 	if err != nil {
@@ -44,16 +47,13 @@ func handler(cfg *config.GlobalConfig) http.Handler {
 			return fileutils.Dir(scope)
 		},
 	}
-
 	needUpd, err := fb.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}
 	if needUpd {
-		fb.Config.Store()
+		cfg.WriteConfig()
 	}
-
-	cfg.StartMonitor()
 
 	return web.Handler(fb)
 }

@@ -25,15 +25,12 @@ func Handler(m *fb.FileBrowser) http.Handler {
 		code, err := serve(c, w, r)
 
 		if code >= 400 {
-			//w.WriteHeader(code)
-
 			txt := http.StatusText(code)
 			if len(c.PreviewType) == 0 {
 				log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
 			} else {
 				err = nil
 			}
-			//w.Write([]byte(txt + "\n"))
 		}
 
 		if err != nil {

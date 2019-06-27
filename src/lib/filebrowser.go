@@ -102,13 +102,21 @@ func (fb *FileBrowser) Setup() (bool, error) {
 			allUs := fb.Config.GetUsers()
 			for i := 0; i < len(allUs); i++ {
 				u := allUs[i]
-				fb.Pgen.ProcessPath(u.Scope, u.PreviewScope)
+				fb.Pgen.ProcessPath(fb.Config.GetUserHomePath(u.Username), fb.Config.GetUserPreviewPath(u.Username))
 			}
 		}()
 	}
 
 	return needUpdate, nil
 }
+
+func (c *Context) GetUserHomePath() string {
+	return c.Config.GetUserHomePath(c.User.Username)
+}
+func (c *Context) GetUserPreviewPath() string {
+	return c.Config.GetUserPreviewPath(c.User.Username)
+}
+
 func (c *Context) GenPreview(out string) {
 	if c.Config.AllowGeneratePreview {
 		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
@@ -117,6 +125,7 @@ func (c *Context) GenPreview(out string) {
 		}
 	}
 }
+
 // DefaultUser is used on New, when no 'base' user is provided.
 var DefaultUser = UserModel{
 	UserConfig: &config.UserConfig{
@@ -125,9 +134,7 @@ var DefaultUser = UserModel{
 		LockPassword: false,
 		Admin:        true,
 		Locale:       "",
-		Scope:        "./scope",
 		ViewMode:     "mosaic",
-		PreviewScope: "./preview",
 	},
 	FileSystem:        fileutils.Dir("."),
 	FileSystemPreview: fileutils.Dir("."),
@@ -152,6 +159,10 @@ type UserModel struct {
 	FileSystemPreview FileSystem `json:"-"`
 }
 
+func ToUserModel(u *config.UserConfig, cfg *config.GlobalConfig) *UserModel {
+	return &UserModel{u, u.Username, fileutils.Dir(cfg.GetUserHomePath(u.Username)), fileutils.Dir(cfg.GetUserPreviewPath(u.Username))}
+}
+
 // Context contains the needed information to make handlers work.
 type Context struct {
 	*FileBrowser
@@ -164,8 +175,8 @@ type Context struct {
 	//return files list by recursion
 	IsRecursive bool
 	//indicate about share request
-	ShareUser string
-	SearchType string
+	ShareUser    string
+	SearchType   string
 	SearchString string
 }
 

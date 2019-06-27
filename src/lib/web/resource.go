@@ -40,7 +40,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		}
 		return code, err
 	case http.MethodPatch:
-		return resourcePatchHandler(c, w, r)
+		return resourcePatchHandler(c, r)
 	case http.MethodPost:
 		return resourcePostPutHandler(c, w, r)
 	}
@@ -91,7 +91,7 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFi
 	f.Kind = "listing"
 
 	// Tries to get the listing data.
-	if err := f.GetListing(c.User, c.IsRecursive, fitFilter); err != nil {
+	if err := f.GetListing(c, fitFilter); err != nil {
 		return ErrorToHTTP(err, true), err
 	}
 
@@ -192,7 +192,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		// Otherwise we try to create the directory.
 		err := c.User.FileSystem.Mkdir(r.URL.Path, 0775, c.User.UID, c.User.GID)
 
-		p := filepath.Join(c.User.Scope, r.URL.Path)
+		p := filepath.Join(c.GetUserHomePath(), r.URL.Path)
 		os.Chown(p, c.User.UID, c.User.GID)
 		c.User.FileSystemPreview.Mkdir(p, 0775, c.User.UID, c.User.GID)
 		return ErrorToHTTP(err, false), err
@@ -228,7 +228,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		inf, err := fb.GetInfo(r.URL, c)
 		if err == nil {
 			c.File = inf
-			modP := fileutils.PreviewPathMod(r.URL.Path, c.User.Scope, c.User.PreviewScope)
+			modP := fileutils.PreviewPathMod(r.URL.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
 			ok, _ := fileutils.Exists(modP)
 			if !ok {
 				c.GenPreview(modP)
@@ -244,7 +244,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 }
 
 // resourcePatchHandler is the entry point for resource handler.
-func resourcePatchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 	if !c.User.AllowEdit {
 		return http.StatusForbidden, nil
 	}

@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/json"
 	"github.com/browsefile/backend/src/config"
-	"github.com/browsefile/backend/src/lib/fileutils"
 	"log"
 	"net/http"
 	"net/url"
@@ -71,7 +70,7 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 		if !ok {
 			return http.StatusForbidden, nil
 		}
-		c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
+		c.User =fb.ToUserModel(uc, c.Config)
 
 		return printToken(c, w)
 	}
@@ -105,7 +104,7 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 		return http.StatusForbidden, nil
 	}
 
-	c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
+	c.User = fb.ToUserModel(uc, c.Config)
 	return printToken(c, w)
 }
 
@@ -196,7 +195,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 			return false, nil
 		}
 
-		c.User = &fb.UserModel{admin, admin.Username, fileutils.Dir(admin.Scope), fileutils.Dir(admin.PreviewScope)}
+		c.User = fb.ToUserModel(admin, c.Config)
 		return true, c.User
 	}
 	// If proxy auth is used do not verify the JWT token if the header is provided.
@@ -205,7 +204,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 		if !ok {
 			return false, nil
 		}
-		c.User = &fb.UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope)}
+		c.User = fb.ToUserModel(u, c.Config)
 		return true, c.User
 	}
 
@@ -236,7 +235,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 			return false, nil
 		}
 	}
-	c.User = &fb.UserModel{u, u.Username, fileutils.Dir(u.Scope), fileutils.Dir(u.PreviewScope)}
+	c.User = fb.ToUserModel(u, c.Config)
 	return true, c.User
 
 }

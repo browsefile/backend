@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
-	"github.com/browsefile/backend/src/lib/fileutils"
 	"log"
 	"net/http"
 	"strings"
@@ -142,7 +141,7 @@ func merge(fin, n *fb.Listing) {
 
 func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w http.ResponseWriter, r *http.Request) (err error, res *fb.Listing) {
 	//replace user as for normal listing
-	c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
+	c.User = fb.ToUserModel(uc, c.Config)
 	orig := r.URL.Path
 
 	r.URL.Path = shr.Path
@@ -154,7 +153,7 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 		if err != nil {
 			return err, nil
 		}
-		err = c.File.GetListing(c.User, false, nil)
+		err = c.File.GetListing(c, nil)
 		if err != nil {
 			return err, nil
 		}

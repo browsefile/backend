@@ -74,7 +74,7 @@ type Listing struct {
 // respective HTTP error code
 func GetInfo(url *url.URL, c *Context) (*File, error) {
 	var err error
-	info, err, path, t := fileutils.GetFileInfo(c.User.Scope, url.Path)
+	info, err, path, t := fileutils.GetFileInfo(c.GetUserHomePath(), url.Path)
 
 	i := &File{
 		URL:         url.String(),
@@ -102,7 +102,7 @@ func GetInfo(url *url.URL, c *Context) (*File, error) {
 }
 
 // GetListing gets the information about a specific directory and its files.
-func (i *File) GetListing(u *UserModel, isRecursive bool, fitFilter func(f *File) bool) error {
+func (i *File) GetListing(c *Context, fitFilter func(f *File) bool) error {
 	// GetUsers the directory information using the Virtual File System of
 	// the user configuration.
 	var (
@@ -116,14 +116,14 @@ func (i *File) GetListing(u *UserModel, isRecursive bool, fitFilter func(f *File
 	files = make([]os.FileInfo, 0, 1000)
 	paths = make([]string, 0, 1000)
 
-	if isRecursive {
-		err := filepath.Walk(filepath.Join(u.Scope, i.VirtualPath),
+	if c.IsRecursive {
+		err := filepath.Walk(filepath.Join(c.GetUserHomePath(), i.VirtualPath),
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
 				files = append(files, info)
-				path = strings.Replace(path, u.Scope, "", -1)
+				path = strings.Replace(path, c.GetUserHomePath(), "", -1)
 				paths = append(paths, path)
 
 				return nil
@@ -132,7 +132,7 @@ func (i *File) GetListing(u *UserModel, isRecursive bool, fitFilter func(f *File
 			log.Println(err)
 		}
 	} else {
-		f, err := u.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, u.UID, u.GID)
+		f, err := c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID,  c.User.GID)
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func (i *File) GetListing(u *UserModel, isRecursive bool, fitFilter func(f *File
 			fileCount++
 		}
 
-		if isRecursive {
+		if c.IsRecursive {
 
 			if f.IsDir() {
 				fUrl = url.URL{Path: baseurl}

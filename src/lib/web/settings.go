@@ -14,22 +14,22 @@ func settingsHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 	switch r.Method {
 	case http.MethodGet:
-		return settingsGetHandler(c, w, r)
+		return settingsGetHandler(c, w)
 	case http.MethodPut:
-		return settingsPutHandler(c, w, r)
+		return settingsPutHandler(c, r)
 	}
 
 	return http.StatusMethodNotAllowed, nil
 }
 
-func settingsGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func settingsGetHandler(c *fb.Context, w http.ResponseWriter) (int, error) {
 	if !c.User.Admin {
 		return http.StatusForbidden, nil
 	}
 	return renderJSON(w, c.Config.CopyConfig())
 }
 
-func settingsPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func settingsPutHandler(c *fb.Context, r *http.Request) (int, error) {
 	if !c.User.Admin {
 		return http.StatusForbidden, nil
 	}

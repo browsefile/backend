@@ -7,7 +7,7 @@ import (
 
 // User contains the configuration for each user.
 type UserConfig struct {
-	FirstRun bool `json:"firstRun"`
+	FirstRun bool `json:"hashPasswordFirstRun"`
 	// Tells if this user is an admin.
 	Admin bool `json:"admin"`
 	// These indicate if the user can perform certain actions.
@@ -24,16 +24,11 @@ type UserConfig struct {
 	// emptied during JSON marshall.
 	Password string `json:"password"`
 
-	// Scope is the path the user has access to.
-	Scope string `json:"homePath"`
-
 	// Username is the user username used to login.
 	Username string `json:"username" storm:"index,unique"`
 
 	// User view mode for files and folders.
 	ViewMode string `json:"viewMode"`
-	// system path to store user's image/video previews
-	PreviewScope string `json:"previewPath"`
 
 	Shares []*ShareItem `json:"shares"`
 	//authenticate by IP, need to change auth.method
@@ -51,8 +46,6 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 		Password:     u.Password,
 		AllowNew:     u.AllowNew,
 		LockPassword: u.LockPassword,
-		PreviewScope: u.PreviewScope,
-		Scope:        u.Scope,
 		ViewMode:     u.ViewMode,
 		Admin:        u.Admin,
 		AllowEdit:    u.AllowEdit,

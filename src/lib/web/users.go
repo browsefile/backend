@@ -37,7 +37,7 @@ func usersHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 	case http.MethodDelete:
 		return usersDeleteHandler(c, w, r)
 	case http.MethodPut:
-		return usersPutHandler(c, w, r)
+		return usersPutHandler(c, r)
 	}
 
 	return http.StatusNotImplemented, nil
@@ -55,10 +55,10 @@ func getUserName(r *http.Request) (string, error) {
 	return sid, nil
 }
 
-// getUser returns the user which is present in the request
+// parseUserFromRequest returns the user which is present in the request
 // body. If the body is empty or the JSON is invalid, it
 // returns an fb.Error.
-func getUser(c *fb.Context, r *http.Request) (*fb.UserModel, string, error) {
+func parseUserFromRequest(c *fb.Context, r *http.Request) (*fb.UserModel, string, error) {
 	// Checks if the request body is empty.
 	if r.Body == nil {
 		return nil, "", fb.ErrEmptyRequest
@@ -76,8 +76,8 @@ func getUser(c *fb.Context, r *http.Request) (*fb.UserModel, string, error) {
 		return nil, "", fb.ErrWrongDataType
 	}
 
-	mod.Data.FileSystem = c.NewFS(mod.Data.Scope)
-	mod.Data.FileSystemPreview = c.NewFS(mod.Data.PreviewScope)
+	mod.Data.FileSystem = c.NewFS(c.GetUserHomePath())
+	mod.Data.FileSystemPreview = c.NewFS(c.GetUserPreviewPath())
 	return mod.Data, mod.Which, nil
 }
 
@@ -100,7 +100,6 @@ func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			u.Password = ""
 			//allow view users, in order to share
 			if !c.User.Admin {
-				u.Scope = ""
 				u.UID = -1
 				u.GID = -1
 				u.IpAuth = nil
@@ -135,7 +134,7 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 		return http.StatusMethodNotAllowed, nil
 	}
 
-	u, _, err := getUser(c, r)
+	u, _, err := parseUserFromRequest(c, r)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -143,11 +142,6 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	// Checks if username isn't empty.
 	if u.Username == "" {
 		return http.StatusBadRequest, fb.ErrEmptyUsername
-	}
-
-	// Checks if scope isn't empty.
-	if u.Scope == "" {
-		return http.StatusBadRequest, fb.ErrEmptyScope
 	}
 
 	// Checks if password isn't empty.
@@ -160,12 +154,8 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	if u.ViewMode == "" && admin != nil {
 		u.ViewMode = admin.ViewMode
 	}
-	if u.PreviewScope == "" && admin != nil {
-		u.PreviewScope = admin.PreviewScope
-	}
-
 	// Checks if the scope exists.
-	if code, err := checkFS(u.Scope); err != nil {
+	if code, err := makeFS(c.Config.GetUserHomePath(u.Username)); err != nil {
 		return code, err
 	}
 
@@ -194,7 +184,7 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	return 0, nil
 }
 
-func checkFS(path string) (int, error) {
+func makeFS(path string) (int, error) {
 	info, err := os.Stat(path)
 
 	if err != nil {
@@ -240,7 +230,7 @@ func usersDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	return http.StatusOK, nil
 }
 
-func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
 	// New users should be created on /api/users.
 	if r.URL.Path == "/" {
 		return http.StatusMethodNotAllowed, nil
@@ -258,7 +248,7 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	}
 
 	// GetUsers the user from the request body.
-	u, which, err := getUser(c, r)
+	u, which, err := parseUserFromRequest(c, r)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -332,20 +322,10 @@ func usersPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		return http.StatusBadRequest, fb.ErrEmptyUsername
 	}
 
-	// Checks if filesystem isn't empty.
-	if u.Scope == "" {
-		return http.StatusBadRequest, fb.ErrEmptyScope
-	}
-
 	// Checks if the scope exists.
-	if code, err := checkFS(u.Scope); err != nil {
+	if code, err := makeFS(c.Config.GetUserHomePath(u.Username)); err != nil {
 		return code, err
 	}
-	admin := c.Config.GetAdmin()
-	if u.PreviewScope == "" && admin != nil {
-		u.PreviewScope = admin.PreviewScope
-	}
-
 	// GetUsers the current saved user from the in-memory map.
 	suser, ok := c.Config.GetByUsername(name)
 	if !ok {

@@ -16,7 +16,7 @@ func TestCopyFile(t *testing.T) {
 
 	file := filepath.Join(tempdir, "file.txt")
 
-	err = CopyFile("./testdata/file.txt", file)
+	err = CopyFile("./testdata/file.txt", file, 0, 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -36,7 +36,7 @@ func TestCopyDir(t *testing.T) {
 
 	folder := filepath.Join(tempdir, "folder/folder")
 
-	err = CopyDir("./testdata/mountain", folder)
+	err = CopyDir("./testdata/mountain", folder, 0, 0)
 	if err != nil {
 		t.Error(err)
 	}

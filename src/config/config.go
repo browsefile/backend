@@ -9,10 +9,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
-	"time"
 )
 
 var config *GlobalConfig
@@ -24,19 +23,19 @@ Single config for everything.
 update automatically
 */
 type GlobalConfig struct {
-	Users          []*UserConfig `json:"users"`
-	Port           int           `json:"port"`
-	IP             string        `json:"ip"`
-	Log            string        `json:"log"`
-
-	RefreshSeconds int           `json:"configRamRefreshSeconds"`
-	TLSKey         string        `json:"tlsKey"`
-	TLSCert        string        `json:"tlsCert"`
+	Users   []*UserConfig `json:"users"`
+	Port    int           `json:"port"`
+	IP      string        `json:"ip"`
+	Log     string        `json:"log"`
+	TLSKey  string        `json:"tlsKey"`
+	TLSCert string        `json:"tlsCert"`
+	// Scope is the path the user has access to.
+	FilesPath      string `json:"filesPath"`
 	*CaptchaConfig `json:"captchaConfig"`
 	*Auth          `json:"auth"`
 	*PreviewConf   `json:"preview"`
-	updateLock     *sync.RWMutex `json:"-"`
-	needSave       int32         `json:"-"`
+
+	updateLock *sync.RWMutex `json:"-"`
 }
 
 // Auth settings.
@@ -44,7 +43,7 @@ type PreviewConf struct {
 	//enable preview generating by call .sh
 	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 	Threads              int  `json:"threads"`
-	FirstRun             bool `json:"firstRun"`
+	FirstRun             bool `json:"previewOnFirstRun"`
 }
 
 // Auth settings.
@@ -93,6 +92,13 @@ func (cfg *GlobalConfig) Verify() {
 
 	//todo
 }
+func (cfg *GlobalConfig) GetUserHomePath(userName string) string {
+	return filepath.Join(cfg.FilesPath, userName, "files")
+}
+func (cfg *GlobalConfig) GetUserPreviewPath(userName string) string {
+	return filepath.Join(cfg.FilesPath, userName, "preview")
+}
+
 func (cfg *GlobalConfig) ReadConfigFile(file string) {
 	FileName = file
 	// Open our jsonFile
@@ -108,7 +114,7 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 		log.Print("can't parse " + FileName)
 		log.Print(err)
 	}
-	cfg.refreshRam()
+	cfg.refreshUserRam()
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
 
@@ -119,7 +125,7 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 func (cfg *GlobalConfig) Init() {
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
-	cfg.refreshRam()
+	cfg.refreshUserRam()
 }
 func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 	cfg.lockR()
@@ -132,31 +138,17 @@ func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 	return nil
 }
 
-func (cfg *GlobalConfig) StartMonitor() {
-	go func() {
-	Start:
-		cfgCounter := atomic.SwapInt32(&cfg.needSave, 0)
-		if cfgCounter != 0 {
-			cfg.updateLock.Lock()
-			jsonData, err := json.MarshalIndent(cfg, "", "    ")
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				err = ioutil.WriteFile(FileName, jsonData, 0644)
-			}
-			cfg.updateLock.Unlock()
-		}
-		time.Sleep(time.Duration(cfg.RefreshSeconds) * time.Second)
-		goto Start
-	}()
+func (cfg *GlobalConfig) WriteConfig() {
+	//todo check hash if config changed
+	jsonData, err := json.MarshalIndent(cfg, "", "    ")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		err = ioutil.WriteFile(FileName, jsonData, 0666)
+	}
 }
 
-//indicate that changes made
-func (cfg *GlobalConfig) Store() {
-	cfg.needSave = atomic.AddInt32(&cfg.needSave, 1)
-}
-
-func (cfg *GlobalConfig) refreshRam() {
+func (cfg *GlobalConfig) refreshUserRam() {
 	usersRam = make(map[string]*UserConfig)
 
 	for _, u := range cfg.Users {
@@ -229,7 +221,7 @@ func (cfg *GlobalConfig) Add(u *UserConfig) error {
 	}
 
 	cfg.Users = append(cfg.Users, u)
-	cfg.refreshRam()
+	cfg.refreshUserRam()
 
 	return nil
 }
@@ -245,9 +237,7 @@ func (cfg *GlobalConfig) Update(u *UserConfig) error {
 	if i >= 0 {
 		//update only specific fields
 		cfg.Users[i].Admin = u.Admin
-		cfg.Users[i].PreviewScope = u.PreviewScope
 		cfg.Users[i].ViewMode = u.ViewMode
-		cfg.Users[i].Scope = u.Scope
 		cfg.Users[i].FirstRun = u.FirstRun
 		cfg.Users[i].Shares = u.Shares
 		cfg.Users[i].IpAuth = u.IpAuth
@@ -255,9 +245,11 @@ func (cfg *GlobalConfig) Update(u *UserConfig) error {
 		cfg.Users[i].AllowEdit = u.AllowEdit
 		cfg.Users[i].AllowNew = u.AllowNew
 		cfg.Users[i].LockPassword = u.LockPassword
+		cfg.Users[i].UID = u.UID
+		cfg.Users[i].GID = u.GID
 	}
 
-	cfg.refreshRam()
+	cfg.refreshUserRam()
 	return nil
 }
 
@@ -268,7 +260,7 @@ func (cfg *GlobalConfig) UpdateUsers(users []*UserConfig) error {
 		cfg.Users = users
 	}
 
-	cfg.refreshRam()
+	cfg.refreshUserRam()
 	return nil
 }
 
@@ -281,7 +273,7 @@ func (cfg *GlobalConfig) Delete(username string) error {
 		cfg.Users = append(cfg.Users[:i], cfg.Users[i+1:]...)
 
 	}
-	cfg.refreshRam()
+	cfg.refreshUserRam()
 
 	return nil
 }
@@ -301,42 +293,47 @@ func (cfg *GlobalConfig) GetKeyBytes() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(cfg.Auth.Key)
 }
 
-func (cfg *GlobalConfig) CopyConfig() (res *GlobalConfig) {
+func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 	cfg.lockR()
 	defer cfg.unlockR()
-	res = &GlobalConfig{
-		Users:          cfg.GetUsers(),
-		RefreshSeconds: cfg.RefreshSeconds,
-		Port:           cfg.Port,
-		IP:             cfg.IP,
-		Log:            cfg.Log,
-		CaptchaConfig:  cfg.CopyCaptchaConfig(),
-		Auth:           cfg.CopyAuth(),
-		PreviewConf:    &PreviewConf{AllowGeneratePreview: cfg.AllowGeneratePreview, Threads: cfg.Threads},
+	return &GlobalConfig{
+		Users:         cfg.GetUsers(),
+		Port:          cfg.Port,
+		IP:            cfg.IP,
+		Log:           cfg.Log,
+		CaptchaConfig: cfg.CopyCaptchaConfig(),
+		Auth:          cfg.CopyAuth(),
+		PreviewConf:   &PreviewConf{AllowGeneratePreview: cfg.AllowGeneratePreview, Threads: cfg.Threads},
+		FilesPath:     cfg.FilesPath,
+		TLSKey:        cfg.TLSKey,
+		TLSCert:       cfg.TLSCert,
 	}
-	return res
 }
 func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.lock()
 	defer cfg.unlock()
-	cfg.RefreshSeconds = u.RefreshSeconds
 	cfg.Port = u.Port
 	cfg.IP = u.IP
 	cfg.Log = u.Log
 	cfg.Users = u.GetUsers()
 	cfg.Auth = u.CopyAuth()
 	cfg.CaptchaConfig = u.CopyCaptchaConfig()
+	cfg.FilesPath = u.FilesPath
+	cfg.TLSCert = u.TLSCert
+	cfg.TLSKey = u.TLSKey
+	cfg.PreviewConf = u.PreviewConf
 }
 
 func (cfg *GlobalConfig) SetKey(k []byte) {
 	cfg.Auth.Key = base64.StdEncoding.EncodeToString(k)
 }
 func (cfg *GlobalConfig) lock() {
-	cfg.needSave = atomic.AddInt32(&cfg.needSave, 1)
 	cfg.updateLock.Lock()
 }
 func (cfg *GlobalConfig) unlock() {
+	cfg.WriteConfig()
 	cfg.updateLock.Unlock()
+
 }
 
 func (cfg *GlobalConfig) lockR() {

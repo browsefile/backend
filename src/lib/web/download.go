@@ -60,7 +60,7 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 			itm, usr := config.GetShare(c.User.Username, uname, urlPath.Path)
 			//share found and allowed
 			if itm != nil {
-				paths = append(paths, fileutils.SlashClean(filepath.Join(usr.Scope, urlPath.Path)))
+				paths = append(paths, fileutils.SlashClean(filepath.Join(c.Config.GetUserHomePath(usr.Username), urlPath.Path)))
 			}
 		}
 
@@ -70,7 +70,7 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
 
 		if item != nil && len(item.Path) > 0 {
-			c.User = &fb.UserModel{uc, uc.Username, fileutils.Dir(uc.Scope), fileutils.Dir(uc.PreviewScope)}
+			c.User = fb.ToUserModel(uc, c.Config)
 
 		} else if err != nil {
 			return http.StatusNotFound, err
@@ -135,7 +135,7 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 		return http.StatusNotFound, err
 	}
 	if len(c.PreviewType) > 0 {
-		modP := fileutils.PreviewPathMod(c.File.Path, c.User.Scope, c.User.PreviewScope)
+		modP := fileutils.PreviewPathMod(c.File.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
 		ok, err := fileutils.Exists(modP)
 		if !ok {
 			c.GenPreview(modP)

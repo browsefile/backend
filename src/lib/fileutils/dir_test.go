@@ -16,7 +16,7 @@ func TestDir(t *testing.T) {
 	defer os.RemoveAll(tempdir)
 
 	folder := filepath.Join(tempdir, "folder")
-	err = CopyDir("./testdata", folder)
+	err = CopyDir("./testdata", folder,0,0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -27,7 +27,7 @@ func TestDir(t *testing.T) {
 		t.Error(errors.New("wrong path"))
 	}
 
-	err = testdata.Copy("/mountain", "/test")
+	err = testdata.Copy("/mountain", "/test",0,0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -42,7 +42,7 @@ func TestDir(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testdata.Mkdir("/test/qwe/rty/uio/pas/dfg/gh", 0700)
+	err = testdata.Mkdir("/test/qwe/rty/uio/pas/dfg/gh", 0700,0,0)
 	if err != nil {
 		t.Error(err)
 	}

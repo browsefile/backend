@@ -1,17 +1,15 @@
 {
     "users": [
         {
-            "firstRun": false,
+            "hashPasswordFirstRun": false,
             "admin": false,
             "allowEdit": true,
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
             "password": "$2a$10$wWxfOR4o2Uw2dafsVEHUiueCdH/bSb4esUJlmi8gIN.SebX3Lt/5O",
-            "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp2",
             "username": "user1",
             "viewMode": "mosaic",
-            "previewPath": "/tmp/preview",
             "shares": [
                 {
                     "path": "/share",
@@ -28,17 +26,15 @@
             "gid": 1000
         },
         {
-            "firstRun": false,
+            "hashPasswordFirstRun": false,
             "admin": false,
             "allowEdit": true,
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
             "password": "$2a$10$vxDANZNGJqEVpdIYsjwpX.TiWtQjwPhncQb7UgWKVPi2gceivIQSW",
-            "homePath": "/tmp/user2",
             "username": "user2",
             "viewMode": "mosaic",
-            "previewPath": "/tmp/preview",
             "shares": [
                 {
                     "path": "/share",
@@ -55,34 +51,30 @@
             "gid": 1000
         },
         {
-            "firstRun": false,
+            "hashPasswordFirstRun": false,
             "admin": false,
             "allowEdit": true,
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
             "password": "$2a$10$6u8xE1gC/UG5cQCQrp8h0O81RxzrdGD91bumnSsZp24/x15habVoS",
-            "homePath": "/tmp/user2",
             "username": "user3",
             "viewMode": "mosaic",
-            "previewPath": "/tmp/preview",
             "shares": [],
             "ipAuth": [],
             "uid": 1000,
             "gid": 1000
         },
         {
-            "firstRun": false,
+            "hashPasswordFirstRun": false,
             "admin": true,
             "allowEdit": true,
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
             "password": "$2a$10$MxsDQ9P8E4a8R..69coBQO88PogHtA1RI6M37uFo1nNvB5w2DN17S",
-            "homePath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp",
             "username": "admin",
             "viewMode": "list",
-            "previewPath": "/tmp/preview",
             "shares": [
                 {
                     "path": "/movies",
@@ -103,9 +95,9 @@
     "port": 8081,
     "ip": "0.0.0.0",
     "log": "stdout",
-    "configRamRefreshSeconds": 10,
     "tlsKey": "",
     "tlsCert": "",
+    "filesPath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp2",
     "captchaConfig": {
         "host": "",
         "key": "",
@@ -118,7 +110,7 @@
     },
     "preview": {
         "allowGeneratePreview": true,
-        "threads": 4,
-        "firstRun": false
+        "threads": 2,
+        "previewOnFirstRun": false
     }
 }

@@ -1,6 +1,7 @@
 package fileutils
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -72,7 +73,7 @@ func CopyDir(source string, dest string, uid, gid int) error {
 		return err
 	}
 
-	var errString string
+	var errStr bytes.Buffer
 	for _, obj := range obs {
 		fsource := source + "/" + obj.Name()
 		fdest := dest + "/" + obj.Name()
@@ -81,19 +82,21 @@ func CopyDir(source string, dest string, uid, gid int) error {
 			// Create sub-directories, recursively.
 			err = CopyDir(fsource, fdest, uid, gid)
 			if err != nil {
-				errString += err.Error() + "\n"
+				errStr.WriteString(err.Error())
+				errStr.WriteRune('\n')
 			}
 		} else {
 			// Perform the file copy.
 			err = CopyFile(fsource, fdest, uid, gid)
 			if err != nil {
-				errString += err.Error() + "\n"
+				errStr.WriteString(err.Error())
+				errStr.WriteRune('\n')
 			}
 		}
 	}
 
-	if len(errString) > 0 {
-		return errors.New(errString)
+	if errStr.Len() > 0 {
+		return errors.New(errStr.String())
 	}
 
 	return nil
