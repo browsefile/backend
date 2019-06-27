@@ -1,7 +1,7 @@
 Browse files on your router or raspberry or any other embedded device through web. Lightweight analog of nextcloud/owncloud. 
 - no database
 - no cli configs
-- ~30 mb ram consumption
+- ~10 mb ram consumption
 - only 1 json configuration file
 - videos/images preview 
 - share files between users. 
