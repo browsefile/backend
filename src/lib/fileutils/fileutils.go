@@ -58,11 +58,11 @@ var mimeExt = [][]string{{
 
 // getBasedOnExtensions checks if a file can be edited by its mimeExt.
 func GetBasedOnExtensions(name string) (res bool, t string) {
+	name = strings.ToLower(name)
 	ext := filepath.Ext(name)
 	if ext == "" {
 		ext = name
 	}
-	name = strings.ToLower(name)
 	res = strings.EqualFold(".pdf", ext)
 	if res {
 		return res, "pdf"

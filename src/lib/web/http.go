@@ -6,6 +6,7 @@ import (
 	fb "github.com/browsefile/backend/src/lib"
 	"html/template"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -121,9 +122,11 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 		var err error
 		c.File, err = fb.MakeInfo(r.URL, c)
 		c.File.SetFileType(false)
-		if len(c.File.Type) > 0 {
-			w.Header().Set("Content-Type", c.File.Type)
+		m := mime.TypeByExtension(c.File.Extension)
+		if len(m) == 0 {
+			m = c.File.Type
 		}
+		w.Header().Set("Content-Type", m)
 
 		if err != nil {
 			return ErrorToHTTP(err, false), err
