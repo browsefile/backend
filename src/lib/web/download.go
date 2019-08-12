@@ -22,7 +22,7 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	if !c.File.IsDir {
 		return downloadFileHandler(c, w, r)
 	}
-	files := []string{"-rqj", "-"}
+	files := []string{"-0rqj", "-"}
 	names := strings.Split(r.URL.Query().Get("files"), ",")
 
 	// If there are files in the query, sanitize their names.
@@ -47,10 +47,9 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	var paths []string
 
-	queryValues := r.URL.Query()
-	fParm := queryValues.Get("files")
-	if len(fParm) > 0 {
-		fArr := strings.Split(fParm, ",")
+	names := r.URL.Query().Get("files")
+	if len(names) != 0 {
+		fArr := strings.Split(names, ",")
 		for _, fp := range fArr {
 			urlPath, err := url.Parse(fp)
 			if err != nil {
@@ -61,6 +60,19 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 			//share found and allowed
 			if itm != nil {
 				paths = append(paths, fileutils.SlashClean(filepath.Join(c.Config.GetUserHomePath(usr.Username), urlPath.Path)))
+			}
+		}
+		//serve only 1 file without zip
+
+		if len(paths) == 1 {
+			//todo: fix file creation
+			info, err, _, _ := fileutils.GetFileInfo(paths[0], "")
+			if err == nil && !info.IsDir() {
+				c.File = &fb.File{
+					Path: paths[0],
+					Name: filepath.Base(paths[0]),
+				}
+				return downloadFileHandler(c, w, r)
 			}
 		}
 
@@ -83,7 +95,7 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		return downloadFileHandler(c, w, r)
 	}
 
-	files := []string{"-rqj", "-"}
+	files := []string{"-0rqj", "-"}
 
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
