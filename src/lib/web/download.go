@@ -146,17 +146,22 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return http.StatusNotFound, err
 	}
+	//serve icon
 	if len(c.PreviewType) > 0 {
 		modP := fileutils.PreviewPathMod(c.File.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
-		ok, err := fileutils.Exists(modP)
+		ok, _ := fileutils.Exists(modP)
 		if !ok {
 			c.GenPreview(modP)
-			file, err = os.Open(c.File.Path)
-			if err != nil {
-				return http.StatusNotFound, err
-			}
 		}
-		file, err = os.Open(modP)
+		previewFile, err := os.Open(modP)
+		defer previewFile.Close()
+		if err != nil {
+			return http.StatusNotFound, err
+		} else {
+			http.ServeContent(w, r, stat.Name(), stat.ModTime(), previewFile)
+			return 0, nil
+		}
+
 	}
 
 	if r.URL.Query().Get("inline") == "true" {
@@ -165,7 +170,7 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 		// As per RFC6266 section 4.3
 		w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(c.File.Name))
 	}
-
+	//serve fullsize file
 	if file != nil {
 		http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
 		return 0, nil

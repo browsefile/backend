@@ -58,9 +58,9 @@ func (p *PreviewGen) Process(pc *PreviewData) {
 		//do not wait for video preview generation, because it can take a while!
 		if p.threadsCount == 1 && !strings.EqualFold(pc.fType, "video") {
 			genPrew(pc)
-			//otherwise run async, and cant be sure in return result
+
 		} else {
-			//run async, for immediate response
+			//otherwise run async for immediate response
 			p.ch <- pc
 
 		}
