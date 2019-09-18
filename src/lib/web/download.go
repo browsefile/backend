@@ -46,22 +46,32 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 }
 func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	var paths []string
-
 	names := r.URL.Query().Get("files")
 	if len(names) != 0 {
 		fArr := strings.Split(names, ",")
+		origUsr := c.ShareType
 		for _, fp := range fArr {
 			urlPath, err := url.Parse(fp)
 			if err != nil {
 				return http.StatusNotFound, nil
 			}
-			uname := urlPath.Query().Get("share")
-			itm, usr := config.GetShare(c.User.Username, uname, urlPath.Path)
+			q := urlPath.Query()
+			c.ShareType = q.Get("share")
+			c.RootHash = q.Get("rootHash")
+
+			itm, usr := getShare(urlPath.Path, c)
 			//share found and allowed
 			if itm != nil {
-				paths = append(paths, fileutils.SlashClean(filepath.Join(c.Config.GetUserHomePath(usr.Username), urlPath.Path)))
+				var p string
+				if c.User.IsGuest() || len(c.RootHash) > 0 {
+					p = filepath.Join(c.Config.GetUserHomePath(usr.Username), itm.Path, urlPath.Path)
+				} else {
+					p = filepath.Join(c.Config.GetUserHomePath(usr.Username), urlPath.Path)
+				}
+				paths = append(paths, fileutils.SlashClean(p))
 			}
 		}
+		c.ShareType = origUsr
 		//serve only 1 file without zip
 
 		if len(paths) == 1 {
@@ -78,14 +88,16 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 
 	} else {
 		var err error
-
-		item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
+		item, uc := getShare(r.URL.Path, c)
 
 		if item != nil && len(item.Path) > 0 {
 			c.User = fb.ToUserModel(uc, c.Config)
 
 		} else if err != nil {
 			return http.StatusNotFound, err
+		}
+		if c.IsExternalShare() {
+			r.URL.Path = filepath.Join(item.Path, r.URL.Path)
 		}
 		c.File, err = fb.MakeInfo(r.URL, c)
 		if err != nil {
@@ -110,7 +122,14 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 
 	return 0, serveDownload(c, w, files)
 }
-
+func getShare(p string, c *fb.Context) (*config.ShareItem, *config.UserConfig) {
+	//no direct way for usual share get, to guest users
+	if c.User.IsGuest() || len(c.RootHash) > 0 {
+		return c.Config.GetExternal(c.RootHash)
+	} else {
+		return config.GetShare(c.User.Username, c.ShareType, p)
+	}
+}
 func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) error {
 	// Defines the file name.
 	name := ""

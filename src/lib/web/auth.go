@@ -70,7 +70,7 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 		if !ok {
 			return http.StatusForbidden, nil
 		}
-		c.User =fb.ToUserModel(uc, c.Config)
+		c.User = fb.ToUserModel(uc, c.Config)
 
 		return printToken(c, w)
 	}
@@ -99,9 +99,14 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 	}
 
 	uc, ok := c.Config.GetByUsername(cred.Username)
-	// Checks if the password is correct.
-	if !ok || !fb.CheckPasswordHash(cred.Password, uc.Password) {
+	if !ok{
 		return http.StatusForbidden, nil
+	}
+	if !uc.IsGuest() {
+		// Checks if the password is correct.
+		if !ok || !fb.CheckPasswordHash(cred.Password, uc.Password) {
+			return http.StatusForbidden, nil
+		}
 	}
 
 	c.User = fb.ToUserModel(uc, c.Config)
@@ -185,6 +190,10 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 
 	return auth, nil
 }
+func validateGuestAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
+	uc, _ := c.Config.GetByUsername(config.GUEST)
+	return true, fb.ToUserModel(uc, c.Config)
+}
 
 // validateAuth is used to validate the authentication and returns the
 // User if it is valid.
@@ -215,7 +224,6 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 	var claims claims
 	var u *config.UserConfig
 	var ok bool
-
 	if c.Config.Method == "ip" {
 		u, ok = c.Config.GetByIp(r.RemoteAddr)
 		if !ok {

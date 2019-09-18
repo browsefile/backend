@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"os"
+	"strings"
 )
 
 const (
@@ -86,10 +87,17 @@ func (fb *FileBrowser) Setup() (bool, error) {
 				log.Println(err)
 			}
 		}
+		for _, shr := range u.Shares {
+			shr.Hash = config.GenShareHash(u.Username, shr.Path)
+		}
 	}
 
 	if needUpdate {
 		fb.Config.UpdateUsers(users)
+	}else {
+
+		fb.Config.Users = users
+		fb.Config.RefreshUserRam()
 	}
 	fb.Pgen = new(preview.PreviewGen)
 	fb.Pgen.Setup(fb.Config.Threads)
@@ -124,6 +132,15 @@ func (c *Context) GenPreview(out string) {
 			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 		}
 	}
+}
+func (c *Context) IsExternalShare() (r bool) {
+	return len(c.RootHash) > 0
+}
+func (c *Context) IsShareRequest() bool {
+	return strings.EqualFold(c.ShareType, "my-list") ||
+		strings.EqualFold(c.ShareType, "my") ||
+		strings.EqualFold(c.ShareType, "list") ||
+		strings.EqualFold(c.ShareType, "gen-ex")
 }
 
 // DefaultUser is used on New, when no 'base' user is provided.
@@ -175,9 +192,11 @@ type Context struct {
 	//return files list by recursion
 	IsRecursive bool
 	//indicate about share request
-	ShareUser    string
+	ShareType    string
 	SearchType   string
 	SearchString string
+	//external share item root dir hash
+	RootHash string
 }
 
 // HashPassword generates an hash from a password using bcrypt.

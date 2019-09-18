@@ -87,26 +87,22 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 }
 
 func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
-	f := c.File
-	f.Kind = "listing"
+	c.File.Kind = "listing"
 
 	// Tries to get the listing data.
-	if err := f.GetListing(c, fitFilter); err != nil {
+	if err := c.File.GetListing(c, fitFilter); err != nil {
 		return ErrorToHTTP(err, true), err
 	}
-
-	listing := f.Listing
-
 	// Copy the query values into the Listing struct
 	if sort, order, err := HandleSortOrder(w, r, "/"); err == nil {
-		listing.Sort = sort
-		listing.Order = order
+		c.File.Listing.Sort = sort
+		c.File.Listing.Order = order
 	} else {
 		return http.StatusBadRequest, err
 	}
 
-	listing.ApplySort()
-	listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
+	c.File.Listing.ApplySort()
+	c.File.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 
 	return 0, nil
 }

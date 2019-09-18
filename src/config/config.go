@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,8 @@ var config *GlobalConfig
 var usersRam map[string]*UserConfig
 var FileName = "browsefile.json"
 
+const GUEST string = "guest"
+
 /*
 Single config for everything.
 update automatically
@@ -30,10 +33,11 @@ type GlobalConfig struct {
 	TLSKey  string        `json:"tlsKey"`
 	TLSCert string        `json:"tlsCert"`
 	// Scope is the path the user has access to.
-	FilesPath      string `json:"filesPath"`
-	*CaptchaConfig `json:"captchaConfig"`
-	*Auth          `json:"auth"`
-	*PreviewConf   `json:"preview"`
+	FilesPath         string `json:"filesPath"`
+	*CaptchaConfig    `json:"captchaConfig"`
+	*Auth             `json:"auth"`
+	*PreviewConf      `json:"preview"`
+	ExternalShareHost string `json:"externalShareHost"`
 
 	updateLock *sync.RWMutex `json:"-"`
 }
@@ -58,6 +62,31 @@ type Auth struct {
 	Header string `json:"header"`
 
 	Key string `json:"key"`
+}
+
+func GenShareHash(userName, itmPath string) string {
+	itmPath = strings.ReplaceAll(itmPath, "/", "")
+	return base64.StdEncoding.EncodeToString(md5.New().Sum([]byte(userName + itmPath)))
+}
+
+func (gc *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConfig) {
+	config.lockR()
+	defer config.unlockR()
+	for _, user := range gc.Users {
+		for _, item := range user.Shares {
+			if strings.EqualFold(hash, item.Hash) {
+				res = item
+				usr = user
+				break
+			}
+		}
+		if res != nil {
+			break
+		}
+	}
+
+	return res, usr
+
 }
 
 func (auth *Auth) CopyAuth() *Auth {
@@ -114,7 +143,7 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 		log.Print("can't parse " + FileName)
 		log.Print(err)
 	}
-	cfg.refreshUserRam()
+	cfg.RefreshUserRam()
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
 
@@ -125,7 +154,7 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 func (cfg *GlobalConfig) Init() {
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
-	cfg.refreshUserRam()
+	cfg.RefreshUserRam()
 }
 func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 	cfg.lockR()
@@ -148,7 +177,7 @@ func (cfg *GlobalConfig) WriteConfig() {
 	}
 }
 
-func (cfg *GlobalConfig) refreshUserRam() {
+func (cfg *GlobalConfig) RefreshUserRam() {
 	usersRam = make(map[string]*UserConfig)
 
 	for _, u := range cfg.Users {
@@ -158,6 +187,7 @@ func (cfg *GlobalConfig) refreshUserRam() {
 			//index ips as well
 			usersRam[ip] = u
 		}
+
 
 	}
 }
@@ -182,6 +212,19 @@ func (cfg *GlobalConfig) SetupLog() {
 func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 	cfg.lockR()
 	defer cfg.unlockR()
+
+	if username == GUEST {
+		admin := config.GetAdmin()
+		return &UserConfig{
+			Username:  username,
+			Locale:    admin.Locale,
+			Admin:     false,
+			ViewMode:  admin.ViewMode,
+			AllowNew:  false,
+			AllowEdit: false,
+		}, true
+	}
+
 	res, ok := usersRam[username]
 	if !ok {
 		return nil, ok
@@ -221,7 +264,7 @@ func (cfg *GlobalConfig) Add(u *UserConfig) error {
 	}
 
 	cfg.Users = append(cfg.Users, u)
-	cfg.refreshUserRam()
+	cfg.RefreshUserRam()
 
 	return nil
 }
@@ -249,7 +292,7 @@ func (cfg *GlobalConfig) Update(u *UserConfig) error {
 		cfg.Users[i].GID = u.GID
 	}
 
-	cfg.refreshUserRam()
+	cfg.RefreshUserRam()
 	return nil
 }
 
@@ -260,7 +303,7 @@ func (cfg *GlobalConfig) UpdateUsers(users []*UserConfig) error {
 		cfg.Users = users
 	}
 
-	cfg.refreshUserRam()
+	cfg.RefreshUserRam()
 	return nil
 }
 
@@ -273,7 +316,7 @@ func (cfg *GlobalConfig) Delete(username string) error {
 		cfg.Users = append(cfg.Users[:i], cfg.Users[i+1:]...)
 
 	}
-	cfg.refreshUserRam()
+	cfg.RefreshUserRam()
 
 	return nil
 }

@@ -6,11 +6,15 @@ import (
 	fb "github.com/browsefile/backend/src/lib"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 )
 
 func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	r.URL.Path = sanitizeURL(r.URL.Path)
+	if c.User == nil && r.Method != "GET" {
+		return http.StatusNotFound, nil
+	}
 
 	switch r.Method {
 	case http.MethodGet:
@@ -23,9 +27,6 @@ func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 
 	return http.StatusNotImplemented, nil
 }
-func isShareHandler(share string) bool {
-	return strings.EqualFold(share, "my-list") || strings.EqualFold(share, "my") || strings.EqualFold(share, "list")
-}
 
 func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	//list of all shares
@@ -33,7 +34,9 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		Listing: &fb.Listing{Items: make([]*fb.File, 0, 100)},
 	}
 	isDef := false
-	switch c.ShareUser {
+	isExternal := c.IsExternalShare()
+
+	switch c.ShareType {
 	case "my-list":
 		for _, shr := range c.User.Shares {
 			err, resLoc := shareListing(c.User.UserConfig, shr, c, w, r)
@@ -70,9 +73,12 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		}
 	default:
 		//share resource handler
-		item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
+		item, uc := getShare(r.URL.Path, c)
+
 		if item != nil && len(item.Path) > 0 {
-			item.Path = r.URL.Path
+			if !isExternal {
+				item.Path = r.URL.Path
+			}
 			err, resLoc := shareListing(uc, item, c, w, r)
 
 			if !checkShareErr(err, item.Path) {
@@ -90,14 +96,26 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 					// just serve the editor.
 					if !res.CanBeEdited() || !c.User.AllowEdit {
 						res.Kind = "preview"
+					} else {
+						res.Kind = "editor"
+					}
+					if isExternal {
+						res.URL += "/?rootHash=" + c.RootHash
 					}
 
-					res.Kind = "editor"
-
 				} else {
+					if isExternal {
+						for _, itm := range resLoc.Items {
+							itm.URL = strings.Replace(itm.URL, item.Path, "", 1) + "&rootHash=" + c.RootHash
+						}
+					}
 					merge(res.Listing, resLoc)
-					res.IsDir = c.File.IsDir
 				}
+
+				res.Name = c.File.Name
+				res.Size = c.File.Size
+				res.Language = c.File.Language
+
 			}
 			res.URL = r.URL.Path
 			res.VirtualPath = item.Path
@@ -109,7 +127,13 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	if !isDef && res.NumFiles == 0 && res.NumDirs == 0 {
 		return http.StatusNotFound, nil
 	}
-	res.URL += "/?share=" + c.ShareUser
+	if isExternal{
+		res.URL += "&share=" + c.ShareType
+	}else {
+		res.URL += "/?share=" + c.ShareType
+	}
+
+
 	if !isDef {
 		res.IsDir = true
 		res.VirtualPath = "/"
@@ -143,17 +167,16 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 	//replace user as for normal listing
 	c.User = fb.ToUserModel(uc, c.Config)
 	orig := r.URL.Path
-
-	r.URL.Path = shr.Path
+	if c.IsExternalShare() {
+		r.URL.Path = filepath.Join(shr.Path + r.URL.Path)
+	} else {
+		r.URL.Path = shr.Path
+	}
 	c.File, err = fb.MakeInfo(r.URL, c)
 	if err != nil {
 		log.Println(err)
 	}
 	if c.File.IsDir {
-		if err != nil {
-			return err, nil
-		}
-		err = c.File.GetListing(c, nil)
 		if err != nil {
 			return err, nil
 		}
@@ -171,13 +194,27 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 	return
 }
 
-func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res int, err error) {
 	itm := &config.ShareItem{}
-	err := json.NewDecoder(r.Body).Decode(itm)
-	if strings.EqualFold(itm.Path, "") {
-		return http.StatusBadRequest, err
+	if !strings.EqualFold(c.ShareType, "gen-ex") {
+		err := json.NewDecoder(r.Body).Decode(itm)
+		if strings.EqualFold(itm.Path, "") {
+			return http.StatusBadRequest, err
+		}
 	}
-	switch c.ShareUser {
+	switch c.ShareType {
+	case "gen-ex":
+		shr := c.User.GetShare(r.URL.Path)
+		var h string
+		if shr == nil {
+			h = config.GenShareHash(c.User.Username, r.URL.Path)
+		} else {
+			h = shr.Hash
+		}
+
+		l := c.Config.ExternalShareHost + "/shares?rootHash=" + h
+		return renderJSON(w, l)
+
 	case "my-meta":
 		shr := c.User.GetShare(r.URL.Path)
 		if shr != nil {
@@ -185,12 +222,10 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 				return http.StatusBadRequest, err
 			}
 		}
-		itm.Path = strings.Replace(itm.Path, "/files", "", 1)
 		if !c.User.AddShare(itm) {
 			return http.StatusBadRequest, err
 		}
 	default:
-
 		if err != nil {
 			return http.StatusBadRequest, err
 		}

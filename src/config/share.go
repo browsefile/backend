@@ -13,12 +13,15 @@ type ShareItem struct {
 	AllowLocal bool `json:"allowLocal"`
 	//allowed by only specific users
 	AllowUsers []string `json:"allowedUsers"`
+	//uses for external DMZ share request
+	Hash string `json:"-"`
 }
 type AllowedShare struct {
 	*UserConfig
 	*ShareItem
 }
 
+//allow access to the specific share link
 func (shr *ShareItem) IsAllowed(user string) (res bool) {
 	_, ok := config.GetByUsername(user)
 
@@ -47,6 +50,7 @@ func (shr *ShareItem) copyShare() (res *ShareItem) {
 		AllowExternal: shr.AllowExternal,
 		AllowLocal:    shr.AllowLocal,
 		AllowUsers:    make([]string, len(shr.AllowUsers)),
+		Hash:          shr.Hash,
 	}
 	copy(res.AllowUsers, shr.AllowUsers)
 	return
@@ -58,7 +62,7 @@ func (shr *ShareItem) IsActive() (res bool) {
 }
 
 /**
-ru is request user
+ru  request user su share user
 */
 func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 	shareUser, ok := config.GetByUsername(su)
@@ -67,7 +71,6 @@ func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 	defer config.unlockR()
 
 	if ok {
-		reqPath = strings.TrimSuffix(reqPath, "/")
 		item := shareUser.GetShare(reqPath)
 		if item != nil && item.IsAllowed(ru) {
 			res = item
