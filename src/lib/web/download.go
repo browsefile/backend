@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // downloadHandler creates an archive in one of the supported formats (zip, tar,
@@ -22,8 +21,8 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	if !c.File.IsDir {
 		return downloadFileHandler(c, w, r)
 	}
-	files := []string{"-0rqj", "-"}
-	names := strings.Split(r.URL.Query().Get("files"), ",")
+	files := []string{}
+	names := c.FilePaths
 
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
@@ -44,11 +43,11 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	}
 	return 0, serveDownload(c, w, files)
 }
+
 func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	var paths []string
-	names := r.URL.Query().Get("files")
-	if len(names) != 0 {
-		fArr := strings.Split(names, ",")
+	if len(c.FilePaths) > 0 {
+		fArr := c.FilePaths
 		origUsr := c.ShareType
 		for _, fp := range fArr {
 			urlPath, err := url.Parse(fp)
@@ -107,7 +106,7 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		return downloadFileHandler(c, w, r)
 	}
 
-	files := []string{"-0rqj", "-"}
+	files := []string{}
 
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
@@ -143,7 +142,8 @@ func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) error {
 	}
 	w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
 	pr, pw := io.Pipe()
-	cmd := exec.Command("zip", files...)
+
+	cmd := exec.Command("zip", append([]string{"-0rqj", "-"}, files...)...)
 	cmd.Stdout = pw
 	cmd.Stderr = os.Stderr
 	go func() {
@@ -183,7 +183,7 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 
 	}
 
-	if r.URL.Query().Get("inline") == "true" {
+	if c.Inline {
 		w.Header().Set("Content-Disposition", "inline")
 	} else {
 		// As per RFC6266 section 4.3

@@ -8,10 +8,8 @@ import (
 	"log"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -22,13 +20,14 @@ func Handler(m *fb.FileBrowser) http.Handler {
 			FileBrowser: m,
 			User:        nil,
 			File:        nil,
+			Params:      new(fb.Params),
 		}
 
 		code, err := serve(c, w, r)
 
 		if code >= 400 {
 			txt := http.StatusText(code)
-			if len(c.PreviewType) == 0 {
+			if len(c.Params.PreviewType) == 0 {
 				log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
 			} else {
 				err = nil
@@ -98,27 +97,10 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 	if !valid {
 		return http.StatusForbidden, nil
 	}
-	c.Router, r.URL.Path = splitURL(r.URL.Path)
-	isShares := strings.HasPrefix(c.Router, "shares")
-	processParams(c, r)
-
+	isShares := processParams(c, r)
 	//allow only GET requests, for external share
 	if valid && c.User.IsGuest() && (!isShares || !strings.EqualFold(r.Method, http.MethodGet)) {
 		return http.StatusForbidden, nil
-	}
-
-	//redirect to the real handler in shares case
-	if isShares {
-		//possibility to process shares view/download
-		if !c.IsShareRequest() {
-			c.Router, r.URL.Path = splitURL(r.URL.Path)
-		}
-
-		if c.Router == "download" {
-			c.Router = "download-share"
-		} else if c.Router == "resource" || c.Router == "external" {
-			c.Router = "shares"
-		}
 	}
 
 	if c.Router == "download" {
@@ -135,9 +117,8 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 		}
 	}
 
-	checksum := r.URL.Query().Get("checksum")
-	if checksum != "" {
-		err := c.File.Checksum(checksum)
+	if c.Checksum != "" {
+		err := c.File.Checksum(c.Checksum)
 		if err == errors.ErrInvalidOption {
 			return http.StatusBadRequest, nil
 		} else if err != nil {
@@ -170,62 +151,15 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 	return code, err
 }
 
-func processParams(c *fb.Context, r *http.Request) {
-	queryValues := r.URL.Query()
-	c.PreviewType = queryValues.Get("previewType")
-	c.ShareType = queryValues.Get("share")
-	c.RootHash, _ = url.QueryUnescape(queryValues.Get("rootHash"))
-
-	q := queryValues.Get("query")
-	if len(q) > 0 {
-		if strings.Contains(q, "type") {
-			arr := strings.Split(q, ":")
-			arr = strings.Split(arr[1], " ")
-			c.SearchString = arr[1]
-			c.SearchType = arr[0]
-		} else {
-			c.SearchString = q
-		}
-		queryValues.Del("query")
-	}
-	if len(c.RootHash) > 0 {
-		queryValues.Del("rootHash")
-	}
-	if len(c.ShareType) > 0 {
-		queryValues.Del("share")
-	}
-	c.IsRecursive, _ = strconv.ParseBool(queryValues.Get("recursive"))
-	if c.IsRecursive {
-		queryValues.Del("recursive")
-	}
-	r.URL.RawQuery = queryValues.Encode()
-
-}
-
-// splitURL splits the path and returns everything that stands
-// before the first slash and everything that goes after.
-func splitURL(path string) (string, string) {
-	if path == "" {
-		return "", ""
-	}
-
-	path = strings.TrimPrefix(path, "/")
-
-	i := strings.Index(path, "/")
-	if i == -1 {
-		return "", path
-	}
-
-	return path[0:i], path[i:]
-}
-
 // renderFile renders a file using a template with some needed variables.
 func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file string) (int, error) {
 	contentType := mime.TypeByExtension(filepath.Ext(file))
 	if len(contentType) == 0 {
 		contentType = "text"
 	}
-	c.RootHash = r.URL.Query().Get("rootHash")
+	c.Query = r.URL.Query()
+
+	c.RootHash = c.Query.Get("rootHash")
 	isEx := len(c.RootHash) > 0
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	data := map[string]interface{}{

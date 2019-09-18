@@ -94,9 +94,9 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFi
 		return ErrorToHTTP(err, true), err
 	}
 	// Copy the query values into the Listing struct
-	if sort, order, err := HandleSortOrder(w, r, "/"); err == nil {
-		c.File.Listing.Sort = sort
-		c.File.Listing.Order = order
+	if err := HandleSortOrder(c, w, r, "/"); err == nil {
+		c.File.Listing.Sort = c.Sort
+		c.File.Listing.Order = c.Order
 	} else {
 		return http.StatusBadRequest, err
 	}
@@ -197,7 +197,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	// If using POST method, we are trying to create a new file so it is not
 	// desirable to override an already existent file. Thus, we check
 	// if the file already exists. If so, we just return a 409 Conflict.
-	if r.Method == http.MethodPost && r.URL.Query().Get("override") != "true" {
+	if r.Method == http.MethodPost && !c.Override {
 		if _, err := c.User.FileSystem.Stat(r.URL.Path); err == nil {
 			return http.StatusConflict, errors.New("There is already a file on that path")
 		}
@@ -244,19 +244,11 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 	if !c.User.AllowEdit {
 		return http.StatusForbidden, nil
 	}
-	dst := r.Header.Get("Destination")
-	if len(dst) == 0 {
-		dst = r.URL.Query().Get("destination")
-	}
-	action := r.Header.Get("action")
-	if len(action) == 0 {
-		action = r.URL.Query().Get("action")
-	}
-	dst, err := url.QueryUnescape(dst)
+	dst, err := url.QueryUnescape(c.Destination)
 	if err != nil {
 		return ErrorToHTTP(err, true), err
 	}
-
+	action := c.Action
 	src := r.URL.Path
 
 	if dst == "/" || src == "/" {
@@ -280,38 +272,36 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 
 // HandleSortOrder gets and stores for a Listing the 'sort' and 'order',
 // and reads 'limit' if given. The latter is 0 if not given. Sets cookies.
-func HandleSortOrder(w http.ResponseWriter, r *http.Request, scope string) (sort string, order string, err error) {
-	sort = r.URL.Query().Get("sort")
-	order = r.URL.Query().Get("order")
+func HandleSortOrder(c *fb.Context, w http.ResponseWriter, r *http.Request, scope string) (err error) {
 
 	// If the query 'sort' or 'order' is empty, use defaults or any values
 	// previously saved in Cookies.
-	switch sort {
+	switch c.Sort {
 	case "":
-		sort = "name"
+		c.Sort = "name"
 		if sortCookie, sortErr := r.Cookie("sort"); sortErr == nil {
-			sort = sortCookie.Value
+			c.Sort = sortCookie.Value
 		}
 	case "name", "size":
 		http.SetCookie(w, &http.Cookie{
 			Name:   "sort",
-			Value:  sort,
+			Value:  c.Sort,
 			MaxAge: 31536000,
 			Path:   scope,
 			Secure: r.TLS != nil,
 		})
 	}
 
-	switch order {
+	switch c.Order {
 	case "":
-		order = "asc"
+		c.Order = "asc"
 		if orderCookie, orderErr := r.Cookie("order"); orderErr == nil {
-			order = orderCookie.Value
+			c.Order = orderCookie.Value
 		}
 	case "asc", "desc":
 		http.SetCookie(w, &http.Cookie{
 			Name:   "order",
-			Value:  order,
+			Value:  c.Order,
 			MaxAge: 31536000,
 			Path:   scope,
 			Secure: r.TLS != nil,

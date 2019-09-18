@@ -127,21 +127,20 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	if !isDef && res.NumFiles == 0 && res.NumDirs == 0 {
 		return http.StatusNotFound, nil
 	}
-	if isExternal{
+	if isExternal {
 		res.URL += "&share=" + c.ShareType
-	}else {
+	} else {
 		res.URL += "/?share=" + c.ShareType
 	}
-
 
 	if !isDef {
 		res.IsDir = true
 		res.VirtualPath = "/"
 		res.Kind = "listing"
 		// Copy the query values into the Listing struct
-		if sort, order, err := HandleSortOrder(w, r, "/"); err == nil {
-			res.Sort = sort
-			res.Order = order
+		if err := HandleSortOrder(c, w, r, "/"); err == nil {
+			res.Sort = c.Sort
+			res.Order = c.Order
 			res.ApplySort()
 		}
 

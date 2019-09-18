@@ -9,8 +9,8 @@ import (
 	"github.com/browsefile/backend/src/lib/preview"
 	"golang.org/x/crypto/bcrypt"
 	"log"
+	"net/url"
 	"os"
-	"strings"
 )
 
 const (
@@ -94,7 +94,7 @@ func (fb *FileBrowser) Setup() (bool, error) {
 
 	if needUpdate {
 		fb.Config.UpdateUsers(users)
-	}else {
+	} else {
 
 		fb.Config.Users = users
 		fb.Config.RefreshUserRam()
@@ -135,12 +135,6 @@ func (c *Context) GenPreview(out string) {
 }
 func (c *Context) IsExternalShare() (r bool) {
 	return len(c.RootHash) > 0
-}
-func (c *Context) IsShareRequest() bool {
-	return strings.EqualFold(c.ShareType, "my-list") ||
-		strings.EqualFold(c.ShareType, "my") ||
-		strings.EqualFold(c.ShareType, "list") ||
-		strings.EqualFold(c.ShareType, "gen-ex")
 }
 
 // DefaultUser is used on New, when no 'base' user is provided.
@@ -187,6 +181,11 @@ type Context struct {
 	File *File
 	// On API handlers, Router is the APi handler we want.
 	Router string
+	*Params
+}
+
+//params in URL request
+type Params struct {
 	//indicate that requested preview
 	PreviewType string
 	//return files list by recursion
@@ -197,6 +196,27 @@ type Context struct {
 	SearchString string
 	//external share item root dir hash
 	RootHash string
+	//download type, zip or playlist m38u
+	Algo string
+	//download multiple files
+	FilePaths []string
+
+	Checksum string
+
+	Inline bool
+	// playlist file mime types
+	Audio bool
+	Image bool
+	Video bool
+	Query url.Values
+	//override existing file
+	Override bool
+	// used in resource patch requests type
+	Destination string
+	Action      string
+
+	Sort  string
+	Order string
 }
 
 // HashPassword generates an hash from a password using bcrypt.

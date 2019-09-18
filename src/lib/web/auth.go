@@ -99,7 +99,7 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 	}
 
 	uc, ok := c.Config.GetByUsername(cred.Username)
-	if !ok{
+	if !ok {
 		return http.StatusForbidden, nil
 	}
 	if !uc.IsGuest() {
@@ -182,7 +182,6 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 	if token != "" && strings.Count(token, ".") == 2 {
 		return token, nil
 	}
-
 	auth := r.URL.Query().Get("auth")
 	if auth == "" {
 		return "", request.ErrNoTokenInRequest
