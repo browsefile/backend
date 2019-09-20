@@ -117,7 +117,7 @@ func genSharePaths(c *fb.Context) (*[]config.ShareItem, error) {
 		}
 		q := urlPath.Query()
 		c.ShareType = q.Get("share")
-		c.RootHash = q.Get("rootHash")
+		c.RootHash = url.QueryEscape(q.Get("rootHash"))
 
 		itm, usr := getShare(urlPath.Path, c)
 		//share found and allowed

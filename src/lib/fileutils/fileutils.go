@@ -90,7 +90,7 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 		}
 	}
 	if !res {
-		log.Printf("fileutils can't detect type: %s", ext)
+		//log.Printf("fileutils can't detect type: %s", ext)
 		t = "blob"
 	}
 

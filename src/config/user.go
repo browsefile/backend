@@ -101,6 +101,7 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 
 	u.Shares = append(u.Shares, shr)
 	u.sortShares()
+	shr.Hash = GenShareHash(u.Username, shr.Path)
 	res = true
 	return
 }

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 )
@@ -221,7 +222,7 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (re
 			h = shr.Hash
 		}
 
-		l := c.Config.ExternalShareHost + "/shares?rootHash=" + h
+		l := c.Config.ExternalShareHost + "/shares?rootHash=" + url.QueryEscape(h)
 		return renderJSON(w, l)
 
 	case "my-meta":

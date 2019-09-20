@@ -6,6 +6,7 @@ import (
 	"github.com/maruel/natural"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,8 +25,9 @@ func makePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 	paths := fetchFilesRecursively(c, true)
 
 	sort.Sort(sort.Reverse(byName(paths)))
+	h := getHost(c, false)
 	for _, p := range paths {
-		serveFile(c, w, filepath.Base(p), p)
+		serveFile(c, w, filepath.Base(p), p, h, false)
 	}
 
 	return http.StatusOK, nil
@@ -47,13 +49,18 @@ func fetchFilesRecursively(c *fb.Context, joinHome bool) []string {
 			p = f
 		}
 		_ = filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
-			//if !info.IsDir() && err != nil {
-
-				if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(info.Name())); ok && fitMediaFilter(c, t) {
+			if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(info.Name())); ok && fitMediaFilter(c, t) && !info.IsDir() {
+				// if request to generate external share, we have to cut share item path, since rootHash replaces it
+				// and have to deal with path replacement, if we reuse download component, because still need absolute path in order to walk on it
+				if !joinHome && len(c.RootHash) > 0 {
+					itm, _ := getShare("", c)
+					res = append(res, strings.Replace(path, c.GetUserHomePath()+itm.Path, "", -1))
+				} else {
 					res = append(res, strings.Replace(path, c.GetUserHomePath(), "", -1))
 				}
 
-			//}
+			}
+
 			return err
 		})
 	}
@@ -72,12 +79,14 @@ func makeSharePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (i
 	w.Header().Set("Content-Disposition", "attachment; filename=playlist.m3u")
 
 	var paths []string
+	h := getHost(c, true)
 	for _, p := range *items {
 		c.User.Username = p.User
 		c.FilePaths = []string{p.Path}
+		c.RootHash = p.Hash
 		for _, fp := range fetchFilesRecursively(c, false) {
 			if c.IsExternalShare() {
-				fp += "?rootHash=" + p.Hash
+				fp += "?rootHash=" + url.QueryEscape(p.Hash)
 			}
 			if len(p.User) > 0 {
 				s := "?"
@@ -94,7 +103,7 @@ func makeSharePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (i
 
 	sort.Sort(sort.Reverse(byName(paths)))
 	for _, p := range paths {
-		serveFile(c, w, "", p)
+		serveFile(c, w, "", p, h, true)
 	}
 	return http.StatusOK, nil
 }
@@ -104,14 +113,14 @@ func fitMediaFilter(c *fb.Context, t string) bool {
 		c.Image && strings.EqualFold(t, "image")
 }
 
-func serveFile(c *fb.Context, pw http.ResponseWriter, fName, p string) {
+func serveFile(c *fb.Context, pw http.ResponseWriter, fName, p, host string, isShare bool) {
 
 	io.WriteString(pw, "#EXTINF:0 tvg-name=")
 	io.WriteString(pw, fName)
 	io.WriteString(pw, "\n")
-	io.WriteString(pw, getHost(c))
+	io.WriteString(pw, host)
 	io.WriteString(pw, p)
-	if c.IsExternalShare() {
+	if isShare {
 		io.WriteString(pw, "&inline=true")
 	} else {
 		io.WriteString(pw, "?inline=true")
@@ -124,8 +133,13 @@ func serveFile(c *fb.Context, pw http.ResponseWriter, fName, p string) {
 	io.WriteString(pw, "\n\n")
 
 }
-func getHost(c *fb.Context) string {
-	h := c.Config.IP + ":" + strconv.Itoa(c.Config.Port) + "/api/download"
+func getHost(c *fb.Context, isShare bool) string {
+	h := c.Config.IP + ":" + strconv.Itoa(c.Config.Port)
+	if isShare {
+		h += "/api/shares/download"
+	} else {
+		h += "/api/download"
+	}
 	if len(c.Config.TLSKey) > 0 {
 		h = "https://" + h
 	} else {
