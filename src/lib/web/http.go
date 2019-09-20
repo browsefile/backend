@@ -60,11 +60,6 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 		return apiHandler(c, w, r)
 	}
 
-	/*	if strings.HasPrefix(r.URL.Path, "/shares/") {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/shares/")
-		return sharePage(c, w, r)
-	}*/
-
 	// Any other request should show the index.html file.
 	w.Header().Set("x-content-type-options", "nosniff")
 	w.Header().Set("x-xss-protection", "1; mode=block")
@@ -99,7 +94,11 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 	}
 	isShares := processParams(c, r)
 	//allow only GET requests, for external share
-	if valid && c.User.IsGuest() && (!isShares || !strings.EqualFold(r.Method, http.MethodGet)) {
+	if valid && c.User.IsGuest() && (!isShares ||
+		!strings.EqualFold(r.Method, http.MethodGet) ||
+		strings.HasPrefix(r.URL.Path, "/resource") ||
+		strings.HasPrefix(r.URL.Path, "/user")||
+		strings.HasPrefix(r.URL.Path, "/sett")) {
 		return http.StatusForbidden, nil
 	}
 
@@ -144,6 +143,11 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 		code, err = shareHandler(c, w, r)
 	case "search":
 		code, err = searchHandler(c, w, r)
+	case "playlist":
+		code, err = makePlaylist(c, w, r)
+	case "playlist-share":
+		code, err = makeSharePlaylist(c, w, r)
+
 	default:
 		code = http.StatusNotFound
 	}

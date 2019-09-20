@@ -192,22 +192,24 @@ type Params struct {
 	IsRecursive bool
 	//indicate about share request
 	ShareType    string
-	SearchType   string
 	SearchString string
 	//external share item root dir hash
 	RootHash string
-	//download type, zip or playlist m38u
+	//download type, zip or playlist m3u8
 	Algo string
 	//download multiple files
 	FilePaths []string
 
+	Auth string
+
 	Checksum string
 
 	Inline bool
-	// playlist file mime types
+	// playlist & search file mime types
 	Audio bool
 	Image bool
 	Video bool
+	Pdf   bool
 	Query url.Values
 	//override existing file
 	Override bool

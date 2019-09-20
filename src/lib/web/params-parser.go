@@ -25,6 +25,7 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 	c.IsRecursive, _ = strconv.ParseBool(c.Query.Get("recursive"))
 	c.Override, _ = strconv.ParseBool(c.Query.Get("override"))
 	c.Algo = c.Query.Get("algo")
+	c.Auth = c.Query.Get("auth")
 
 	//search request
 	q := c.Query.Get("query")
@@ -33,27 +34,33 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 			arr := strings.Split(q, ":")
 			arr = strings.Split(arr[1], " ")
 			c.SearchString = arr[1]
-			c.SearchType = arr[0]
+			setFileType(c, arr[0])
 		} else {
 			c.SearchString = q
 		}
 		//c.Query.Del("query")
 	}
+
+	isShares = setRouter(c, r)
+
 	if len(c.Algo) > 0 && !strings.HasPrefix(c.Algo, "z") {
 		arr := strings.Split(c.Algo, "_")
-		c.Algo = arr[0]
 		if len(arr) > 1 {
-			c.Image = strings.Contains(arr[1], "i")
-			c.Video = strings.Contains(arr[1], "v")
-			c.Audio = strings.Contains(arr[1], "a")
+			setFileType(c, arr[1])
+		}
+		if (c.Image || c.Audio || c.Video) && strings.EqualFold(arr[0], "m3u") {
+			c.Algo = arr[0]
+			if isShares {
+				c.Router = "playlist-share"
+			} else {
+				c.Router = "playlist"
+			}
+
 		}
 	}
 
-	r.URL.RawQuery = ""
-
-	isShares = setRouter(c, r)
 	//in case download, might be multiple files
-	if strings.HasPrefix(c.Router, "dow") {
+	if strings.HasPrefix(c.Router, "dow") || strings.HasPrefix(c.Router, "pla") {
 		f := c.Query.Get("files")
 		if len(f) > 0 {
 			c.FilePaths = strings.Split(f, ",")
@@ -62,16 +69,23 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 	} else if r.Method == http.MethodPatch {
 		c.Destination = r.Header.Get("Destination")
 		if len(c.Destination) == 0 {
-			c.Destination = r.URL.Query().Get("destination")
+			c.Destination = c.Query.Get("destination")
 		}
 		c.Action = r.Header.Get("action")
 		if len(c.Action) == 0 {
-			c.Action = r.URL.Query().Get("action")
+			c.Action = c.Query.Get("action")
 		}
 	}
+	r.URL.RawQuery = ""
 
 	return
 
+}
+func setFileType(c *fb.Context, t string) {
+	c.Image = strings.Contains(t, "i")
+	c.Audio = strings.Contains(t, "a")
+	c.Video = strings.Contains(t, "v")
+	c.Pdf = strings.Contains(t, "p")
 }
 
 func setRouter(c *fb.Context, r *http.Request) (isShares bool) {

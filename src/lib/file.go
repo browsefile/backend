@@ -11,7 +11,6 @@ import (
 	"github.com/maruel/natural"
 	"hash"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -20,6 +19,8 @@ import (
 	"strings"
 	"time"
 )
+
+type FitFilter func(name, p string) bool
 
 // File contains the information about a particular file or directory.
 type File struct {
@@ -76,7 +77,7 @@ func MakeInfo(url *url.URL, c *Context) (*File, error) {
 	var err error
 	homePath, previewPath := c.GetUserHomePath(), c.GetUserPreviewPath()
 
-	info, err, path, t := fileutils.GetFileInfo(homePath, url.Path)
+	info, err, path := fileutils.GetFileInfo(homePath, url.Path)
 
 	//create user paths if not exists
 	if os.IsNotExist(err) {
@@ -86,7 +87,7 @@ func MakeInfo(url *url.URL, c *Context) (*File, error) {
 		if err != nil {
 			return nil, err
 		}
-		info, err, path, t = fileutils.GetFileInfo(homePath, url.Path)
+		info, err, path = fileutils.GetFileInfo(homePath, url.Path)
 	}
 
 	i := &File{
@@ -105,7 +106,6 @@ func MakeInfo(url *url.URL, c *Context) (*File, error) {
 	i.IsDir = info.IsDir()
 	i.Size = info.Size()
 	i.Extension = filepath.Ext(i.Name)
-	i.Type = t
 
 	if i.IsDir && !strings.HasSuffix(i.URL, "/") {
 		i.URL += "/"
@@ -113,9 +113,52 @@ func MakeInfo(url *url.URL, c *Context) (*File, error) {
 
 	return i, nil
 }
+func (i *File) MakeListing(c *Context, fitFilter FitFilter) (files []os.FileInfo, paths []string, err error) {
+	files = make([]os.FileInfo, 0, 500)
+	paths = make([]string, 0, 500)
+
+	if c.IsRecursive {
+
+		err := filepath.Walk(filepath.Join(c.GetUserHomePath(), i.VirtualPath),
+			func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if fitFilter != nil {
+					if fitFilter(info.Name(), path) {
+						files = append(files, info)
+						path = strings.Replace(path, c.GetUserHomePath(), "", -1)
+						paths = append(paths, path)
+					}
+				} else {
+					files = append(files, info)
+					path = strings.Replace(path, c.GetUserHomePath(), "", -1)
+					paths = append(paths, path)
+				}
+
+				return nil
+			})
+		if err != nil {
+			log.Println(err)
+		}
+	} else {
+		f, err := c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer f.Close()
+		// Reads the directory and gets the information about the files.
+		files, err = f.Readdir(-1)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return files, paths, nil
+
+}
 
 // GetListing gets the information about a specific directory and its files.
-func (i *File) GetListing(c *Context, fitFilter func(f *File) bool) error {
+func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 	// GetUsers the directory information using the Virtual File System of
 	// the user configuration.
 	var (
@@ -126,37 +169,10 @@ func (i *File) GetListing(c *Context, fitFilter func(f *File) bool) error {
 		// Absolute URL
 		fUrl url.URL
 	)
-	files = make([]os.FileInfo, 0, 1000)
-	paths = make([]string, 0, 1000)
-
-	if c.IsRecursive {
-		err := filepath.Walk(filepath.Join(c.GetUserHomePath(), i.VirtualPath),
-			func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				files = append(files, info)
-				path = strings.Replace(path, c.GetUserHomePath(), "", -1)
-				paths = append(paths, path)
-
-				return nil
-			})
-		if err != nil {
-			log.Println(err)
-		}
-	} else {
-		f, err := c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		// Reads the directory and gets the information about the files.
-		files, err = f.Readdir(-1)
-		if err != nil {
-			return err
-		}
+	files, paths, err := i.MakeListing(c, fitFilter)
+	if err != nil {
+		return err
 	}
-
 	baseurl, err := url.PathUnescape(i.URL)
 	if err != nil {
 		return err
@@ -204,8 +220,8 @@ func (i *File) GetListing(c *Context, fitFilter func(f *File) bool) error {
 
 		i.SetFileType(false)
 
-		if fitFilter != nil {
-			if fitFilter(i) {
+		if fitFilter != nil && !c.IsRecursive {
+			if fitFilter(i.Name, fUrl.Path) {
 				fileinfos = append(fileinfos, i)
 			} else {
 				if f.IsDir() {
@@ -232,35 +248,18 @@ func (i *File) GetListing(c *Context, fitFilter func(f *File) bool) error {
 
 // SetFileType obtains the mimetype and converts it to a simple
 // type nomenclature.
-func (f *File) SetFileType(checkContent bool) error {
+func (f *File) SetFileType(checkContent bool) {
 	if len(f.Type) > 0 || f.IsDir {
-		return nil
+		return
 	}
-	var content []byte
-	var err error
-	isOk, mimetype := fileutils.GetBasedOnExtensions(f.Extension)
+	var isOk bool
+	isOk, f.Type = fileutils.GetBasedOnExtensions(f.Extension)
 	// Tries to get the file mimetype using its extension.
 	if !isOk && checkContent {
-		return nil
 		log.Println("Can't detect file type, based on extension ", f.Name)
+		return
+
 	}
-
-	f.Type = mimetype
-
-	// If the file type is text, save its content.
-	if f.Type == "text" {
-		if len(content) == 0 {
-			//todo: fix me, what if file too big ?
-			content, err = ioutil.ReadFile(f.Path)
-			if err != nil {
-				return err
-			}
-		}
-
-		f.Content = string(content)
-	}
-
-	return nil
 }
 
 // Checksum retrieves the checksum of a file.

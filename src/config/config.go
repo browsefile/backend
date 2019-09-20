@@ -188,7 +188,6 @@ func (cfg *GlobalConfig) RefreshUserRam() {
 			usersRam[ip] = u
 		}
 
-
 	}
 }
 func (cfg *GlobalConfig) SetupLog() {
@@ -340,16 +339,17 @@ func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 	cfg.lockR()
 	defer cfg.unlockR()
 	return &GlobalConfig{
-		Users:         cfg.GetUsers(),
-		Port:          cfg.Port,
-		IP:            cfg.IP,
-		Log:           cfg.Log,
-		CaptchaConfig: cfg.CopyCaptchaConfig(),
-		Auth:          cfg.CopyAuth(),
-		PreviewConf:   &PreviewConf{AllowGeneratePreview: cfg.AllowGeneratePreview, Threads: cfg.Threads},
-		FilesPath:     cfg.FilesPath,
-		TLSKey:        cfg.TLSKey,
-		TLSCert:       cfg.TLSCert,
+		Users:             cfg.GetUsers(),
+		Port:              cfg.Port,
+		IP:                cfg.IP,
+		Log:               cfg.Log,
+		CaptchaConfig:     cfg.CopyCaptchaConfig(),
+		Auth:              cfg.CopyAuth(),
+		PreviewConf:       &PreviewConf{AllowGeneratePreview: cfg.AllowGeneratePreview, Threads: cfg.Threads},
+		FilesPath:         cfg.FilesPath,
+		TLSKey:            cfg.TLSKey,
+		TLSCert:           cfg.TLSCert,
+		ExternalShareHost: cfg.ExternalShareHost,
 	}
 }
 func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
@@ -365,6 +365,7 @@ func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.TLSCert = u.TLSCert
 	cfg.TLSKey = u.TLSKey
 	cfg.PreviewConf = u.PreviewConf
+	cfg.ExternalShareHost = u.ExternalShareHost
 }
 
 func (cfg *GlobalConfig) SetKey(k []byte) {

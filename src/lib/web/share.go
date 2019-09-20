@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -84,11 +85,20 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			if !checkShareErr(err, item.Path) {
 				if !c.File.IsDir {
 					res = c.File
-					res.SetFileType(false)
-					// Tries to get the file type.
-					if err = res.SetFileType(true); err != nil {
-						return ErrorToHTTP(err, true), err
+					res.SetFileType(true)
+
+					if res.Type == "text" {
+						var content []byte
+						//todo: fix me, what if file too big ?
+						content, err = ioutil.ReadFile(res.Path)
+						if err != nil {
+							return ErrorToHTTP(err, true), err
+						}
+
+						res.Content = string(content)
 					}
+					// Tries to get the file type.
+
 					isDef = true
 
 					// Serve a preview if the file can't be edited or the

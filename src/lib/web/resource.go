@@ -48,7 +48,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	return http.StatusNotImplemented, nil
 }
 
-func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
+func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
 	// GetUsers the information of the directory/file.
 	f, err := fb.MakeInfo(r.URL, c)
 	if err != nil {
@@ -69,8 +69,19 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	}
 
 	// Tries to get the file type.
-	if err = f.SetFileType(true); err != nil {
-		return ErrorToHTTP(err, true), err
+
+	// If the file type is text, save its content.
+	f.SetFileType(true)
+
+	if f.Type == "text" {
+		var content []byte
+		//todo: fix me, what if file too big ?
+		content, err = ioutil.ReadFile(f.Path)
+		if err != nil {
+			return ErrorToHTTP(err, true), err
+		}
+
+		f.Content = string(content)
 	}
 
 	// Serve a preview if the file can't be edited or the
@@ -86,7 +97,7 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	return renderJSON(w, f)
 }
 
-func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
+func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
 	c.File.Kind = "listing"
 
 	// Tries to get the listing data.

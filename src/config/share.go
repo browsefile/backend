@@ -15,6 +15,8 @@ type ShareItem struct {
 	AllowUsers []string `json:"allowedUsers"`
 	//uses for external DMZ share request
 	Hash string `json:"-"`
+	//share owner
+	User string `json:"-"`
 }
 type AllowedShare struct {
 	*UserConfig
