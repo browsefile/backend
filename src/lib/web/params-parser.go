@@ -19,7 +19,7 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 	c.Order = c.Query.Get("order")
 	c.PreviewType = c.Query.Get("previewType")
 	c.Inline, _ = strconv.ParseBool(c.Query.Get("inline"))
-	c.RootHash, _ = url.QueryUnescape(c.Query.Get("rootHash"))
+	c.RootHash = c.Query.Get("rootHash")
 	c.Checksum = c.Query.Get("checksum")
 	c.ShareType = c.Query.Get("share")
 	c.IsRecursive, _ = strconv.ParseBool(c.Query.Get("recursive"))
@@ -27,6 +27,13 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 	c.Algo = c.Query.Get("algo")
 	c.Auth = c.Query.Get("auth")
 
+	//yeah, some browsers unescape, someone escape, whatever
+	if strings.Contains(c.RootHash, "%") {
+		c.RootHash, _ = url.QueryUnescape(c.RootHash)
+
+	} else if strings.Contains(c.RootHash, " ") {
+		c.RootHash = url.QueryEscape(c.RootHash)
+	}
 	//search request
 	q := c.Query.Get("query")
 	if len(q) > 0 {
@@ -82,10 +89,10 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 
 }
 func setFileType(c *fb.Context, t string) {
-	c.Image = strings.Contains(t, "i")
-	c.Audio = strings.Contains(t, "a")
-	c.Video = strings.Contains(t, "v")
-	c.Pdf = strings.Contains(t, "p")
+	c.Image = strings.HasPrefix(t, "i")
+	c.Audio = strings.HasPrefix(t, "a")
+	c.Video = strings.HasPrefix(t, "v")
+	c.Pdf = strings.HasPrefix(t, "p")
 }
 
 func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
