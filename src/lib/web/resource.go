@@ -30,7 +30,20 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 	switch r.Method {
 	case http.MethodGet:
-		return resourceGetHandler(c, w, r, nil)
+		return resourceGetHandler(c, w, r, func(name, p string) bool {
+
+			var fitType bool
+			ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
+			hasType := c.Audio || c.Video || c.Pdf || c.Image
+			if ok && hasType {
+				fitType = t == "image" && c.Image ||
+					t == "audio" && c.Audio ||
+					t == "video" && c.Video ||
+					t == "pdf"
+
+			}
+			return hasType && fitType || !hasType
+		})
 	case http.MethodDelete:
 		return resourceDeleteHandler(c, w, r)
 	case http.MethodPut:
