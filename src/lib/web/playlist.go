@@ -48,12 +48,14 @@ func fetchFilesRecursively(c *fb.Context, joinHome bool) []string {
 		} else {
 			p = f
 		}
+		itm, _ := getShare("", c)
+
 		_ = filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
-			if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(info.Name())); ok && fitMediaFilter(c, t) && !info.IsDir() {
+			if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(info.Name())); ok && fitMediaFilter(c, t) {
 				// if request to generate external share, we have to cut share item path, since rootHash replaces it
 				// and have to deal with path replacement, if we reuse download component, because still need absolute path in order to walk on it
 				if !joinHome && len(c.RootHash) > 0 {
-					itm, _ := getShare("", c)
+
 					res = append(res, strings.Replace(path, c.GetUserHomePath()+itm.Path, "", -1))
 				} else {
 					res = append(res, strings.Replace(path, c.GetUserHomePath(), "", -1))

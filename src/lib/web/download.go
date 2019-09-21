@@ -104,7 +104,7 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 
 func genSharePaths(c *fb.Context) (*[]config.ShareItem, error) {
 	var paths []config.ShareItem
-	origUsr := c.ShareType
+
 	for _, fp := range c.FilePaths {
 		fp, err := fileutils.CleanPath(fp)
 		if err != nil {
@@ -117,8 +117,7 @@ func genSharePaths(c *fb.Context) (*[]config.ShareItem, error) {
 		}
 		q := urlPath.Query()
 		c.ShareType = q.Get("share")
-		c.RootHash = url.QueryEscape(q.Get("rootHash"))
-
+		c.RootHash = fixNonStandardURIEnc(q.Get("rootHash"))
 		itm, usr := getShare(urlPath.Path, c)
 		//share found and allowed
 		if itm != nil {
@@ -131,7 +130,7 @@ func genSharePaths(c *fb.Context) (*[]config.ShareItem, error) {
 			paths = append(paths, config.ShareItem{Path: fileutils.SlashClean(p), User: usr.Username, Hash: c.RootHash})
 		}
 	}
-	c.ShareType = origUsr
+
 	return &paths, nil
 }
 func getShare(p string, c *fb.Context) (*config.ShareItem, *config.UserConfig) {

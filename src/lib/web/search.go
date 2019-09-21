@@ -9,9 +9,7 @@ import (
 )
 
 func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-
-	c.IsRecursive = true
-	return resourceGetHandler(c, w, r, func(name, p string) bool {
+	filter := func(name, p string) bool {
 		fitUrl := strings.Contains(strings.ToLower(p), strings.ToLower(c.SearchString))
 
 		var fitType bool
@@ -25,5 +23,16 @@ func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, 
 
 		}
 		return hasType && fitType && fitUrl || !hasType && fitUrl
-	})
+	}
+	c.IsRecursive = true
+	isShares := len(c.RootHash) > 0 || len(c.ShareType) > 0
+
+	_, r.URL.Path = splitURL(r.URL.Path)
+
+	if isShares {
+		return shareGetHandler(c, w, r, filter)
+	} else {
+		return resourceGetHandler(c, w, r, filter)
+	}
+
 }

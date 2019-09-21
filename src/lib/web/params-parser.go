@@ -3,11 +3,29 @@ package web
 import "C"
 import (
 	fb "github.com/browsefile/backend/src/lib"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 )
+
+func fixNonStandardURIEnc(p string) (rs string) {
+	//yeah, some browsers unescape, someone escape, whatever
+	if strings.Contains(p, "%") {
+		var err error
+		rs, err = url.QueryUnescape(p)
+		if err != nil {
+			log.Println(err)
+		}
+
+	} else if strings.Contains(p, " ") {
+		rs = url.QueryEscape(p)
+	} else {
+		rs = p
+	}
+	return rs
+}
 
 // set router, and all other params to the context, returns true in case request are about shares
 func processParams(c *fb.Context, r *http.Request) (isShares bool) {
@@ -26,14 +44,7 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 	c.Override, _ = strconv.ParseBool(c.Query.Get("override"))
 	c.Algo = c.Query.Get("algo")
 	c.Auth = c.Query.Get("auth")
-
-	//yeah, some browsers unescape, someone escape, whatever
-	if strings.Contains(c.RootHash, "%") {
-		c.RootHash, _ = url.QueryUnescape(c.RootHash)
-
-	} else if strings.Contains(c.RootHash, " ") {
-		c.RootHash = url.QueryEscape(c.RootHash)
-	}
+	c.RootHash = fixNonStandardURIEnc(c.RootHash)
 	//search request
 	q := c.Query.Get("query")
 	if len(q) > 0 {
@@ -89,10 +100,10 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 
 }
 func setFileType(c *fb.Context, t string) {
-	c.Image = strings.HasPrefix(t, "i")
-	c.Audio = strings.HasPrefix(t, "a")
-	c.Video = strings.HasPrefix(t, "v")
-	c.Pdf = strings.HasPrefix(t, "p")
+	c.Image = strings.Contains(t, "i")
+	c.Audio = strings.Contains(t, "a")
+	c.Video = strings.Contains(t, "v")
+	c.Pdf = strings.Contains(t, "p")
 }
 
 func setRouter(c *fb.Context, r *http.Request) (isShares bool) {

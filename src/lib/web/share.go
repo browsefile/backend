@@ -20,7 +20,7 @@ func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 
 	switch r.Method {
 	case http.MethodGet:
-		return shareGetHandler(c, w, r)
+		return shareGetHandler(c, w, r, nil)
 	case http.MethodDelete:
 		return shareDeleteHandler(c, w, r)
 	case http.MethodPost:
@@ -30,7 +30,7 @@ func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 	return http.StatusNotImplemented, nil
 }
 
-func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
 	//list of all shares
 	var res = &fb.File{
 		Listing: &fb.Listing{Items: make([]*fb.File, 0, 100)},
@@ -41,14 +41,14 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	switch c.ShareType {
 	case "my-list":
 		for _, shr := range c.User.Shares {
-			err, resLoc := shareListing(c.User.UserConfig, shr, c, w, r)
+			err, resLoc := shareListing(c.User.UserConfig, shr, c, w, r, fitFilter)
 			if !checkShareErr(err, shr.Path) {
 				merge(res.Listing, resLoc)
 			}
 		}
 	case "my":
 		shr := c.User.GetShare(r.URL.Path)
-		err, item := shareListing(c.User.UserConfig, shr, c, w, r)
+		err, item := shareListing(c.User.UserConfig, shr, c, w, r, fitFilter)
 		if !checkShareErr(err, shr.Path) {
 			merge(res.Listing, item)
 		}
@@ -67,7 +67,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	case "list":
 		for _, v := range config.GetAllowedShares(c.User.Username, true) {
 			for _, item := range v {
-				err, resLoc := shareListing(item.UserConfig, item.ShareItem, c, w, r)
+				err, resLoc := shareListing(item.UserConfig, item.ShareItem, c, w, r, fitFilter)
 				if !checkShareErr(err, item.Path) {
 					merge(res.Listing, resLoc)
 				}
@@ -81,7 +81,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			if !isExternal {
 				item.Path = r.URL.Path
 			}
-			err, resLoc := shareListing(uc, item, c, w, r)
+			err, resLoc := shareListing(uc, item, c, w, r, fitFilter)
 
 			if !checkShareErr(err, item.Path) {
 				if !c.File.IsDir {
@@ -173,7 +173,7 @@ func merge(fin, n *fb.Listing) {
 	fin.NumFiles += n.NumFiles
 }
 
-func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w http.ResponseWriter, r *http.Request) (err error, res *fb.Listing) {
+func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (err error, res *fb.Listing) {
 	//replace user as for normal listing
 	c.User = fb.ToUserModel(uc, c.Config)
 	orig := r.URL.Path
@@ -191,7 +191,7 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 			return err, nil
 		}
 
-		listingHandler(c, w, r, nil)
+		listingHandler(c, w, r, fitFilter)
 		c.File.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 		r.URL.Path = orig
 		res = c.File.Listing
