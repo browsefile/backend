@@ -10,14 +10,18 @@ Browse files on your router or raspberry or any other embedded device through we
 For configuration details see wiki
 ![alt text](https://lh5.googleusercontent.com/MMH_UOn6EDAkT5CVjxChms1VOgdqlacuGUUogAnrsPwUafnX1TA5d4EmXPblTNFLCOQuO1fFEfGtpgP96pR1=w1920-h976-rw)
 
+ℹ INFO: Sep 2019
+-added possibility to download content as .m3u playlist
+
 ℹ INFO: June 2019
 
 -added tls support 
+-added authentication in URL, gives possibility to generate links for download without entering login and password
 
 
 ℹ INFO:  Jan 2019
 
--modified share, now it is possible to view share like user's file(not only download), added separate menu. Possible to restrict share to the specific users, all registered users, or all users(even not registered).
+-modified share, now it is possible to view share like user's file(not only download), added separate menu. Possible to restrict share to the specific users, all registered users, or by external link behind DMZ.
 
 -db and cli replaced with one single config file. When you create a new user for the first time, set "firstRun":true, this will read "open/not hashed" password, and replace it with hash.
 
