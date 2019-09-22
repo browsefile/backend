@@ -77,11 +77,19 @@
             "viewMode": "list",
             "shares": [
                 {
+                    "path": "/share",
+                    "allowExternal": true,
+                    "allowLocal": false,
+                    "allowedUsers": []
+                },
+                {
                     "path": "/movies",
-                    "allowExternal": false,
+                    "allowExternal": true,
                     "allowLocal": true,
                     "allowedUsers": [
-                        "user1"
+                        "user1",
+                        "user2",
+                        "user3"
                     ]
                 }
             ],
