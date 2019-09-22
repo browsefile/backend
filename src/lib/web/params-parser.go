@@ -108,8 +108,12 @@ func setFileType(c *fb.Context, t string) {
 
 func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
 	c.Router, r.URL.Path = splitURL(r.URL.Path)
-	isShares = strings.HasPrefix(c.Router, "shares")
-
+	if strings.EqualFold(c.Router, "search") {
+		r, _ := splitURL(r.URL.Path)
+		isShares = strings.HasPrefix(r, "shares")
+	} else {
+		isShares = strings.HasPrefix(c.Router, "shares")
+	}
 	//redirect to the real handler in shares case
 	if isShares {
 		//possibility to process shares view/download

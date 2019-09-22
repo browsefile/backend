@@ -117,7 +117,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 				} else {
 					if isExternal {
 						for _, itm := range resLoc.Items {
-							itm.URL = strings.Replace(itm.URL, item.Path, "", 1) + "&rootHash=" + c.RootHash
+							itm.URL = strings.Replace(itm.URL, item.Path, "", 1) + "?rootHash=" + c.RootHash
 						}
 					}
 					merge(res.Listing, resLoc)
@@ -138,9 +138,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 	if !isDef && res.NumFiles == 0 && res.NumDirs == 0 {
 		return http.StatusNotFound, nil
 	}
-	if isExternal {
-		res.URL += "&share=" + c.ShareType
-	} else {
+	if !isExternal {
 		res.URL += "/?share=" + c.ShareType
 	}
 
@@ -177,7 +175,8 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 	//replace user as for normal listing
 	c.User = fb.ToUserModel(uc, c.Config)
 	orig := r.URL.Path
-	if c.IsExternalShare() {
+	isExternal := c.IsExternalShare()
+	if isExternal {
 		r.URL.Path = filepath.Join(shr.Path + r.URL.Path)
 	} else {
 		r.URL.Path = shr.Path
@@ -195,10 +194,13 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 		c.File.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 		r.URL.Path = orig
 		res = c.File.Listing
-		suffix := "?share=" + uc.Username
-		for _, itm := range res.Items {
-			itm.URL += suffix
+		if !isExternal {
+			suffix := "?share=" + uc.Username
+			for _, itm := range res.Items {
+				itm.URL += suffix
+			}
 		}
+
 	}
 
 	return

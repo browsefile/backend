@@ -89,13 +89,8 @@ func makeSharePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (i
 		for _, fp := range fetchFilesRecursively(c, false) {
 			if c.IsExternalShare() {
 				fp += "?rootHash=" + url.QueryEscape(p.Hash)
-			}
-			if len(p.User) > 0 {
-				s := "?"
-				if c.IsExternalShare() {
-					s = "&"
-				}
-				fp += s + "share=" + p.User
+			}else {
+				fp += "?share=" + p.User
 			}
 
 			paths = append(paths, fp)
