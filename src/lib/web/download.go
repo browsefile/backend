@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // downloadHandler creates an archive in one of the supported formats (zip, tar,
@@ -22,70 +21,62 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	if !c.File.IsDir {
 		return downloadFileHandler(c, w, r)
 	}
-	files := []string{"-0rqj", "-"}
-	names := strings.Split(r.URL.Query().Get("files"), ",")
+	files := []string{}
+	names := c.FilePaths
 
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
 	if len(names) != 0 {
 		for _, name := range names {
 			// Unescape the name.
-			name, err := url.QueryUnescape(name)
+			name, err := fileutils.CleanPath(name)
 			if err != nil {
 				return http.StatusInternalServerError, err
 			}
-
-			// Clean the slashes.
-			name = fileutils.SlashClean(name)
 			files = append(files, filepath.Join(c.File.Path, name))
 		}
 	} else {
 		files = append(files, c.File.Path)
 	}
+
 	return 0, serveDownload(c, w, files)
 }
+
 func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	var paths []string
+	var paths *[]config.ShareItem
+	var err error
 
-	names := r.URL.Query().Get("files")
-	if len(names) != 0 {
-		fArr := strings.Split(names, ",")
-		for _, fp := range fArr {
-			urlPath, err := url.Parse(fp)
-			if err != nil {
-				return http.StatusNotFound, nil
-			}
-			uname := urlPath.Query().Get("share")
-			itm, usr := config.GetShare(c.User.Username, uname, urlPath.Path)
-			//share found and allowed
-			if itm != nil {
-				paths = append(paths, fileutils.SlashClean(filepath.Join(c.Config.GetUserHomePath(usr.Username), urlPath.Path)))
-			}
+	if len(c.FilePaths) > 0 {
+		paths, err = genSharePaths(c)
+		if err != nil {
+			return http.StatusNotFound, err
 		}
-		//serve only 1 file without zip
 
-		if len(paths) == 1 {
+		//serve only 1 file without zip
+		if len(*paths) == 1 {
 			//todo: fix file creation
-			info, err, _, _ := fileutils.GetFileInfo(paths[0], "")
+			info, err, _ := fileutils.GetFileInfo((*paths)[0].Path, "")
 			if err == nil && !info.IsDir() {
 				c.File = &fb.File{
-					Path: paths[0],
-					Name: filepath.Base(paths[0]),
+					Path: (*paths)[0].Path,
+					Name: filepath.Base((*paths)[0].Path),
 				}
 				return downloadFileHandler(c, w, r)
 			}
 		}
 
 	} else {
-		var err error
 
-		item, uc := config.GetShare(c.User.Username, c.ShareUser, r.URL.Path)
+		item, uc := getShare(r.URL.Path, c)
 
 		if item != nil && len(item.Path) > 0 {
 			c.User = fb.ToUserModel(uc, c.Config)
 
 		} else if err != nil {
 			return http.StatusNotFound, err
+		}
+		if c.IsExternalShare() {
+			r.URL.Path = filepath.Join(item.Path, r.URL.Path)
 		}
 		c.File, err = fb.MakeInfo(r.URL, c)
 		if err != nil {
@@ -95,14 +86,14 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		return downloadFileHandler(c, w, r)
 	}
 
-	files := []string{"-0rqj", "-"}
+	files := []string{}
 
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
-	if len(paths) != 0 {
-		for _, name := range paths {
+	if len(*paths) != 0 {
+		for _, name := range *paths {
 			// Unescape the name.
-			files = append(files, name)
+			files = append(files, name.Path)
 		}
 	} else {
 		files = append(files, c.File.Path)
@@ -111,9 +102,49 @@ func downloadSharesHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 	return 0, serveDownload(c, w, files)
 }
 
-func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) error {
+func genSharePaths(c *fb.Context) (*[]config.ShareItem, error) {
+	var paths []config.ShareItem
+
+	for _, fp := range c.FilePaths {
+		fp, err := fileutils.CleanPath(fp)
+		if err != nil {
+			continue
+		}
+
+		urlPath, err := url.Parse(fp)
+		if err != nil {
+			return nil, err
+		}
+		q := urlPath.Query()
+		c.ShareType = q.Get("share")
+		c.RootHash = fixNonStandardURIEnc(q.Get("rootHash"))
+		itm, usr := getShare(urlPath.Path, c)
+		//share found and allowed
+		if itm != nil {
+			var p string
+			if c.User.IsGuest() || len(c.RootHash) > 0 {
+				p = filepath.Join(c.Config.GetUserHomePath(usr.Username), itm.Path, urlPath.Path)
+			} else {
+				p = filepath.Join(c.Config.GetUserHomePath(usr.Username), urlPath.Path)
+			}
+			paths = append(paths, config.ShareItem{Path: fileutils.SlashClean(p), User: usr.Username, Hash: c.RootHash})
+		}
+	}
+
+	return &paths, nil
+}
+func getShare(p string, c *fb.Context) (*config.ShareItem, *config.UserConfig) {
+	//no direct way for usual share get, to guest users
+	if c.User.IsGuest() || len(c.RootHash) > 0 {
+		return c.Config.GetExternal(c.RootHash)
+	} else {
+		return config.GetShare(c.User.Username, c.ShareType, p)
+	}
+}
+func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) (err error) {
 	// Defines the file name.
 	name := ""
+
 	if c.File != nil {
 		name = c.File.Name
 	}
@@ -124,7 +155,8 @@ func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) error {
 	}
 	w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
 	pr, pw := io.Pipe()
-	cmd := exec.Command("zip", files...)
+
+	cmd := exec.Command("zip", append([]string{"-0rqj", "-"}, files...)...)
 	cmd.Stdout = pw
 	cmd.Stderr = os.Stderr
 	go func() {
@@ -134,11 +166,18 @@ func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) error {
 			log.Println(err)
 		}
 	}()
-	err := cmd.Run()
-	return err
+	return cmd.Run()
+
 }
 
 func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+	var err error
+	if c.File.Path, err = fileutils.CleanPath(c.File.Path); err != nil {
+		if err != nil {
+			return http.StatusNotFound, err
+		}
+	}
+
 	file, err := os.Open(c.File.Path)
 	defer file.Close()
 
@@ -164,7 +203,7 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 
 	}
 
-	if r.URL.Query().Get("inline") == "true" {
+	if c.Inline {
 		w.Header().Set("Content-Disposition", "inline")
 	} else {
 		// As per RFC6266 section 4.3

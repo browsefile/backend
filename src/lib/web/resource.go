@@ -30,7 +30,20 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 
 	switch r.Method {
 	case http.MethodGet:
-		return resourceGetHandler(c, w, r, nil)
+		return resourceGetHandler(c, w, r, func(name, p string) bool {
+
+			var fitType bool
+			ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
+			hasType := c.Audio || c.Video || c.Pdf || c.Image
+			if ok && hasType {
+				fitType = t == "image" && c.Image ||
+					t == "audio" && c.Audio ||
+					t == "video" && c.Video ||
+					t == "pdf"
+
+			}
+			return hasType && fitType || !hasType
+		})
 	case http.MethodDelete:
 		return resourceDeleteHandler(c, w, r)
 	case http.MethodPut:
@@ -48,7 +61,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	return http.StatusNotImplemented, nil
 }
 
-func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
+func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
 	// GetUsers the information of the directory/file.
 	f, err := fb.MakeInfo(r.URL, c)
 	if err != nil {
@@ -69,8 +82,19 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	}
 
 	// Tries to get the file type.
-	if err = f.SetFileType(true); err != nil {
-		return ErrorToHTTP(err, true), err
+
+	// If the file type is text, save its content.
+	f.SetFileType(true)
+
+	if f.Type == "text" {
+		var content []byte
+		//todo: fix me, what if file too big ?
+		content, err = ioutil.ReadFile(f.Path)
+		if err != nil {
+			return ErrorToHTTP(err, true), err
+		}
+
+		f.Content = string(content)
 	}
 
 	// Serve a preview if the file can't be edited or the
@@ -86,27 +110,23 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	return renderJSON(w, f)
 }
 
-func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter func(f *fb.File) bool) (int, error) {
-	f := c.File
-	f.Kind = "listing"
+func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
+	c.File.Kind = "listing"
 
 	// Tries to get the listing data.
-	if err := f.GetListing(c, fitFilter); err != nil {
+	if err := c.File.GetListing(c, fitFilter); err != nil {
 		return ErrorToHTTP(err, true), err
 	}
-
-	listing := f.Listing
-
 	// Copy the query values into the Listing struct
-	if sort, order, err := HandleSortOrder(w, r, "/"); err == nil {
-		listing.Sort = sort
-		listing.Order = order
+	if err := HandleSortOrder(c, w, r, "/"); err == nil {
+		c.File.Listing.Sort = c.Sort
+		c.File.Listing.Order = c.Order
 	} else {
 		return http.StatusBadRequest, err
 	}
 
-	listing.ApplySort()
-	listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
+	c.File.Listing.ApplySort()
+	c.File.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
 
 	return 0, nil
 }
@@ -201,7 +221,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	// If using POST method, we are trying to create a new file so it is not
 	// desirable to override an already existent file. Thus, we check
 	// if the file already exists. If so, we just return a 409 Conflict.
-	if r.Method == http.MethodPost && r.URL.Query().Get("override") != "true" {
+	if r.Method == http.MethodPost && !c.Override {
 		if _, err := c.User.FileSystem.Stat(r.URL.Path); err == nil {
 			return http.StatusConflict, errors.New("There is already a file on that path")
 		}
@@ -248,19 +268,11 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 	if !c.User.AllowEdit {
 		return http.StatusForbidden, nil
 	}
-	dst := r.Header.Get("Destination")
-	if len(dst) == 0 {
-		dst = r.URL.Query().Get("destination")
-	}
-	action := r.Header.Get("action")
-	if len(action) == 0 {
-		action = r.URL.Query().Get("action")
-	}
-	dst, err := url.QueryUnescape(dst)
+	dst, err := url.QueryUnescape(c.Destination)
 	if err != nil {
 		return ErrorToHTTP(err, true), err
 	}
-
+	action := c.Action
 	src := r.URL.Path
 
 	if dst == "/" || src == "/" {
@@ -284,38 +296,36 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 
 // HandleSortOrder gets and stores for a Listing the 'sort' and 'order',
 // and reads 'limit' if given. The latter is 0 if not given. Sets cookies.
-func HandleSortOrder(w http.ResponseWriter, r *http.Request, scope string) (sort string, order string, err error) {
-	sort = r.URL.Query().Get("sort")
-	order = r.URL.Query().Get("order")
+func HandleSortOrder(c *fb.Context, w http.ResponseWriter, r *http.Request, scope string) (err error) {
 
 	// If the query 'sort' or 'order' is empty, use defaults or any values
 	// previously saved in Cookies.
-	switch sort {
+	switch c.Sort {
 	case "":
-		sort = "name"
+		c.Sort = "name"
 		if sortCookie, sortErr := r.Cookie("sort"); sortErr == nil {
-			sort = sortCookie.Value
+			c.Sort = sortCookie.Value
 		}
 	case "name", "size":
 		http.SetCookie(w, &http.Cookie{
 			Name:   "sort",
-			Value:  sort,
+			Value:  c.Sort,
 			MaxAge: 31536000,
 			Path:   scope,
 			Secure: r.TLS != nil,
 		})
 	}
 
-	switch order {
+	switch c.Order {
 	case "":
-		order = "asc"
+		c.Order = "asc"
 		if orderCookie, orderErr := r.Cookie("order"); orderErr == nil {
-			order = orderCookie.Value
+			c.Order = orderCookie.Value
 		}
 	case "asc", "desc":
 		http.SetCookie(w, &http.Cookie{
 			Name:   "order",
-			Value:  order,
+			Value:  c.Order,
 			MaxAge: 31536000,
 			Path:   scope,
 			Secure: r.TLS != nil,

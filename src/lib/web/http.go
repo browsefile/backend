@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -21,13 +20,14 @@ func Handler(m *fb.FileBrowser) http.Handler {
 			FileBrowser: m,
 			User:        nil,
 			File:        nil,
+			Params:      new(fb.Params),
 		}
 
 		code, err := serve(c, w, r)
 
 		if code >= 400 {
 			txt := http.StatusText(code)
-			if len(c.PreviewType) == 0 {
+			if len(c.Params.PreviewType) == 0 {
 				log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
 			} else {
 				err = nil
@@ -60,31 +60,26 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 		return apiHandler(c, w, r)
 	}
 
-	/*	if strings.HasPrefix(r.URL.Path, "/share/") {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/share/")
-		return sharePage(c, w, r)
-	}*/
-
 	// Any other request should show the index.html file.
 	w.Header().Set("x-content-type-options", "nosniff")
 	w.Header().Set("x-xss-protection", "1; mode=block")
 
-	return renderFile(c, w, "index.html")
+	return renderFile(c, r, w, "index.html")
 }
 
 // staticHandler handles the static assets path.
-func staticHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func staticHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int, err error) {
 	if r.URL.Path != "/static/manifest.json" {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/static")
 		http.FileServer(c.Assets.HTTPBox()).ServeHTTP(w, r)
 		return 0, nil
 	}
 
-	return renderFile(c, w, "manifest.json")
+	return renderFile(c, r, w, "manifest.json")
 }
 
 // apiHandler is the main entry point for the /api endpoint.
-func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int, err error) {
 	if r.URL.Path == "/auth/get" {
 		return authHandler(c, w, r)
 	}
@@ -97,29 +92,17 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	if !valid {
 		return http.StatusForbidden, nil
 	}
-
-	c.Router, r.URL.Path = splitURL(r.URL.Path)
-	isShares := strings.HasPrefix(c.Router, "shares")
-
-	processParams(c, r)
-
-	//redirect to the real handler in shares case
-	if isShares {
-		//possibility to process shares view/download
-		if !isShareHandler(c.ShareUser) {
-			c.Router, r.URL.Path = splitURL(r.URL.Path)
-		}
-
-		if c.Router == "download" {
-			c.Router = "download-share"
-		} else if c.Router == "resource" {
-			c.Router = "shares"
-		}
+	isShares := processParams(c, r)
+	//allow only GET requests, for external share
+	if valid && c.User.IsGuest() && (!isShares ||
+		!strings.EqualFold(r.Method, http.MethodGet) ||
+		strings.HasPrefix(r.URL.Path, "/resource") ||
+		strings.HasPrefix(r.URL.Path, "/user")||
+		strings.HasPrefix(r.URL.Path, "/sett")) {
+		return http.StatusForbidden, nil
 	}
 
-	checksum := r.URL.Query().Get("checksum")
-	if c.Router == "download" || c.Router == "subtitle" || c.Router == "subtitles" {
-		var err error
+	if c.Router == "download" {
 		c.File, err = fb.MakeInfo(r.URL, c)
 		c.File.SetFileType(false)
 		m := mime.TypeByExtension(c.File.Extension)
@@ -132,8 +115,9 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 			return ErrorToHTTP(err, false), err
 		}
 	}
-	if checksum != "" {
-		err := c.File.Checksum(checksum)
+
+	if c.Checksum != "" {
+		err := c.File.Checksum(c.Checksum)
 		if err == errors.ErrInvalidOption {
 			return http.StatusBadRequest, nil
 		} else if err != nil {
@@ -143,8 +127,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 		c.File.Content = ""
 		return renderJSON(w, c.File)
 	}
-	var code int
-	var err error
+
 	switch c.Router {
 	case "download":
 		code, err = downloadHandler(c, w, r)
@@ -158,12 +141,13 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 		code, err = settingsHandler(c, w, r)
 	case "shares":
 		code, err = shareHandler(c, w, r)
-	case "subtitles":
-		code, err = subtitlesHandler(c, w, r)
-	case "subtitle":
-		code, err = subtitleHandler(c, w, r)
 	case "search":
 		code, err = searchHandler(c, w, r)
+	case "playlist":
+		code, err = makePlaylist(c, w, r)
+	case "playlist-share":
+		code, err = makeSharePlaylist(c, w, r)
+
 	default:
 		code = http.StatusNotFound
 	}
@@ -171,84 +155,33 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, err
 	return code, err
 }
 
-func processParams(c *fb.Context, r *http.Request) {
-	queryValues := r.URL.Query()
-	c.PreviewType = queryValues.Get("previewType")
-	c.ShareUser = queryValues.Get("share")
-
-	q := r.URL.Query().Get("query")
-	if len(q) > 0 {
-		if strings.Contains(q, "type") {
-			arr := strings.Split(q, ":")
-			arr = strings.Split(arr[1], " ")
-			c.SearchString = arr[1]
-			c.SearchType = arr[0]
-		} else {
-			c.SearchString = q
-		}
-		queryValues.Del("query")
-		r.URL.RawQuery = queryValues.Encode()
-	}
-
-	if len(c.ShareUser) > 0 {
-		queryValues.Del("share")
-		r.URL.RawQuery = queryValues.Encode()
-	}
-	c.IsRecursive, _ = strconv.ParseBool(queryValues.Get("recursive"))
-	if c.IsRecursive {
-		queryValues.Del("recursive")
-		r.URL.RawQuery = queryValues.Encode()
-	}
-
-}
-
-// splitURL splits the path and returns everything that stands
-// before the first slash and everything that goes after.
-func splitURL(path string) (string, string) {
-	if path == "" {
-		return "", ""
-	}
-
-	path = strings.TrimPrefix(path, "/")
-
-	i := strings.Index(path, "/")
-	if i == -1 {
-		return "", path
-	}
-
-	return path[0:i], path[i:]
-}
-
 // renderFile renders a file using a template with some needed variables.
-func renderFile(c *fb.Context, w http.ResponseWriter, file string) (int, error) {
-	var contentType string
-	switch filepath.Ext(file) {
-	case ".html":
-		contentType = "text/html"
-	case ".js":
-		contentType = "application/javascript"
-	case ".json":
-		contentType = "application/json"
-	case ".css":
-		contentType = "text/css"
-
-	default:
+func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file string) (int, error) {
+	contentType := mime.TypeByExtension(filepath.Ext(file))
+	if len(contentType) == 0 {
 		contentType = "text"
 	}
+	c.Query = r.URL.Query()
 
+	c.RootHash = c.Query.Get("rootHash")
+	isEx := len(c.RootHash) > 0
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	data := map[string]interface{}{
 		"Name":            "Browsefile",
 		"DisableExternal": false,
 		"Version":         fb.Version,
-		"StaticURL":       strings.TrimPrefix("/static", "/"),
-		"Signup":          true,
+		"isExternal":      isEx,
+		"StaticURL":       "/static",
+		"Signup":          false,
 		"NoAuth":          strings.ToLower(c.Config.Method) == "noauth" || strings.ToLower(c.Config.Method) == "ip",
 		"ReCaptcha":       c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",
 		"ReCaptchaHost":   c.ReCaptcha.Host,
 		"ReCaptchaKey":    c.ReCaptcha.Key,
 	}
 
+	if isEx {
+		data["StaticURL"] = c.Config.ExternalShareHost + "/static"
+	}
 	b, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return http.StatusInternalServerError, err

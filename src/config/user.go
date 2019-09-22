@@ -25,7 +25,7 @@ type UserConfig struct {
 	Password string `json:"password"`
 
 	// Username is the user username used to login.
-	Username string `json:"username" storm:"index,unique"`
+	Username string `json:"username"`
 
 	// User view mode for files and folders.
 	ViewMode string `json:"viewMode"`
@@ -61,11 +61,14 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 	}
 	return
 }
+func (u *UserConfig) IsGuest() bool {
+	return u.Username == GUEST
+
+}
 
 func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
 	config.lockR()
 	defer config.unlockR()
-
 	for _, shr := range u.Shares {
 		if strings.HasPrefix(relPath, shr.Path) {
 			res = shr.copyShare()
@@ -98,6 +101,7 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 
 	u.Shares = append(u.Shares, shr)
 	u.sortShares()
+	shr.Hash = GenShareHash(u.Username, shr.Path)
 	res = true
 	return
 }

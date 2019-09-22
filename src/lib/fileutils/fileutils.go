@@ -4,6 +4,7 @@ package fileutils
 
 import (
 	"log"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -22,6 +23,20 @@ func SlashClean(name string) string {
 // mimeExt is the sorted list of text mimeExt which
 // can be edited.
 var mimeExt = [][]string{{
+	".jpg", ".png", ".jpeg", ".tiff", ".tif", ".bmp",
+	".gif", ".eps", ".raw", ".cr2", ".nef", ".orf", ".sr2",
+}, {
+	".3gp", ".3g2", ".asf", ".wma", ".wmv",
+	".avi", ".divx", ".f4v", ".evo", ".flv",
+	".MKV", ".MK3D", ".MKA", ".MKS", ".webm",
+	".mcf", ".mp4", ".mpg", ".mpeg", ".m2p",
+	".ps", ".ts", ".m2ts", ".mxf",
+	".mov", ".qt", ".rmvb", ".vob",
+}, {
+	".aa", ".aac", ".mp3", ".aiff", ".amr", ".act", ".aax",
+	".au", ".awb", ".flac", ".m4a", ".m4b", ".m4p", ".ra", ".rm", ".wav",
+	".alac", ".ogg",
+}, {
 	".ad", ".ada", ".adoc", ".asciidoc",
 	".bas", ".bash", ".bat",
 	".c", ".cc", ".cmd", ".conf", ".cpp", ".cr", ".cs", ".css", ".csv",
@@ -40,20 +55,6 @@ var mimeExt = [][]string{{
 	".xml",
 	".yaml", ".yml",
 	"caddyfile",
-}, {
-	".3gp", ".3g2", ".asf", ".wma", ".wmv",
-	".avi", ".divx", ".f4v", ".evo", ".flv",
-	".MKV", ".MK3D", ".MKA", ".MKS", ".webm",
-	".mcf", ".mp4", ".mpg", ".mpeg", ".m2p",
-	".ps", ".ts", ".m2ts", ".mxf",
-	".mov", ".qt", ".rmvb", ".vob",
-}, {
-	".jpg", ".png", ".jpeg", ".tiff", ".tif", ".bmp",
-	".gif", ".eps", ".raw", ".cr2", ".nef", ".orf", ".sr2",
-}, {
-	".aa", ".aac", ".mp3", ".aiff", ".amr", ".act", ".aax",
-	".au", ".awb", ".flac", ".m4a", ".m4b", ".m4p", ".ra", ".rm", ".wav",
-	".alac", ".ogg",
 }}
 
 // getBasedOnExtensions checks if a file can be edited by its mimeExt.
@@ -73,17 +74,13 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 			if res {
 				switch iEx {
 				case 0:
-					t = "text"
-
+					t = "image"
 				case 1:
 					t = "video"
-
 				case 2:
-					t = "image"
-
-				case 3:
 					t = "audio"
-
+				case 3:
+					t = "text"
 				}
 				break
 			}
@@ -93,7 +90,7 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 		}
 	}
 	if !res {
-		log.Printf("fileutils can't detect type: %s", ext)
+		//log.Printf("fileutils can't detect type: %s", ext)
 		t = "blob"
 	}
 
@@ -101,14 +98,14 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 }
 
 //should get information about original file. Depending on previewType, it will return correct relative path at the file system
-func GetFileInfo(scope, urlPath string) (info os.FileInfo, err error, path string, t string) {
+func GetFileInfo(scope, urlPath string) (info os.FileInfo, err error, path string) {
 	dir := Dir(scope)
 	info, err = dir.Stat(urlPath)
 	path = filepath.Join(scope, urlPath)
 	if err != nil {
-		return info, err, path, ""
+		return info, err, path
 	}
-	return info, err, path, t
+	return info, err, path
 }
 func PreviewPathMod(orig, scope, pScope string) (p string) {
 	dir := Dir(scope)
@@ -171,4 +168,15 @@ func ModPermission(uid, gid int, path string) (err error) {
 	}
 	return err
 
+}
+// just in case
+func CleanPath(p string) (string, error) {
+	p, err := url.QueryUnescape(p)
+	if err != nil {
+		return "", err
+	}
+
+	// Clean the slashes.
+	p = SlashClean(p)
+	return p, nil
 }

@@ -91,6 +91,12 @@
                         "user2",
                         "user3"
                     ]
+                },
+                {
+                    "path": "/share/",
+                    "allowExternal": true,
+                    "allowLocal": false,
+                    "allowedUsers": []
                 }
             ],
             "ipAuth": [
@@ -101,7 +107,7 @@
         }
     ],
     "port": 8081,
-    "ip": "0.0.0.0",
+    "ip": "127.0.0.1",
     "log": "stdout",
     "tlsKey": "",
     "tlsCert": "",
@@ -112,7 +118,7 @@
         "secret": ""
     },
     "auth": {
-        "method": "default",
+        "method": "ip",
         "header": "X-Forwarded-User",
         "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
     },
@@ -120,5 +126,6 @@
         "allowGeneratePreview": true,
         "threads": 2,
         "previewOnFirstRun": false
-    }
+    },
+    "externalShareHost": "http://127.0.0.1:8081"
 }

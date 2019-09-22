@@ -9,6 +9,7 @@ import (
 	"github.com/browsefile/backend/src/lib/preview"
 	"golang.org/x/crypto/bcrypt"
 	"log"
+	"net/url"
 	"os"
 )
 
@@ -86,10 +87,17 @@ func (fb *FileBrowser) Setup() (bool, error) {
 				log.Println(err)
 			}
 		}
+		for _, shr := range u.Shares {
+			shr.Hash = config.GenShareHash(u.Username, shr.Path)
+		}
 	}
 
 	if needUpdate {
 		fb.Config.UpdateUsers(users)
+	} else {
+
+		fb.Config.Users = users
+		fb.Config.RefreshUserRam()
 	}
 	fb.Pgen = new(preview.PreviewGen)
 	fb.Pgen.Setup(fb.Config.Threads)
@@ -124,6 +132,9 @@ func (c *Context) GenPreview(out string) {
 			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 		}
 	}
+}
+func (c *Context) IsExternalShare() (r bool) {
+	return len(c.RootHash) > 0
 }
 
 // DefaultUser is used on New, when no 'base' user is provided.
@@ -170,14 +181,44 @@ type Context struct {
 	File *File
 	// On API handlers, Router is the APi handler we want.
 	Router string
+	*Params
+}
+
+//params in URL request
+type Params struct {
 	//indicate that requested preview
 	PreviewType string
 	//return files list by recursion
 	IsRecursive bool
 	//indicate about share request
-	ShareUser    string
-	SearchType   string
+	ShareType    string
 	SearchString string
+	//external share item root dir hash
+	RootHash string
+	//download type, zip or playlist m3u8
+	Algo string
+	//download multiple files
+	FilePaths []string
+
+	Auth string
+
+	Checksum string
+
+	Inline bool
+	// playlist & search file mime types
+	Audio bool
+	Image bool
+	Video bool
+	Pdf   bool
+	Query url.Values
+	//override existing file
+	Override bool
+	// used in resource patch requests type
+	Destination string
+	Action      string
+
+	Sort  string
+	Order string
 }
 
 // HashPassword generates an hash from a password using bcrypt.
