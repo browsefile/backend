@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/browsefile/backend/src/cnst"
 	"sort"
 	"strings"
 )
@@ -62,7 +63,7 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 	return
 }
 func (u *UserConfig) IsGuest() bool {
-	return u.Username == GUEST
+	return u.Username == cnst.GUEST
 
 }
 

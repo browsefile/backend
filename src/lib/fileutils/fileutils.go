@@ -3,6 +3,7 @@
 package fileutils
 
 import (
+	"github.com/browsefile/backend/src/cnst"
 	"log"
 	"net/url"
 	"os"
@@ -22,40 +23,6 @@ func SlashClean(name string) string {
 
 // mimeExt is the sorted list of text mimeExt which
 // can be edited.
-var mimeExt = [][]string{{
-	".jpg", ".png", ".jpeg", ".tiff", ".tif", ".bmp",
-	".gif", ".eps", ".raw", ".cr2", ".nef", ".orf", ".sr2",
-}, {
-	".3gp", ".3g2", ".asf", ".wma", ".wmv",
-	".avi", ".divx", ".f4v", ".evo", ".flv",
-	".MKV", ".MK3D", ".MKA", ".MKS", ".webm",
-	".mcf", ".mp4", ".mpg", ".mpeg", ".m2p",
-	".ps", ".ts", ".m2ts", ".mxf",
-	".mov", ".qt", ".rmvb", ".vob",
-}, {
-	".aa", ".aac", ".mp3", ".aiff", ".amr", ".act", ".aax",
-	".au", ".awb", ".flac", ".m4a", ".m4b", ".m4p", ".ra", ".rm", ".wav",
-	".alac", ".ogg",
-}, {
-	".ad", ".ada", ".adoc", ".asciidoc",
-	".bas", ".bash", ".bat",
-	".c", ".cc", ".cmd", ".conf", ".cpp", ".cr", ".cs", ".css", ".csv",
-	".d",
-	".f", ".f90",
-	".h", ".hh", ".hpp", ".htaccess", ".html",
-	".ini",
-	".java", ".js", ".json",
-	".markdown", ".md", ".mdown", ".mmark",
-	".nim",
-	".php", ".pl", ".ps1", ".py", ".go",
-	".rss", ".rst", ".rtf",
-	".sass", ".scss", ".sh", ".sty",
-	".tex", ".tml", ".toml", ".txt",
-	".vala", ".vapi",
-	".xml",
-	".yaml", ".yml",
-	"caddyfile",
-}}
 
 // getBasedOnExtensions checks if a file can be edited by its mimeExt.
 func GetBasedOnExtensions(name string) (res bool, t string) {
@@ -66,21 +33,21 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 	}
 	res = strings.EqualFold(".pdf", ext)
 	if res {
-		return res, "pdf"
+		return res, cnst.PDF
 	}
-	for iEx, eArr := range mimeExt {
+	for iEx, eArr := range cnst.MIME_EXT {
 		for _, e := range eArr {
 			res = strings.EqualFold(e, ext)
 			if res {
 				switch iEx {
 				case 0:
-					t = "image"
+					t = cnst.IMAGE
 				case 1:
-					t = "video"
+					t = cnst.VIDEO
 				case 2:
-					t = "audio"
+					t = cnst.AUDIO
 				case 3:
-					t = "text"
+					t = cnst.TEXT
 				}
 				break
 			}
@@ -91,7 +58,7 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 	}
 	if !res {
 		//log.Printf("fileutils can't detect type: %s", ext)
-		t = "blob"
+		t = cnst.BLOB
 	}
 
 	return
@@ -131,7 +98,7 @@ func ReplacePrevExt(srcPath string) (path string, t string) {
 	if len(extension) > 0 {
 		var ext string
 		_, t = GetBasedOnExtensions(extension)
-		if t == "video" {
+		if t == cnst.VIDEO {
 			ext = ".gif"
 		} else {
 			ext = ".jpg"

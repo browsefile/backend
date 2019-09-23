@@ -2,13 +2,12 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/browsefile/backend/src/errors"
+	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
 	"html/template"
 	"log"
 	"mime"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -97,28 +96,14 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 	if valid && c.User.IsGuest() && (!isShares ||
 		!strings.EqualFold(r.Method, http.MethodGet) ||
 		strings.HasPrefix(r.URL.Path, "/resource") ||
-		strings.HasPrefix(r.URL.Path, "/user")||
+		strings.HasPrefix(r.URL.Path, "/user") ||
 		strings.HasPrefix(r.URL.Path, "/sett")) {
 		return http.StatusForbidden, nil
 	}
 
-	if c.Router == "download" {
-		c.File, err = fb.MakeInfo(r.URL, c)
-		c.File.SetFileType(false)
-		m := mime.TypeByExtension(c.File.Extension)
-		if len(m) == 0 {
-			m = c.File.Type
-		}
-		w.Header().Set("Content-Type", m)
-
-		if err != nil {
-			return ErrorToHTTP(err, false), err
-		}
-	}
-
 	if c.Checksum != "" {
 		err := c.File.Checksum(c.Checksum)
-		if err == errors.ErrInvalidOption {
+		if err == cnst.ErrInvalidOption {
 			return http.StatusBadRequest, nil
 		} else if err != nil {
 			return http.StatusInternalServerError, err
@@ -159,7 +144,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file string) (int, error) {
 	contentType := mime.TypeByExtension(filepath.Ext(file))
 	if len(contentType) == 0 {
-		contentType = "text"
+		contentType = cnst.TEXT
 	}
 	c.Query = r.URL.Query()
 
@@ -225,22 +210,4 @@ func matchURL(first, second string) bool {
 	return strings.HasPrefix(first, second)
 }
 
-// ErrorToHTTP converts errors to HTTP Status Code.
-func ErrorToHTTP(err error, gone bool) int {
-	switch {
-	case err == nil:
-		return http.StatusOK
-	case os.IsPermission(err):
-		return http.StatusForbidden
-	case os.IsNotExist(err):
-		if !gone {
-			return http.StatusNotFound
-		}
 
-		return http.StatusGone
-	case os.IsExist(err):
-		return http.StatusConflict
-	default:
-		return http.StatusInternalServerError
-	}
-}

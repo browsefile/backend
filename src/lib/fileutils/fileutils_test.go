@@ -63,3 +63,6 @@ func TestSlashClean(t *testing.T) {
 		}
 	}
 }
+func TestSome(t *testing.T) {
+
+}

@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"github.com/browsefile/backend/src/errors"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/maruel/natural"
 	"hash"
@@ -257,7 +257,7 @@ func (f *File) SetFileType(checkContent bool) {
 // Checksum retrieves the checksum of a file.
 func (i *File) Checksum(algo string) error {
 	if i.IsDir {
-		return errors.ErrIsDirectory
+		return cnst.ErrIsDirectory
 	}
 
 	if i.Checksums == nil {
@@ -283,7 +283,7 @@ func (i *File) Checksum(algo string) error {
 	case "sha512":
 		h = sha512.New()
 	default:
-		return ErrInvalidOption
+		return cnst.ErrInvalidOption
 	}
 
 	_, err = io.Copy(h, file)
@@ -297,7 +297,7 @@ func (i *File) Checksum(algo string) error {
 
 // CanBeEdited checks if the extension of a file is supported by the editor
 func (i File) CanBeEdited() bool {
-	return i.Type == "text"
+	return i.Type == cnst.TEXT
 }
 
 // ApplySort applies the sort order using .Order and .Sort

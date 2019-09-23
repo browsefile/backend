@@ -124,7 +124,7 @@
         "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
     },
     "preview": {
-        "allowGeneratePreview": true,
+        "scriptPath": "/home/v/GolangProjects/browsefile/backend/bfconvert.sh",
         "threads": 2,
         "previewOnFirstRun": false
     },

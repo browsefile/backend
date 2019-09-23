@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
@@ -17,10 +18,6 @@ import (
 
 var config *GlobalConfig
 var usersRam map[string]*UserConfig
-var FileName = "browsefile.json"
-
-const GUEST string = "guest"
-
 /*
 Single config for everything.
 update automatically
@@ -33,21 +30,23 @@ type GlobalConfig struct {
 	TLSKey  string        `json:"tlsKey"`
 	TLSCert string        `json:"tlsCert"`
 	// Scope is the path the user has access to.
-	FilesPath         string `json:"filesPath"`
-	*CaptchaConfig    `json:"captchaConfig"`
-	*Auth             `json:"auth"`
-	*PreviewConf      `json:"preview"`
-	ExternalShareHost string `json:"externalShareHost"`
-
-	updateLock *sync.RWMutex `json:"-"`
+	FilesPath      string `json:"filesPath"`
+	*CaptchaConfig `json:"captchaConfig"`
+	*Auth          `json:"auth"`
+	*PreviewConf   `json:"preview"`
+	//http://host:port that used behind DMZ
+	ExternalShareHost string        `json:"externalShareHost"`
+	updateLock        *sync.RWMutex `json:"-"`
+	//path to config file
+	path string `json:"-"`
 }
 
 // Auth settings.
 type PreviewConf struct {
 	//enable preview generating by call .sh
-	AllowGeneratePreview bool `json:"allowGeneratePreview"`
-	Threads              int  `json:"threads"`
-	FirstRun             bool `json:"previewOnFirstRun"`
+	ScriptPath string `json:"ScriptPath"`
+	Threads    int    `json:"threads"`
+	FirstRun   bool   `json:"previewOnFirstRun"`
 }
 
 // Auth settings.
@@ -68,6 +67,7 @@ func GenShareHash(userName, itmPath string) string {
 	itmPath = strings.ReplaceAll(itmPath, "/", "")
 	return base64.StdEncoding.EncodeToString(md5.New().Sum([]byte(userName + itmPath)))
 }
+
 //since we sure that this method will not modify, just return original
 func (gc *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConfig) {
 	config.lockR()
@@ -128,20 +128,28 @@ func (cfg *GlobalConfig) GetUserPreviewPath(userName string) string {
 	return filepath.Join(cfg.FilesPath, userName, "preview")
 }
 
-func (cfg *GlobalConfig) ReadConfigFile(file string) {
-	FileName = file
-	// Open our jsonFile
-	jsonFile, err := os.Open(file)
-	defer jsonFile.Close()
-	if err != nil {
-		log.Print("can't open " + FileName)
-		log.Print(err)
+func (cfg *GlobalConfig) ReadConfigFile() {
+	var paths []string
+
+	if len(cfg.path) > 0 {
+		paths = append(paths, cfg.path)
 	}
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	err = json.Unmarshal(byteValue, &cfg)
-	if err != nil {
-		log.Print("can't parse " + FileName)
-		log.Print(err)
+	paths = append(paths, cnst.FilePath1, cnst.FilePath2)
+	for _, p := range paths {
+		jsonFile, err := os.Open(p)
+		defer jsonFile.Close()
+		if err != nil {
+			fmt.Println("can't open " + p)
+			fmt.Println(err)
+		} else {
+			err = cfg.parseConf(jsonFile)
+			if err != nil {
+				fmt.Print("failed to parse config at " + p)
+				continue
+			}
+
+			break
+		}
 	}
 	cfg.RefreshUserRam()
 	cfg.updateLock = new(sync.RWMutex)
@@ -150,6 +158,15 @@ func (cfg *GlobalConfig) ReadConfigFile(file string) {
 	for _, u := range cfg.Users {
 		u.sortShares()
 	}
+}
+func (cfg *GlobalConfig) parseConf(jsonFile *os.File) (err error) {
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(byteValue, &cfg)
+	if err != nil {
+		fmt.Print("can't parse " + cnst.FilePath1)
+		fmt.Print(err)
+	}
+	return
 }
 func (cfg *GlobalConfig) Init() {
 	cfg.updateLock = new(sync.RWMutex)
@@ -173,7 +190,7 @@ func (cfg *GlobalConfig) WriteConfig() {
 	if err != nil {
 		fmt.Println(err)
 	} else {
-		err = ioutil.WriteFile(FileName, jsonData, 0666)
+		err = ioutil.WriteFile(cfg.path, jsonData, 0666)
 	}
 }
 
@@ -212,7 +229,7 @@ func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 	cfg.lockR()
 	defer cfg.unlockR()
 
-	if username == GUEST {
+	if username == cnst.GUEST {
 		admin := config.GetAdmin()
 		return &UserConfig{
 			Username:  username,
@@ -289,9 +306,9 @@ func (cfg *GlobalConfig) Update(u *UserConfig) error {
 		cfg.Users[i].LockPassword = u.LockPassword
 		cfg.Users[i].UID = u.UID
 		cfg.Users[i].GID = u.GID
+		cfg.RefreshUserRam()
 	}
 
-	cfg.RefreshUserRam()
 	return nil
 }
 
@@ -311,9 +328,8 @@ func (cfg *GlobalConfig) Delete(username string) error {
 	defer cfg.unlock()
 
 	i := cfg.getUserIndex(username)
-	if strings.EqualFold(cfg.Users[i].Username, username) {
+	if i >= 0 {
 		cfg.Users = append(cfg.Users[:i], cfg.Users[i+1:]...)
-
 	}
 	cfg.RefreshUserRam()
 
@@ -330,7 +346,7 @@ func (cfg *GlobalConfig) getUserIndex(userName string) int {
 
 func (cfg *GlobalConfig) GetKeyBytes() ([]byte, error) {
 	if len(cfg.Auth.Key) == 0 {
-		return nil, errors.New("Key is empty")
+		return nil, cnst.ErrEmptyKey
 	}
 	return base64.StdEncoding.DecodeString(cfg.Auth.Key)
 }
@@ -345,7 +361,7 @@ func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 		Log:               cfg.Log,
 		CaptchaConfig:     cfg.CopyCaptchaConfig(),
 		Auth:              cfg.CopyAuth(),
-		PreviewConf:       &PreviewConf{AllowGeneratePreview: cfg.AllowGeneratePreview, Threads: cfg.Threads},
+		PreviewConf:       &PreviewConf{ScriptPath: cfg.ScriptPath, Threads: cfg.Threads},
 		FilesPath:         cfg.FilesPath,
 		TLSKey:            cfg.TLSKey,
 		TLSCert:           cfg.TLSCert,

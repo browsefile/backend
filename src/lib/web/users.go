@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"github.com/browsefile/backend/src/cnst"
 	"net/http"
 	"os"
 	"strings"
@@ -61,7 +62,7 @@ func getUserName(r *http.Request) (string, error) {
 func parseUserFromRequest(c *fb.Context, r *http.Request) (*fb.UserModel, string, error) {
 	// Checks if the request body is empty.
 	if r.Body == nil {
-		return nil, "", fb.ErrEmptyRequest
+		return nil, "", cnst.ErrEmptyRequest
 	}
 
 	// Parses the request body and checks if it's well formed.
@@ -73,7 +74,7 @@ func parseUserFromRequest(c *fb.Context, r *http.Request) (*fb.UserModel, string
 
 	// Checks if the request type is right.
 	if mod.What != "user" {
-		return nil, "", fb.ErrWrongDataType
+		return nil, "", cnst.ErrWrongDataType
 	}
 
 	mod.Data.FileSystem = c.NewFS(c.GetUserHomePath())
@@ -141,12 +142,12 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 
 	// Checks if username isn't empty.
 	if u.Username == "" {
-		return http.StatusBadRequest, fb.ErrEmptyUsername
+		return http.StatusBadRequest, cnst.ErrEmptyUsername
 	}
 
 	// Checks if password isn't empty.
 	if u.Password == "" {
-		return http.StatusBadRequest, fb.ErrEmptyPassword
+		return http.StatusBadRequest, cnst.ErrEmptyPassword
 	}
 
 	// If the view mode is empty, initialize with the default one.
@@ -170,7 +171,7 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 
 	// Saves the user to the database.
 	err = c.Config.Add(u.UserConfig)
-	if err == fb.ErrExist {
+	if err == cnst.ErrExist {
 		return http.StatusConflict, err
 	}
 
@@ -201,7 +202,7 @@ func makeFS(path string) (int, error) {
 	}
 
 	if !info.IsDir() {
-		return http.StatusBadRequest, errors.New("Scope is not a dir")
+		return http.StatusBadRequest, errors.New("scope is not a dir, but should be")
 	}
 
 	return 0, nil
@@ -219,8 +220,8 @@ func usersDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 
 	// Deletes the user from the database.
 	err = c.Config.Delete(name)
-	if err == fb.ErrNotExist {
-		return http.StatusNotFound, fb.ErrNotExist
+	if err == cnst.ErrNotExist {
+		return http.StatusNotFound, cnst.ErrNotExist
 	}
 
 	if err != nil {
@@ -281,7 +282,7 @@ func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
 	// Updates the Password.
 	if which == "password" {
 		if u.Password == "" {
-			return http.StatusBadRequest, fb.ErrEmptyPassword
+			return http.StatusBadRequest, cnst.ErrEmptyPassword
 		}
 
 		if strings.Compare(name, c.User.Username) != 0 && c.User.LockPassword {
@@ -319,7 +320,7 @@ func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
 
 	// Checks if username isn't empty.
 	if u.Username == "" {
-		return http.StatusBadRequest, fb.ErrEmptyUsername
+		return http.StatusBadRequest, cnst.ErrEmptyUsername
 	}
 
 	// Checks if the scope exists.

@@ -37,4 +37,3 @@ func SplitURL(path string) (string, string) {
 
 	return path[0:i], path[i:]
 }
-

@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"io"
@@ -36,10 +37,10 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
 			hasType := c.Audio || c.Video || c.Pdf || c.Image
 			if ok && hasType {
-				fitType = t == "image" && c.Image ||
-					t == "audio" && c.Audio ||
-					t == "video" && c.Video ||
-					t == "pdf"
+				fitType = t == cnst.IMAGE && c.Image ||
+					t == cnst.AUDIO && c.Audio ||
+					t == cnst.VIDEO && c.Video ||
+					t == cnst.PDF
 
 			}
 			return hasType && fitType || !hasType
@@ -65,7 +66,7 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	// GetUsers the information of the directory/file.
 	f, err := fb.MakeInfo(r.URL, c)
 	if err != nil {
-		return ErrorToHTTP(err, false), err
+		return cnst.ErrorToHTTP(err, false), err
 	}
 
 	// If it's a dir and the path doesn't end with a trailing slash,
@@ -86,12 +87,12 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	// If the file type is text, save its content.
 	f.SetFileType(true)
 
-	if f.Type == "text" {
+	if f.Type == cnst.TEXT {
 		var content []byte
 		//todo: fix me, what if file too big ?
 		content, err = ioutil.ReadFile(f.Path)
 		if err != nil {
-			return ErrorToHTTP(err, true), err
+			return cnst.ErrorToHTTP(err, true), err
 		}
 
 		f.Content = string(content)
@@ -115,7 +116,7 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFi
 
 	// Tries to get the listing data.
 	if err := c.File.GetListing(c, fitFilter); err != nil {
-		return ErrorToHTTP(err, true), err
+		return cnst.ErrorToHTTP(err, true), err
 	}
 	// Copy the query values into the Listing struct
 	if err := HandleSortOrder(c, w, r, "/"); err == nil {
@@ -126,7 +127,7 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFi
 	}
 
 	c.File.Listing.ApplySort()
-	c.File.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
+	c.File.Listing.AllowGeneratePreview = len(c.Config.ScriptPath) > 0
 
 	return 0, nil
 }
@@ -142,7 +143,7 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 	err := c.User.FileSystem.RemoveAll(r.URL.Path)
 
 	if err != nil {
-		return ErrorToHTTP(err, true), err
+		return cnst.ErrorToHTTP(err, true), err
 	}
 
 	return http.StatusOK, nil
@@ -173,7 +174,7 @@ func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 		log.Printf("resource: preview file locked or it does not exists %s", err)
 		return
 	}
-	if t == "image" || t == "video" {
+	if t == cnst.IMAGE || t == cnst.VIDEO {
 		if !info.IsDir() {
 			src, _ = fileutils.ReplacePrevExt(src)
 			dst, _ = fileutils.ReplacePrevExt(dst)
@@ -215,7 +216,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		p := filepath.Join(c.GetUserHomePath(), r.URL.Path)
 		os.Chown(p, c.User.UID, c.User.GID)
 		c.User.FileSystemPreview.Mkdir(p, 0775, c.User.UID, c.User.GID)
-		return ErrorToHTTP(err, false), err
+		return cnst.ErrorToHTTP(err, false), err
 	}
 
 	// If using POST method, we are trying to create a new file so it is not
@@ -229,20 +230,20 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	// Create/Open the file.
 	f, err := c.User.FileSystem.OpenFile(r.URL.Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775, c.User.UID, c.User.GID)
 	if err != nil {
-		return ErrorToHTTP(err, false), err
+		return cnst.ErrorToHTTP(err, false), err
 	}
 	defer f.Close()
 
 	// Copies the new content for the file.
 	_, err = io.Copy(f, r.Body)
 	if err != nil {
-		return ErrorToHTTP(err, false), err
+		return cnst.ErrorToHTTP(err, false), err
 	}
 
 	// GetUsers the info about the file.
 	fi, err := f.Stat()
 	if err != nil {
-		return ErrorToHTTP(err, false), err
+		return cnst.ErrorToHTTP(err, false), err
 	}
 	if !fi.IsDir() {
 		inf, err := fb.MakeInfo(r.URL, c)
@@ -270,7 +271,7 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 	}
 	dst, err := url.QueryUnescape(c.Destination)
 	if err != nil {
-		return ErrorToHTTP(err, true), err
+		return cnst. ErrorToHTTP(err, true), err
 	}
 	action := c.Action
 	src := r.URL.Path
@@ -291,7 +292,7 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 
 	}
 
-	return ErrorToHTTP(err, true), err
+	return cnst.ErrorToHTTP(err, true), err
 }
 
 // HandleSortOrder gets and stores for a Listing the 'sort' and 'order',

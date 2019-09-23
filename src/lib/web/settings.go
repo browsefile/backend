@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
 	"net/http"
@@ -36,7 +37,7 @@ func settingsPutHandler(c *fb.Context, r *http.Request) (int, error) {
 
 	// Checks if the request body is empty.
 	if r.Body == nil {
-		return http.StatusForbidden, fb.ErrEmptyRequest
+		return http.StatusForbidden, cnst.ErrEmptyRequest
 	}
 
 	// Parses the request body and checks if it's well formed.

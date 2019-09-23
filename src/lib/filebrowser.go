@@ -2,8 +2,8 @@ package lib
 
 import (
 	"crypto/rand"
-	"errors"
 	"github.com/GeertJohan/go.rice"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/browsefile/backend/src/lib/preview"
@@ -17,18 +17,6 @@ const (
 	// Version is the current File Browser version.
 	Version        = "(untracked)"
 	MosaicViewMode = "mosaic"
-)
-
-var (
-	ErrExist              = errors.New("the resource already exists")
-	ErrNotExist           = errors.New("the resource does not exist")
-	ErrEmptyRequest       = errors.New("request body is empty")
-	ErrEmptyPassword      = errors.New("password is empty")
-	ErrEmptyUsername      = errors.New("username is empty")
-	ErrEmptyScope         = errors.New("scope is empty")
-	ErrWrongDataType      = errors.New("wrong data type")
-	ErrInvalidUpdateField = errors.New("invalid field to update")
-	ErrInvalidOption      = errors.New("invalid option")
 )
 
 // ReCaptcha settings.
@@ -67,7 +55,7 @@ func (fb *FileBrowser) Setup() (bool, error) {
 	// Tries to get the encryption key from the database.
 	// If it doesn't exist, create a new one of 256 bits.
 	_, err := fb.Config.GetKeyBytes()
-	if err != nil || err == ErrNotExist {
+	if err != nil || err == cnst.ErrNotExist {
 		var bytes []byte
 		bytes, err = GenerateRandomBytes(64)
 		if err != nil {
@@ -100,7 +88,7 @@ func (fb *FileBrowser) Setup() (bool, error) {
 		fb.Config.RefreshUserRam()
 	}
 	fb.Pgen = new(preview.PreviewGen)
-	fb.Pgen.Setup(fb.Config.Threads)
+	fb.Pgen.Setup(fb.Config.Threads, fb.Config.ScriptPath)
 
 	//generate all previews for the first run
 	if fb.Config.FirstRun {
@@ -126,9 +114,9 @@ func (c *Context) GetUserPreviewPath() string {
 }
 
 func (c *Context) GenPreview(out string) {
-	if c.Config.AllowGeneratePreview {
+	if len(c.Config.ScriptPath) > 0 {
 		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
-		if t == "image" || t == "video" {
+		if t == cnst.IMAGE || t == cnst.VIDEO {
 			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 		}
 	}

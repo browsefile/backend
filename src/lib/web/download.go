@@ -1,11 +1,13 @@
 package web
 
 import (
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +18,19 @@ import (
 // downloadHandler creates an archive in one of the supported formats (zip, tar,
 // tar.gz or tar.bz2) and sends it to be downloaded.
 func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+	var err error
+	c.File, err = fb.MakeInfo(r.URL, c)
+	c.File.SetFileType(false)
+	m := mime.TypeByExtension(c.File.Extension)
+	if len(m) == 0 {
+		m = c.File.Type
+	}
+	w.Header().Set("Content-Type", m)
+
+	if err != nil {
+		return cnst.ErrorToHTTP(err, false), err
+	}
+
 	// If the file isn't a directory, serve it using web.ServeFile. We display it
 	// inline if it is requested.
 	if !c.File.IsDir {

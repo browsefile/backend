@@ -1,6 +1,8 @@
 package web
 
 import (
+	"github.com/browsefile/backend/src/cnst"
+	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/maruel/natural"
@@ -48,15 +50,17 @@ func fetchFilesRecursively(c *fb.Context, joinHome bool) []string {
 		} else {
 			p = f
 		}
-		itm, _ := getShare("", c)
+		var itm *config.ShareItem
+		external := !joinHome && len(c.RootHash) > 0
+		if external {
+			itm, _ = getShare("", c)
+		}
 
 		_ = filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
 			if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(info.Name())); ok && fitMediaFilter(c, t) {
-
 				// if request to generate external share, we have to cut share item path, since rootHash replaces it
 				// and have to deal with path replacement, if we reuse download component, because still need absolute path in order to walk on it
-				if !joinHome && len(c.RootHash) > 0 {
-
+				if external {
 					res = append(res, strings.TrimPrefix(path, c.GetUserHomePath()+itm.Path))
 				} else {
 					res = append(res, strings.TrimPrefix(path, c.GetUserHomePath()))
@@ -106,9 +110,9 @@ func makeSharePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (i
 	return http.StatusOK, nil
 }
 func fitMediaFilter(c *fb.Context, t string) bool {
-	return c.Audio && strings.EqualFold(t, "audio") ||
-		c.Video && strings.EqualFold(t, "video") ||
-		c.Image && strings.EqualFold(t, "image")
+	return c.Audio && strings.EqualFold(t, cnst.AUDIO) ||
+		c.Video && strings.EqualFold(t, cnst.VIDEO) ||
+		c.Image && strings.EqualFold(t, cnst.IMAGE)
 }
 
 func serveFile(c *fb.Context, pw http.ResponseWriter, fName, p, host string, isShare bool) {

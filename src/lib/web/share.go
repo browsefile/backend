@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
 	"io/ioutil"
@@ -88,12 +89,12 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 					res = c.File
 					res.SetFileType(true)
 
-					if res.Type == "text" {
+					if res.Type == cnst.TEXT {
 						var content []byte
 						//todo: fix me, what if file too big ?
 						content, err = ioutil.ReadFile(res.Path)
 						if err != nil {
-							return ErrorToHTTP(err, true), err
+							return cnst.ErrorToHTTP(err, true), err
 						}
 
 						res.Content = string(content)
@@ -153,7 +154,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 			res.ApplySort()
 		}
 
-		res.AllowGeneratePreview = c.Config.AllowGeneratePreview
+		res.AllowGeneratePreview = len(c.Config.ScriptPath) > 0
 	}
 
 	return renderJSON(w, res)
@@ -191,7 +192,7 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 		}
 
 		listingHandler(c, w, r, fitFilter)
-		c.File.Listing.AllowGeneratePreview = c.Config.AllowGeneratePreview
+		c.File.Listing.AllowGeneratePreview = len(c.Config.ScriptPath) > 0
 		r.URL.Path = orig
 		res = c.File.Listing
 		if !isExternal {

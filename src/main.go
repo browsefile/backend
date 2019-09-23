@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	"github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
@@ -8,13 +10,18 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "-h" {
+		fmt.Printf("Default config file locations : '%s', '%s'. Also you can specify own by passing path as first argument.", cnst.FilePath1, cnst.FilePath2)
+		os.Exit(0)
+	}
 	cfg := new(config.GlobalConfig)
-	cfg.ReadConfigFile(config.FileName)
+	cfg.ReadConfigFile()
 	cfg.SetupLog()
 	cfg.Verify()
 	// Builds the address and a listener.

@@ -1,6 +1,7 @@
 package preview
 
 import (
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"log"
 	"os"
@@ -13,12 +14,12 @@ import (
 type PreviewGen struct {
 	ch           chan *PreviewData
 	threadsCount int
+	scriptPath   string
 }
 
 func genPrew(pd *PreviewData) {
 	if _, err := os.Stat(pd.out); os.IsNotExist(err) {
 		cmd := exec.Command("/bin/sh", pd.convert, pd.in, pd.out, pd.fType)
-		cmd.Dir = pd.dir
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -30,8 +31,9 @@ func genPrew(pd *PreviewData) {
 	}
 
 }
-func (p *PreviewGen) Setup(t int) {
+func (p *PreviewGen) Setup(t int, scr string) {
 	p.threadsCount = t
+	p.scriptPath = scr
 	if p.threadsCount <= 0 {
 		p.threadsCount = 1
 	} else {
@@ -56,7 +58,7 @@ func (p *PreviewGen) Process(pc *PreviewData) {
 			err = os.MkdirAll(dirPath, 0775)
 		}
 		//do not wait for video preview generation, because it can take a while!
-		if p.threadsCount == 1 && !strings.EqualFold(pc.fType, "video") {
+		if p.threadsCount == 1 && !strings.EqualFold(pc.fType, cnst.VIDEO) {
 			genPrew(pc)
 
 		} else {
@@ -74,7 +76,7 @@ func (pd PreviewGen) GetDefaultData(in, out, t string) (rs *PreviewData) {
 		log.Println("could not determinate current working folder")
 		log.Fatal(err)
 	}*/
-	rs.Setup("./", "bfconvert.sh")
+	rs.Setup(pd.scriptPath)
 	if len(in) > 0 && len(out) > 0 && len(t) > 0 {
 		rs.SetPaths(in, out, t)
 	}
@@ -91,7 +93,7 @@ func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 			}
 
 			ok, t := fileutils.GetBasedOnExtensions(path)
-			if ok && (strings.EqualFold("image", t) || strings.EqualFold("video", t)) {
+			if ok && (strings.EqualFold(cnst.IMAGE, t) || strings.EqualFold(cnst.VIDEO, t)) {
 				var out string
 				out, err = fileutils.GenPreviewConvertPath(path, scope, previewScope)
 				//yep generate in 1 thread, because in case n files, it can run out of ram on devices with low ram
@@ -109,16 +111,13 @@ func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 type PreviewData struct {
 	//paths to the shell scripts
 	convert string
-	//working dir of scripts
-	dir string
 	//paths for files
 	in, out string
 	//file type
 	fType string
 }
 
-func (c *PreviewData) Setup(dir, convert string) {
-	c.dir = dir
+func (c *PreviewData) Setup(convert string) {
 	c.convert = convert
 }
 

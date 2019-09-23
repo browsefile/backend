@@ -189,10 +189,6 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 
 	return auth, nil
 }
-func validateGuestAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
-	uc, _ := c.Config.GetByUsername(config.GUEST)
-	return true, fb.ToUserModel(uc, c.Config)
-}
 
 // validateAuth is used to validate the authentication and returns the
 // User if it is valid.

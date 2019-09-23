@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"net/http"
@@ -16,10 +17,10 @@ func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, 
 		ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
 		hasType := c.Audio || c.Video || c.Pdf || c.Image
 		if ok && hasType {
-			fitType = t == "image" && c.Image ||
-				t == "audio" && c.Audio ||
-				t == "video" && c.Video ||
-				t == "pdf"
+			fitType = t == cnst.IMAGE && c.Image ||
+				t == cnst.AUDIO && c.Audio ||
+				t == cnst.VIDEO && c.Video ||
+				t == cnst.PDF
 
 		}
 		return hasType && fitType && fitUrl || !hasType && fitUrl
