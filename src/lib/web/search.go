@@ -27,7 +27,7 @@ func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, 
 	c.IsRecursive = true
 	isShares := len(c.RootHash) > 0 || len(c.ShareType) > 0
 
-	_, r.URL.Path = splitURL(r.URL.Path)
+	_, r.URL.Path = fb.SplitURL(r.URL.Path)
 
 	if isShares {
 		return shareGetHandler(c, w, r, filter)

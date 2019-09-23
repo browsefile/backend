@@ -114,26 +114,18 @@ func MakeInfo(url *url.URL, c *Context) (*File, error) {
 	return i, nil
 }
 func (i *File) MakeListing(c *Context, fitFilter FitFilter) (files []os.FileInfo, paths []string, err error) {
-	files = make([]os.FileInfo, 0, 500)
-	paths = make([]string, 0, 500)
 
 	if c.IsRecursive {
-
+		files = make([]os.FileInfo, 0, 500)
+		paths = make([]string, 0, 500)
 		err := filepath.Walk(filepath.Join(c.GetUserHomePath(), i.VirtualPath),
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
-				if fitFilter != nil {
-					if fitFilter(info.Name(), path) {
-						files = append(files, info)
-						path = strings.Replace(path, c.GetUserHomePath(), "", -1)
-						paths = append(paths, path)
-					}
-				} else {
+				if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
 					files = append(files, info)
-					path = strings.Replace(path, c.GetUserHomePath(), "", -1)
-					paths = append(paths, path)
+					paths = append(paths, strings.TrimPrefix(path, c.GetUserHomePath()))
 				}
 
 				return nil

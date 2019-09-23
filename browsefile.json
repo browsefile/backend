@@ -107,6 +107,7 @@
         }
     ],
     "port": 8081,
+    "davPort":8082 ,
     "ip": "127.0.0.1",
     "log": "stdout",
     "tlsKey": "",
@@ -118,7 +119,7 @@
         "secret": ""
     },
     "auth": {
-        "method": "ip",
+        "method": "default",
         "header": "X-Forwarded-User",
         "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
     },

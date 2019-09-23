@@ -92,7 +92,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 	if !valid {
 		return http.StatusForbidden, nil
 	}
-	isShares := processParams(c, r)
+	isShares := ProcessParams(c, r)
 	//allow only GET requests, for external share
 	if valid && c.User.IsGuest() && (!isShares ||
 		!strings.EqualFold(r.Method, http.MethodGet) ||

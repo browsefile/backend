@@ -108,17 +108,10 @@ func GetFileInfo(scope, urlPath string) (info os.FileInfo, err error, path strin
 	return info, err, path
 }
 func PreviewPathMod(orig, scope, pScope string) (p string) {
-	dir := Dir(scope)
-	rPath := strings.Replace(orig, scope, "", 1)
-	info, err := dir.Stat(rPath)
-	if err != nil {
-		log.Println(err)
-	}
+	rPath := strings.TrimPrefix(orig, scope)
 	p = filepath.Join(pScope, rPath)
 	//replace file extension
-	if !info.IsDir() {
-		p, _ = ReplacePrevExt(p)
-	}
+	p, _ = ReplacePrevExt(p)
 	return
 }
 func Exists(path string) (bool, error) {
@@ -134,25 +127,29 @@ func Exists(path string) (bool, error) {
 
 //modify existing file extension to the preview
 func ReplacePrevExt(srcPath string) (path string, t string) {
-	name := filepath.Base(srcPath)
-	extension := filepath.Ext(name)
-	var ext string
-	_, t = GetBasedOnExtensions(extension)
-	if t == "video" {
-		ext = ".gif"
+	extension := filepath.Ext(srcPath)
+	if len(extension) > 0 {
+		var ext string
+		_, t = GetBasedOnExtensions(extension)
+		if t == "video" {
+			ext = ".gif"
+		} else {
+			ext = ".jpg"
+		}
+
+		path = strings.TrimSuffix(srcPath, extension) + ext
 	} else {
-		ext = ".jpg"
+		path = srcPath
 	}
-	//modify extension and path to the preview
-	newName := strings.Replace(name, extension, ext, -1)
-	path = strings.Replace(srcPath, name, newName, -1)
+
 	return
 }
 
 // Will return input and output to be processed to the bash convert/ffmpeg in order to generate preview
 func GenPreviewConvertPath(path string, scope string, previewScope string) (outp string, err error) {
 	if !strings.EqualFold(filepath.Dir(path), path) {
-		outp = strings.Replace(path, scope, previewScope, 1)
+
+		outp = filepath.Join(previewScope, strings.TrimPrefix(path, scope))
 		outp, _ = ReplacePrevExt(outp)
 	}
 
@@ -169,6 +166,7 @@ func ModPermission(uid, gid int, path string) (err error) {
 	return err
 
 }
+
 // just in case
 func CleanPath(p string) (string, error) {
 	p, err := url.QueryUnescape(p)

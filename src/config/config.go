@@ -68,7 +68,7 @@ func GenShareHash(userName, itmPath string) string {
 	itmPath = strings.ReplaceAll(itmPath, "/", "")
 	return base64.StdEncoding.EncodeToString(md5.New().Sum([]byte(userName + itmPath)))
 }
-
+//since we sure that this method will not modify, just return original
 func (gc *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConfig) {
 	config.lockR()
 	defer config.unlockR()

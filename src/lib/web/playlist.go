@@ -52,13 +52,14 @@ func fetchFilesRecursively(c *fb.Context, joinHome bool) []string {
 
 		_ = filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
 			if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(info.Name())); ok && fitMediaFilter(c, t) {
+
 				// if request to generate external share, we have to cut share item path, since rootHash replaces it
 				// and have to deal with path replacement, if we reuse download component, because still need absolute path in order to walk on it
 				if !joinHome && len(c.RootHash) > 0 {
 
-					res = append(res, strings.Replace(path, c.GetUserHomePath()+itm.Path, "", -1))
+					res = append(res, strings.TrimPrefix(path, c.GetUserHomePath()+itm.Path))
 				} else {
-					res = append(res, strings.Replace(path, c.GetUserHomePath(), "", -1))
+					res = append(res, strings.TrimPrefix(path, c.GetUserHomePath()))
 				}
 
 			}
@@ -89,7 +90,7 @@ func makeSharePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (i
 		for _, fp := range fetchFilesRecursively(c, false) {
 			if c.IsExternalShare() {
 				fp += "?rootHash=" + url.QueryEscape(p.Hash)
-			}else {
+			} else {
 				fp += "?share=" + p.User
 			}
 

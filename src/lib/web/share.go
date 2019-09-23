@@ -117,7 +117,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 				} else {
 					if isExternal {
 						for _, itm := range resLoc.Items {
-							itm.URL = strings.Replace(itm.URL, item.Path, "", 1) + "?rootHash=" + c.RootHash
+							itm.URL = strings.TrimPrefix(itm.URL, item.Path) + "?rootHash=" + c.RootHash
 						}
 					}
 					merge(res.Listing, resLoc)
@@ -177,7 +177,7 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 	orig := r.URL.Path
 	isExternal := c.IsExternalShare()
 	if isExternal {
-		r.URL.Path = filepath.Join(shr.Path + r.URL.Path)
+		r.URL.Path = filepath.Join(shr.Path, r.URL.Path)
 	} else {
 		r.URL.Path = shr.Path
 	}

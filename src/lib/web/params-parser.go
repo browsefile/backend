@@ -1,34 +1,14 @@
 package web
 
-import "C"
 import (
 	fb "github.com/browsefile/backend/src/lib"
-	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 )
 
-func fixNonStandardURIEnc(p string) (rs string) {
-	//yeah, some browsers unescape, someone escape, whatever
-	if strings.Contains(p, "%") {
-		var err error
-		rs, err = url.QueryUnescape(p)
-		if err != nil {
-			log.Println(err)
-		}
-
-	} else if strings.Contains(p, " ") {
-		rs = url.QueryEscape(p)
-	} else {
-		rs = p
-	}
-	return rs
-}
-
 // set router, and all other params to the context, returns true in case request are about shares
-func processParams(c *fb.Context, r *http.Request) (isShares bool) {
+func ProcessParams(c *fb.Context, r *http.Request) (isShares bool) {
 
 	if c.Query == nil {
 		c.Query = r.URL.Query()
@@ -44,7 +24,7 @@ func processParams(c *fb.Context, r *http.Request) (isShares bool) {
 	c.Override, _ = strconv.ParseBool(c.Query.Get("override"))
 	c.Algo = c.Query.Get("algo")
 	c.Auth = c.Query.Get("auth")
-	c.RootHash = fixNonStandardURIEnc(c.RootHash)
+	c.RootHash = fb.FixNonStandardURIEnc(c.RootHash)
 	//search request
 	q := c.Query.Get("query")
 	if len(q) > 0 {
@@ -107,9 +87,9 @@ func setFileType(c *fb.Context, t string) {
 }
 
 func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
-	c.Router, r.URL.Path = splitURL(r.URL.Path)
+	c.Router, r.URL.Path = fb.SplitURL(r.URL.Path)
 	if strings.EqualFold(c.Router, "search") {
-		r, _ := splitURL(r.URL.Path)
+		r, _ := fb.SplitURL(r.URL.Path)
 		isShares = strings.HasPrefix(r, "shares")
 	} else {
 		isShares = strings.HasPrefix(c.Router, "shares")
@@ -121,7 +101,7 @@ func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
 			strings.EqualFold(c.ShareType, "my") ||
 			strings.EqualFold(c.ShareType, "list") ||
 			strings.EqualFold(c.ShareType, "gen-ex")) {
-			c.Router, r.URL.Path = splitURL(r.URL.Path)
+			c.Router, r.URL.Path = fb.SplitURL(r.URL.Path)
 		}
 
 		if c.Router == "download" {
@@ -132,21 +112,4 @@ func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
 	}
 
 	return
-}
-
-// splitURL splits the path and returns everything that stands
-// before the first slash and everything that goes after.
-func splitURL(path string) (string, string) {
-	if path == "" {
-		return "", ""
-	}
-
-	path = strings.TrimPrefix(path, "/")
-
-	i := strings.Index(path, "/")
-	if i == -1 {
-		return "", path
-	}
-
-	return path[0:i], path[i:]
 }
