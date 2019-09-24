@@ -145,6 +145,18 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 	if err != nil {
 		return cnst.ErrorToHTTP(err, true), err
 	}
+	//delete share
+	itm := c.User.GetShare(r.URL.Path)
+	if itm != nil {
+		p1 := strings.TrimSuffix(itm.Path, "/")
+		p1 = strings.TrimPrefix(p1, "/")
+		p2 := strings.TrimSuffix(r.URL.Path, "/")
+		p2 = strings.TrimPrefix(p2, "/")
+		//check if it is not sub path from share, since we found share, it is right share, no need to check path, just length
+		if len(p1) == len(p2) {
+			c.Config.DeleteShare(c.User.UserConfig, itm.Path)
+		}
+	}
 
 	return http.StatusOK, nil
 }
@@ -271,7 +283,7 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 	}
 	dst, err := url.QueryUnescape(c.Destination)
 	if err != nil {
-		return cnst. ErrorToHTTP(err, true), err
+		return cnst.ErrorToHTTP(err, true), err
 	}
 	action := c.Action
 	src := r.URL.Path

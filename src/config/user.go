@@ -82,7 +82,7 @@ func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
 	return
 }
 
-func (u *UserConfig) DeleteShare(relPath string) (res bool) {
+func (u *UserConfig) deleteShare(relPath string) (res bool) {
 	Config.lock()
 	defer Config.unlock()
 	res = false

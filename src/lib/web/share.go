@@ -231,7 +231,7 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (re
 	case "my-meta":
 		shr := c.User.GetShare(r.URL.Path)
 		if shr != nil {
-			if !c.User.DeleteShare(shr.Path) {
+			if !c.Config.DeleteShare(c.User.UserConfig, r.URL.Path) {
 				return http.StatusBadRequest, err
 			}
 		}
@@ -255,7 +255,7 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (re
 
 func shareDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 
-	ok := c.User.DeleteShare(r.URL.Path)
+	ok := c.Config.DeleteShare(c.User.UserConfig, r.URL.Path)
 	if !ok {
 		return http.StatusNotFound, nil
 	}

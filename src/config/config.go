@@ -69,6 +69,20 @@ func GenShareHash(userName, itmPath string) string {
 	itmPath = strings.ReplaceAll(itmPath, "/", "")
 	return base64.StdEncoding.EncodeToString(md5.New().Sum([]byte(userName + itmPath)))
 }
+func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
+	Config.lock()
+	defer Config.unlock()
+
+	i := gc.getUserIndex(usr.Username)
+	if i >= 0 {
+		res = gc.Users[i].deleteShare(p)
+		if res {
+			gc.Users[i].sortShares()
+		}
+	}
+
+	return
+}
 
 //since we sure that this method will not modify, just return original
 func (gc *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConfig) {
