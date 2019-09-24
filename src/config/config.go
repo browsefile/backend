@@ -10,16 +10,18 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 )
 
-var config *GlobalConfig
+var Config *GlobalConfig
 var usersRam map[string]*UserConfig
+var DavLogger func(r *http.Request, err error)
 /*
-Single config for everything.
+Single Config for everything.
 update automatically
 */
 type GlobalConfig struct {
@@ -37,7 +39,7 @@ type GlobalConfig struct {
 	//http://host:port that used behind DMZ
 	ExternalShareHost string        `json:"externalShareHost"`
 	updateLock        *sync.RWMutex `json:"-"`
-	//path to config file
+	//path to Config file
 	path string `json:"-"`
 }
 
@@ -70,8 +72,8 @@ func GenShareHash(userName, itmPath string) string {
 
 //since we sure that this method will not modify, just return original
 func (gc *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConfig) {
-	config.lockR()
-	defer config.unlockR()
+	Config.lockR()
+	defer Config.unlockR()
 	for _, user := range gc.Users {
 		for _, item := range user.Shares {
 			if strings.EqualFold(hash, item.Hash) {
@@ -144,7 +146,7 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 		} else {
 			err = cfg.parseConf(jsonFile)
 			if err != nil {
-				fmt.Print("failed to parse config at " + p)
+				fmt.Print("failed to parse Config at " + p)
 				continue
 			}
 
@@ -153,7 +155,7 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 	}
 	cfg.RefreshUserRam()
 	cfg.updateLock = new(sync.RWMutex)
-	config = cfg
+	Config = cfg
 
 	for _, u := range cfg.Users {
 		u.sortShares()
@@ -170,7 +172,7 @@ func (cfg *GlobalConfig) parseConf(jsonFile *os.File) (err error) {
 }
 func (cfg *GlobalConfig) Init() {
 	cfg.updateLock = new(sync.RWMutex)
-	config = cfg
+	Config = cfg
 	cfg.RefreshUserRam()
 }
 func (cfg *GlobalConfig) GetAdmin() *UserConfig {
@@ -185,7 +187,7 @@ func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 }
 
 func (cfg *GlobalConfig) WriteConfig() {
-	//todo check hash if config changed
+	//todo check hash if Config changed
 	jsonData, err := json.MarshalIndent(cfg, "", "    ")
 	if err != nil {
 		fmt.Println(err)
@@ -224,13 +226,19 @@ func (cfg *GlobalConfig) SetupLog() {
 			MaxBackups: 10,
 		})
 	}
+	DavLogger = func(r *http.Request, err error) {
+		if err != nil {
+			log.Printf("WEBDAV: %#s, ERROR: %v", r, err)
+			log.Printf(r.URL.Path)
+		}
+	}
 }
 func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 	cfg.lockR()
 	defer cfg.unlockR()
 
 	if username == cnst.GUEST {
-		admin := config.GetAdmin()
+		admin := Config.GetAdmin()
 		return &UserConfig{
 			Username:  username,
 			Locale:    admin.Locale,

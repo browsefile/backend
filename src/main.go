@@ -7,6 +7,7 @@ import (
 	"github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/browsefile/backend/src/lib/web"
+	"golang.org/x/net/webdav"
 	"log"
 	"net"
 	"net/http"
@@ -32,7 +33,6 @@ func main() {
 
 	// Tell the user the port in which is listening.
 	log.Println("Listening on", listener.Addr().String())
-
 	srv := &http.Server{Handler: handler(cfg), ReadTimeout: 5 * time.Hour, WriteTimeout: 5 * time.Hour}
 
 	if len(cfg.TLSCert) > 0 && len(cfg.TLSCert) > 0 {
@@ -54,6 +54,7 @@ func handler(cfg *config.GlobalConfig) http.Handler {
 			return fileutils.Dir(scope)
 		},
 	}
+	DavHandler(fb)
 	needUpd, err := fb.Setup()
 	if err != nil {
 		log.Fatal(err)
@@ -63,4 +64,14 @@ func handler(cfg *config.GlobalConfig) http.Handler {
 	}
 
 	return web.Handler(fb)
+}
+func DavHandler(fb *lib.FileBrowser) {
+	ramLock := webdav.NewMemLS()
+	for _, u := range fb.Config.Users {
+		u.DavHandler = &webdav.Handler{
+			FileSystem: web.DavFsDelegate{webdav.Dir(fb.Config.GetUserHomePath(u.Username) )},
+			LockSystem: ramLock,
+			Logger:     config.DavLogger,
+		}
+	}
 }

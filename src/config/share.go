@@ -25,10 +25,10 @@ type AllowedShare struct {
 
 //allow access to the specific share link
 func (shr *ShareItem) IsAllowed(user string) (res bool) {
-	_, ok := config.GetByUsername(user)
+	_, ok := Config.GetByUsername(user)
 
-	config.lockR()
-	defer config.unlockR()
+	Config.lockR()
+	defer Config.unlockR()
 
 	if ok && shr.AllowLocal {
 		res = true
@@ -67,10 +67,10 @@ func (shr *ShareItem) IsActive() (res bool) {
 ru  request user su share user
 */
 func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
-	shareUser, ok := config.GetByUsername(su)
+	shareUser, ok := Config.GetByUsername(su)
 
-	config.lockR()
-	defer config.unlockR()
+	Config.lockR()
+	defer Config.unlockR()
 
 	if ok {
 		item := shareUser.GetShare(reqPath)
@@ -85,10 +85,10 @@ func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 
 //filter out allowed shares, and returns modified path, starting with username
 func GetAllowedShares(user string, excludeSelf bool) (res map[string][]*AllowedShare) {
-	users := config.GetUsers()
+	users := Config.GetUsers()
 
-	config.lockR()
-	defer config.unlockR()
+	Config.lockR()
+	defer Config.unlockR()
 
 	isExternal := len(user) == 0
 	res = make(map[string][]*AllowedShare)

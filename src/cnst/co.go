@@ -15,6 +15,7 @@ const (
 	PDF       = "pdf"
 	TEXT      = "text"
 	BLOB      = "blob"
+	WEB_DAV_URL="/wd"
 )
 
 var MIME_EXT = [][]string{{

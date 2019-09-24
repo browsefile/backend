@@ -6,6 +6,7 @@ require (
 	github.com/maruel/natural v0.0.0-20180416170133-dbcb3e2e8cf1
 	github.com/pkg/errors v0.8.1
 	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
+	golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 

@@ -159,7 +159,12 @@ type UserModel struct {
 }
 
 func ToUserModel(u *config.UserConfig, cfg *config.GlobalConfig) *UserModel {
-	return &UserModel{u, u.Username, fileutils.Dir(cfg.GetUserHomePath(u.Username)), fileutils.Dir(cfg.GetUserPreviewPath(u.Username))}
+	p := cfg.GetUserHomePath(u.Username)
+
+	return &UserModel{u, u.Username,
+		fileutils.Dir(p),
+		fileutils.Dir(cfg.GetUserPreviewPath(u.Username)),
+	}
 }
 
 // Context contains the needed information to make handlers work.

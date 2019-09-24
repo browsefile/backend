@@ -51,6 +51,11 @@ func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 
 		return staticHandler(c, w, r)
 	}
+	if matchURL(r.URL.Path, cnst.WEB_DAV_URL) {
+		ServeDav(c, w, r)
+		return http.StatusOK, nil
+
+	}
 
 	// Checks if this request is made to the API and directs to the
 	// API handler if so.
@@ -209,5 +214,3 @@ func matchURL(first, second string) bool {
 
 	return strings.HasPrefix(first, second)
 }
-
-

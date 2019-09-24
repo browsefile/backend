@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/browsefile/backend/src/cnst"
+	"golang.org/x/net/webdav"
 	"sort"
 	"strings"
 )
@@ -33,7 +34,8 @@ type UserConfig struct {
 
 	Shares []*ShareItem `json:"shares"`
 	//authenticate by IP, need to change auth.method
-	IpAuth []string `json:"ipAuth"`
+	IpAuth     []string        `json:"ipAuth"`
+	DavHandler *webdav.Handler `json:"-"`
 
 	//create files/folders according this ownership
 	UID int `json:"uid"`
@@ -53,6 +55,7 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 		Locale:       u.Locale,
 		UID:          u.UID,
 		GID:          u.GID,
+		DavHandler:u.DavHandler,
 		IpAuth:       make([]string, len(u.IpAuth)),
 	}
 	copy(res.IpAuth, u.IpAuth)
@@ -68,8 +71,8 @@ func (u *UserConfig) IsGuest() bool {
 }
 
 func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
-	config.lockR()
-	defer config.unlockR()
+	Config.lockR()
+	defer Config.unlockR()
 	for _, shr := range u.Shares {
 		if strings.HasPrefix(relPath, shr.Path) {
 			res = shr.copyShare()
@@ -80,8 +83,8 @@ func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
 }
 
 func (u *UserConfig) DeleteShare(relPath string) (res bool) {
-	config.lock()
-	defer config.unlock()
+	Config.lock()
+	defer Config.unlock()
 	res = false
 
 	for i, shr := range u.Shares {
@@ -97,8 +100,8 @@ func (u *UserConfig) DeleteShare(relPath string) (res bool) {
 }
 
 func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
-	config.lock()
-	defer config.unlock()
+	Config.lock()
+	defer Config.unlock()
 
 	u.Shares = append(u.Shares, shr)
 	u.sortShares()
