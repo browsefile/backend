@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	authKeySession = make(map[string]*fb.UserModel)
+	authKeySession = make(map[string]bool)
 	authKeyLock    = new(sync.RWMutex)
 )
 
@@ -82,21 +82,22 @@ func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res 
 	}
 	auth := r.Header.Get("Authorization")
 	authKeyLock.RLock()
-	c.User = authKeySession[auth]
+	isAuth := authKeySession[auth]
 	authKeyLock.RUnlock()
-	if c.User == nil {
+	if !isAuth {
 		//very expensive operation, need to minimize hash function call
 		if !fb.CheckPasswordHash(password, user.Password) {
 			log.Println("Wrong Password for user", username)
 			http.Error(w, "Not authorized", 401)
 			return
 		}
-		c.User = fb.ToUserModel(user, c.Config)
+
 		auth := r.Header.Get("Authorization")
 		authKeyLock.Lock()
-		authKeySession[auth] = c.User
+		authKeySession[auth] = true
 		authKeyLock.Unlock()
 	}
+	c.User = fb.ToUserModel(user, c.Config)
 
 	res = true
 	return
