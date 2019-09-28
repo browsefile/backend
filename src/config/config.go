@@ -226,14 +226,17 @@ func (cfg *GlobalConfig) checkDavSharesFolder(u *UserConfig) (err error) {
 func (cfg *GlobalConfig) checkSymLinkPath(shr *ShareItem, user, owner string) {
 	var err error
 	dp := filepath.Join(cfg.GetDavPath(user), cnst.WEB_DAV_FOLDER, "shares", owner)
+	//check basic folder exists
 	if err = os.MkdirAll(dp, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
 		log.Println("config : Cant create share path for userF ", err)
 	} else {
-
+		//destination path for symlink
 		dPath := filepath.Join(dp, shr.Path)
+		//source path for symlink
 		sPath := filepath.Join(cfg.GetUserHomePath(owner), shr.Path)
 		_ = os.Remove(dPath)
-		os.MkdirAll(dPath, cnst.PERM_DEFAULT)
+		//take the parent folder
+		_ = os.MkdirAll(filepath.Dir(dPath), cnst.PERM_DEFAULT)
 		if shr.IsActive() && shr.IsAllowed(user) {
 			if err = os.Symlink(sPath, dPath); err != nil && !os.IsExist(err) {
 				log.Println("config : Cant create share sym link at ", err)
