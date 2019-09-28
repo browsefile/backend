@@ -72,15 +72,17 @@
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
-            "password": "$2a$10$MxsDQ9P8E4a8R..69coBQO88PogHtA1RI6M37uFo1nNvB5w2DN17S",
+            "password": "$2a$10$/9ERnOj5YgDBtmCRGlMHQuJ.KuzeWG8tkbB0ZUwdJJmAh3wE3/j4u",
             "username": "admin",
             "viewMode": "list",
             "shares": [
                 {
                     "path": "/share",
-                    "allowExternal": true,
+                    "allowExternal": false,
                     "allowLocal": false,
-                    "allowedUsers": []
+                    "allowedUsers": [
+                        "user1"
+                    ]
                 },
                 {
                     "path": "/movies",
@@ -93,10 +95,12 @@
                     ]
                 },
                 {
-                    "path": "/share/",
-                    "allowExternal": true,
+                    "path": "/sdfsdf",
+                    "allowExternal": false,
                     "allowLocal": false,
-                    "allowedUsers": []
+                    "allowedUsers": [
+                        "user2"
+                    ]
                 }
             ],
             "ipAuth": [
@@ -107,7 +111,6 @@
         }
     ],
     "port": 8081,
-    "davPort":8082 ,
     "ip": "127.0.0.1",
     "log": "stdout",
     "tlsKey": "",

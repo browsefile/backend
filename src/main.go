@@ -17,29 +17,41 @@ import (
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "-h" {
-		fmt.Printf("Default config file locations : '%s', '%s'. Also you can specify own by passing path as first argument.", cnst.FilePath1, cnst.FilePath2)
-		os.Exit(0)
-	}
 	cfg := new(config.GlobalConfig)
+	if len(os.Args) > 1 {
+		if os.Args[1] == "-h" {
+			fmt.Printf("Default config file locations : '%s', '%s'. Also you can specify own by passing path as first argument.", cnst.FilePath1, cnst.FilePath2)
+			os.Exit(0)
+		} else {
+			cfg.Path = os.Args[1]
+		}
+	}
+
 	cfg.ReadConfigFile()
-	cfg.SetupLog()
 	cfg.Verify()
+
 	// Builds the address and a listener.
 	listener, err := net.Listen("tcp", cfg.IP+":"+strconv.Itoa(cfg.Port))
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	srv := &http.Server{Handler: handler(cfg), ReadTimeout: 5 * time.Hour, WriteTimeout: 5 * time.Hour}
 	// Tell the user the port in which is listening.
 	log.Println("Listening on", listener.Addr().String())
-	srv := &http.Server{Handler: handler(cfg), ReadTimeout: 5 * time.Hour, WriteTimeout: 5 * time.Hour}
 
-	if len(cfg.TLSCert) > 0 && len(cfg.TLSCert) > 0 {
+	isTls := len(cfg.TLSCert) > 0 && len(cfg.TLSCert) > 0
+	if isTls {
+		log.Print("davs://", listener.Addr().String(), cnst.WEB_DAV_URL)
+	} else {
+		log.Print("dav://", listener.Addr().String(), cnst.WEB_DAV_URL)
+	}
+
+	if isTls {
 		err = srv.ServeTLS(listener, cfg.TLSCert, cfg.TLSKey)
 	} else {
 		err = srv.Serve(listener)
 	}
+
 	// Starts the server.
 	if err != nil {
 		log.Fatal(err)
@@ -69,7 +81,7 @@ func DavHandler(fb *lib.FileBrowser) {
 	ramLock := webdav.NewMemLS()
 	for _, u := range fb.Config.Users {
 		u.DavHandler = &webdav.Handler{
-			FileSystem: web.DavFsDelegate{webdav.Dir(fb.Config.GetUserHomePath(u.Username) )},
+			FileSystem: webdav.Dir(fb.Config.GetDavPath(u.Username)),
 			LockSystem: ramLock,
 			Logger:     config.DavLogger,
 		}

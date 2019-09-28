@@ -7,11 +7,17 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
+)
+
+var (
+	authKeySession = make(map[string]*fb.UserModel)
+	authKeyLock    = new(sync.RWMutex)
 )
 
 const reCaptchaAPI = "/recaptcha/api/siteverify"
@@ -49,6 +55,51 @@ func reCaptcha(host, secret, response string) (bool, error) {
 	}
 
 	return data.Success, nil
+}
+func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res bool) {
+	if c.Config.Method == "ip" {
+		u, res := c.Config.GetByIp(r.RemoteAddr)
+		if !res {
+			return false
+		}
+		c.User = fb.ToUserModel(u, c.Config)
+		return true
+
+	}
+	w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+
+	// Gets the correct user for this request.
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		http.Error(w, "Not authorized", 401)
+		return
+	}
+
+	user, ok := c.Config.GetByUsername(username)
+	if !ok {
+		http.Error(w, "Not authorized", 401)
+		return
+	}
+	auth := r.Header.Get("Authorization")
+	authKeyLock.RLock()
+	c.User = authKeySession[auth]
+	authKeyLock.RUnlock()
+	if c.User == nil {
+		//very expensive operation, need to minimize hash function call
+		if !fb.CheckPasswordHash(password, user.Password) {
+			log.Println("Wrong Password for user", username)
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+		c.User = fb.ToUserModel(user, c.Config)
+		auth := r.Header.Get("Authorization")
+		authKeyLock.Lock()
+		authKeySession[auth] = c.User
+		authKeyLock.Unlock()
+	}
+
+	res = true
+	return
 }
 
 // authHandler processes the authentication for the user.

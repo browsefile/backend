@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-//presents 1 share path in filesystem, and access rules
+//presents 1 share Path in filesystem, and access rules
 type ShareItem struct {
 	Path string `json:"path"`
 	//allow all not registered
@@ -25,10 +25,10 @@ type AllowedShare struct {
 
 //allow access to the specific share link
 func (shr *ShareItem) IsAllowed(user string) (res bool) {
-	_, ok := Config.GetByUsername(user)
+	_, ok := config.GetByUsername(user)
 
-	Config.lockR()
-	defer Config.unlockR()
+	config.lockR()
+	defer config.unlockR()
 
 	if ok && shr.AllowLocal {
 		res = true
@@ -67,13 +67,13 @@ func (shr *ShareItem) IsActive() (res bool) {
 ru  request user su share user
 */
 func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
-	shareUser, ok := Config.GetByUsername(su)
+	shareUser, ok := config.GetByUsername(su)
 
-	Config.lockR()
-	defer Config.unlockR()
+	config.lockR()
+	defer config.unlockR()
 
 	if ok {
-		item := shareUser.GetShare(reqPath)
+		item := shareUser.GetShare(reqPath, false)
 		if item != nil && item.IsAllowed(ru) {
 			res = item
 			user = shareUser
@@ -83,19 +83,18 @@ func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
 	return
 }
 
-//filter out allowed shares, and returns modified path, starting with username
+//filter out allowed shares, and returns modified Path, starting with username
 func GetAllowedShares(user string, excludeSelf bool) (res map[string][]*AllowedShare) {
-	users := Config.GetUsers()
+	users := config.GetUsers()
 
-	Config.lockR()
-	defer Config.unlockR()
+	config.lockR()
+	defer config.unlockR()
 
-	isExternal := len(user) == 0
 	res = make(map[string][]*AllowedShare)
-	//check user and allowed path
+	//check user and allowed Path
 	for _, ui := range users {
 		for _, shr := range ui.Shares {
-			if shr.IsActive() && (isExternal && shr.AllowExternal || !isExternal && shr.AllowLocal || shr.IsAllowed(user)) {
+			if shr.IsActive() && (shr.AllowLocal || shr.IsAllowed(user)) {
 				//ignore own files
 				if excludeSelf && strings.EqualFold(ui.Username, user) {
 					continue

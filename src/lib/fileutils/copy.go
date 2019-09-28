@@ -3,6 +3,7 @@ package fileutils
 import (
 	"bytes"
 	"errors"
+	"github.com/browsefile/backend/src/cnst"
 	"io"
 	"os"
 	"path/filepath"
@@ -20,7 +21,7 @@ func CopyFile(source string, dest string, uid, gid int) error {
 
 	// Makes the directory needed to create the dst
 	// file.
-	err = os.MkdirAll(filepath.Dir(dest), 0666)
+	err = os.MkdirAll(filepath.Dir(dest), cnst.PERM_DEFAULT)
 	if err != nil {
 		return err
 	}

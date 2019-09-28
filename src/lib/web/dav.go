@@ -4,72 +4,29 @@ import (
 	"context"
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/lib"
-	"golang.org/x/net/webdav"
-	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
-type DavFsDelegate struct {
-	webdav.Dir
-}
-
-func trimWebDav(p string) string {
-	return strings.TrimPrefix(p, cnst.WEB_DAV_URL)
-}
-func (d DavFsDelegate) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
-	return d.Dir.Mkdir(ctx, trimWebDav(name), perm)
-}
-
-func (d DavFsDelegate) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
-	return d.Dir.OpenFile(ctx, trimWebDav(name), flag, perm)
-}
-func (d DavFsDelegate) RemoveAll(ctx context.Context, name string) error {
-	return d.Dir.RemoveAll(ctx, trimWebDav(name))
-}
-
-func (d DavFsDelegate) Rename(ctx context.Context, oldName, newName string) error {
-	return d.Dir.Rename(ctx, trimWebDav(oldName), trimWebDav(newName))
-}
-
-func (d DavFsDelegate) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	return d.Dir.Stat(ctx, trimWebDav(name))
-}
-
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
 func ServeDav(c *lib.Context, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-
-	// Gets the correct user for this request.
-	username, password, ok := r.BasicAuth()
-	if !ok {
-		http.Error(w, "Not authorized", 401)
-		return
-	}
-
-	user, _ := c.Config.GetByUsername("admin")
-	if !ok {
-		http.Error(w, "Not authorized", 401)
-		return
-	}
-
-	if !lib.CheckPasswordHash(password, user.Password) {
-		log.Println("Wrong Password for user", username)
-		http.Error(w, "Not authorized", 401)
+	if !authDavHandler(c, w, r) {
 		return
 	}
 	if r.Method == "HEAD" {
 		w = newResponseWriterNoBody(w)
 	}
 
-	// If this request modified the files and the user doesn't have permission
+	// If this request modified the files and the user doesn't have permission, or modify any share
 	// to do so, return forbidden.
 	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
-		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") &&
-		!(user.AllowEdit || user.AllowNew) {
-		w.WriteHeader(http.StatusForbidden)
-		return
+		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") {
+		if (strings.HasPrefix(r.URL.Path, cnst.WEB_DAV_URL+"/shares") ||
+			!strings.HasPrefix(r.URL.Path, cnst.WEB_DAV_URL+"/files")) ||
+			!(c.User.AllowEdit || c.User.AllowNew) {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 	}
 
 	// Excerpt from RFC4918, section 9.4:
@@ -80,7 +37,7 @@ func ServeDav(c *lib.Context, w http.ResponseWriter, r *http.Request) {
 	//
 	// Get, when applied to collection, will return the same as PROPFIND method.
 	if r.Method == "GET" {
-		info, err := user.DavHandler.FileSystem.Stat(context.TODO(), r.URL.Path)
+		info, err := c.User.DavHandler.FileSystem.Stat(context.TODO(), r.URL.Path)
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"
 
@@ -91,7 +48,7 @@ func ServeDav(c *lib.Context, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Runs the WebDAV.
-	user.DavHandler.ServeHTTP(w, r)
+	c.User.DavHandler.ServeHTTP(w, r)
 }
 
 // responseWriterNoBody is a wrapper used to suprress the body of the response

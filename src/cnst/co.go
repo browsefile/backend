@@ -6,16 +6,20 @@ import (
 )
 
 const (
-	FilePath1 = "browsefile.json"
-	FilePath2 = "/etc/browsefile.json"
-	GUEST     = "guest"
-	VIDEO     = "video"
-	IMAGE     = "image"
-	AUDIO     = "audio"
-	PDF       = "pdf"
-	TEXT      = "text"
-	BLOB      = "blob"
-	WEB_DAV_URL="/wd"
+	FilePath1      = "browsefile.json"
+	FilePath2      = "/etc/browsefile.json"
+	GUEST          = "guest"
+	// mime internal formats
+	VIDEO          = "video"
+	IMAGE          = "image"
+	AUDIO          = "audio"
+	PDF            = "pdf"
+	TEXT           = "text"
+	BLOB           = "blob"
+	WEB_DAV_URL    = "/" + WEB_DAV_FOLDER
+	WEB_DAV_FOLDER = "wd"
+	//default permission for paths creation
+	PERM_DEFAULT   = 0765
 )
 
 var MIME_EXT = [][]string{{

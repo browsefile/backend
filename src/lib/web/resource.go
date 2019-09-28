@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/browsefile/backend/src/cnst"
+	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"io"
@@ -146,19 +147,26 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		return cnst.ErrorToHTTP(err, true), err
 	}
 	//delete share
-	itm := c.User.GetShare(r.URL.Path)
-	if itm != nil {
-		p1 := strings.TrimSuffix(itm.Path, "/")
-		p1 = strings.TrimPrefix(p1, "/")
-		p2 := strings.TrimSuffix(r.URL.Path, "/")
-		p2 = strings.TrimPrefix(p2, "/")
-		//check if it is not sub path from share, since we found share, it is right share, no need to check path, just length
-		if len(p1) == len(p2) {
-			c.Config.DeleteShare(c.User.UserConfig, itm.Path)
-		}
+	if itm := findShare(c.User.UserConfig, r.URL.Path); itm != nil {
+		c.Config.DeleteShare(c.User.UserConfig, itm.Path)
 	}
 
 	return http.StatusOK, nil
+}
+func findShare(u *config.UserConfig, p string) *config.ShareItem {
+	//delete share
+	itm := u.GetShare(p, true)
+	if itm != nil {
+		itmPath := strings.TrimSuffix(itm.Path, "/")
+		itmPath = strings.TrimPrefix(itmPath, "/")
+		delPath := strings.TrimSuffix(p, "/")
+		delPath = strings.TrimPrefix(delPath, "/")
+		//check if it is not sub path from share
+		if len(itmPath) == len(delPath) || strings.HasPrefix(itmPath, delPath) {
+			return itm
+		}
+	}
+	return nil
 }
 func removePreview(c *fb.Context, r *http.Request) {
 	info, err := c.User.FileSystemPreview.Stat(r.URL.Path)
@@ -179,7 +187,6 @@ func removePreview(c *fb.Context, r *http.Request) {
 	}
 } //rename preview
 func modPreview(c *fb.Context, src, dst string, isCopy bool) {
-
 	info, err := c.User.FileSystem.Stat(src)
 	_, t := fileutils.GetBasedOnExtensions(src)
 	if err != nil {
@@ -301,6 +308,13 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 		modPreview(c, src, dst, false)
 		// Rename the file.
 		err = c.User.FileSystem.Rename(src, dst)
+		if err == nil {
+			//check if share exists
+			if itm := findShare(c.User.UserConfig, r.URL.Path); itm != nil {
+				//just delete share, since it is not actual anymore
+				c.Config.DeleteShare(c.User.UserConfig, itm.Path)
+			}
+		}
 
 	}
 

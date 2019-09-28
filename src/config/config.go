@@ -17,11 +17,11 @@ import (
 	"sync"
 )
 
-var Config *GlobalConfig
+var config *GlobalConfig
 var usersRam map[string]*UserConfig
 var DavLogger func(r *http.Request, err error)
 /*
-Single Config for everything.
+Single config for everything.
 update automatically
 */
 type GlobalConfig struct {
@@ -31,7 +31,7 @@ type GlobalConfig struct {
 	Log     string        `json:"log"`
 	TLSKey  string        `json:"tlsKey"`
 	TLSCert string        `json:"tlsCert"`
-	// Scope is the path the user has access to.
+	// Scope is the Path the user has access to.
 	FilesPath      string `json:"filesPath"`
 	*CaptchaConfig `json:"captchaConfig"`
 	*Auth          `json:"auth"`
@@ -39,14 +39,14 @@ type GlobalConfig struct {
 	//http://host:port that used behind DMZ
 	ExternalShareHost string        `json:"externalShareHost"`
 	updateLock        *sync.RWMutex `json:"-"`
-	//path to Config file
-	path string `json:"-"`
+	//Path to config file
+	Path string `json:"-"`
 }
 
 // Auth settings.
 type PreviewConf struct {
 	//enable preview generating by call .sh
-	ScriptPath string `json:"ScriptPath"`
+	ScriptPath string `json:"scriptPath"`
 	Threads    int    `json:"threads"`
 	FirstRun   bool   `json:"previewOnFirstRun"`
 }
@@ -69,15 +69,20 @@ func GenShareHash(userName, itmPath string) string {
 	itmPath = strings.ReplaceAll(itmPath, "/", "")
 	return base64.StdEncoding.EncodeToString(md5.New().Sum([]byte(userName + itmPath)))
 }
+func (gc *GlobalConfig) GetDavPath(userName string) string {
+	return filepath.Join(gc.FilesPath, userName)
+
+}
 func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
-	Config.lock()
-	defer Config.unlock()
+	config.lock()
+	defer config.unlock()
 
 	i := gc.getUserIndex(usr.Username)
 	if i >= 0 {
 		res = gc.Users[i].deleteShare(p)
 		if res {
 			gc.Users[i].sortShares()
+			gc.RefreshUserRam()
 		}
 	}
 
@@ -86,8 +91,8 @@ func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
 
 //since we sure that this method will not modify, just return original
 func (gc *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConfig) {
-	Config.lockR()
-	defer Config.unlockR()
+	config.lockR()
+	defer config.unlockR()
 	for _, user := range gc.Users {
 		for _, item := range user.Shares {
 			if strings.EqualFold(hash, item.Hash) {
@@ -147,8 +152,8 @@ func (cfg *GlobalConfig) GetUserPreviewPath(userName string) string {
 func (cfg *GlobalConfig) ReadConfigFile() {
 	var paths []string
 
-	if len(cfg.path) > 0 {
-		paths = append(paths, cfg.path)
+	if len(cfg.Path) > 0 {
+		paths = append(paths, cfg.Path)
 	}
 	paths = append(paths, cnst.FilePath1, cnst.FilePath2)
 	for _, p := range paths {
@@ -160,33 +165,96 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 		} else {
 			err = cfg.parseConf(jsonFile)
 			if err != nil {
-				fmt.Print("failed to parse Config at " + p)
+				fmt.Print("failed to parse config at " + p)
 				continue
 			}
-
+			cfg.Path = p
 			break
 		}
 	}
+	fmt.Println("using config at path : " + cfg.Path)
 	cfg.RefreshUserRam()
 	cfg.updateLock = new(sync.RWMutex)
-	Config = cfg
+	config = cfg
 
 	for _, u := range cfg.Users {
+		for _, shr := range u.Shares {
+			shr.Path = strings.TrimSuffix(shr.Path, "/")
+		}
 		u.sortShares()
 	}
+	cfg.setupLog()
+	cfg.setUpDavPaths()
+
 }
+func (cfg *GlobalConfig) setUpDavPaths() {
+	for _, u := range config.Users {
+		cfg.checkDavSharesFolder(u);
+		//fix bad symlinks, or build missed for share for specific user
+		for _, owner := range config.Users {
+			//skip same user
+			if strings.EqualFold(owner.Username, u.Username) {
+				continue
+			}
+
+			for _, shr := range u.Shares {
+				cfg.checkSymLinkPath(shr, owner.Username, u.Username)
+			}
+		}
+	}
+}
+func (cfg *GlobalConfig) checkDavSharesFolder(u *UserConfig) (err error) {
+	dp := cfg.GetDavPath(u.Username)
+	sharePath := filepath.Join(dp, cnst.WEB_DAV_FOLDER, "shares")
+	oFlsPath := filepath.Join(dp, cnst.WEB_DAV_FOLDER, "files")
+	if err = os.MkdirAll(sharePath, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
+		log.Println("config : Cant create shares path, at dav ", err)
+	}
+	if err = os.MkdirAll(oFlsPath, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
+		log.Println("config : Cant create files path, at dav ", err)
+		//check symlink from user home dir, to the user's webdav Path
+	}
+	if _, err = os.Readlink(oFlsPath); err != nil {
+		os.Remove(oFlsPath)
+	}
+	if err = os.Symlink(cfg.GetUserHomePath(u.Username), oFlsPath); err != nil && !os.IsExist(err) {
+		log.Println("config : Cant create user files path, at dav ", err)
+	}
+	return
+}
+
+func (cfg *GlobalConfig) checkSymLinkPath(shr *ShareItem, user, owner string) {
+	var err error
+	dp := filepath.Join(cfg.GetDavPath(user), cnst.WEB_DAV_FOLDER, "shares", owner)
+	if err = os.MkdirAll(dp, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
+		log.Println("config : Cant create share path for userF ", err)
+	} else {
+
+		dPath := filepath.Join(dp, shr.Path)
+		sPath := filepath.Join(cfg.GetUserHomePath(owner), shr.Path)
+		_ = os.Remove(dPath)
+		os.MkdirAll(dPath, cnst.PERM_DEFAULT)
+		if shr.IsActive() && shr.IsAllowed(user) {
+			if err = os.Symlink(sPath, dPath); err != nil && !os.IsExist(err) {
+				log.Println("config : Cant create share sym link at ", err)
+			}
+
+		}
+	}
+}
+
 func (cfg *GlobalConfig) parseConf(jsonFile *os.File) (err error) {
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	err = json.Unmarshal(byteValue, &cfg)
 	if err != nil {
-		fmt.Print("can't parse " + cnst.FilePath1)
+		fmt.Print("can't parse " + cfg.Path)
 		fmt.Print(err)
 	}
 	return
 }
 func (cfg *GlobalConfig) Init() {
 	cfg.updateLock = new(sync.RWMutex)
-	Config = cfg
+	config = cfg
 	cfg.RefreshUserRam()
 }
 func (cfg *GlobalConfig) GetAdmin() *UserConfig {
@@ -201,12 +269,15 @@ func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 }
 
 func (cfg *GlobalConfig) WriteConfig() {
-	//todo check hash if Config changed
+	//todo check hash if config changed
 	jsonData, err := json.MarshalIndent(cfg, "", "    ")
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	} else {
-		err = ioutil.WriteFile(cfg.path, jsonData, 0666)
+		err = ioutil.WriteFile(cfg.Path, jsonData, cnst.PERM_DEFAULT)
+		if err != nil {
+			log.Println("config : cant write config file", err)
+		}
 	}
 }
 
@@ -223,7 +294,7 @@ func (cfg *GlobalConfig) RefreshUserRam() {
 
 	}
 }
-func (cfg *GlobalConfig) SetupLog() {
+func (cfg *GlobalConfig) setupLog() {
 	// Set up process log before anything bad happens.
 	switch cfg.Log {
 	case "stdout":
@@ -252,7 +323,7 @@ func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 	defer cfg.unlockR()
 
 	if username == cnst.GUEST {
-		admin := Config.GetAdmin()
+		admin := config.GetAdmin()
 		return &UserConfig{
 			Username:  username,
 			Locale:    admin.Locale,
@@ -388,6 +459,7 @@ func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 		TLSKey:            cfg.TLSKey,
 		TLSCert:           cfg.TLSCert,
 		ExternalShareHost: cfg.ExternalShareHost,
+		Path:              cfg.Path,
 	}
 }
 func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
@@ -415,7 +487,6 @@ func (cfg *GlobalConfig) lock() {
 func (cfg *GlobalConfig) unlock() {
 	cfg.WriteConfig()
 	cfg.updateLock.Unlock()
-
 }
 
 func (cfg *GlobalConfig) lockR() {

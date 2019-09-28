@@ -55,7 +55,7 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 		Locale:       u.Locale,
 		UID:          u.UID,
 		GID:          u.GID,
-		DavHandler:u.DavHandler,
+		DavHandler:   u.DavHandler,
 		IpAuth:       make([]string, len(u.IpAuth)),
 	}
 	copy(res.IpAuth, u.IpAuth)
@@ -70,11 +70,11 @@ func (u *UserConfig) IsGuest() bool {
 
 }
 
-func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
-	Config.lockR()
-	defer Config.unlockR()
+func (u *UserConfig) GetShare(relPath string, del bool) (res *ShareItem) {
+	config.lockR()
+	defer config.unlockR()
 	for _, shr := range u.Shares {
-		if strings.HasPrefix(relPath, shr.Path) {
+		if strings.HasPrefix(relPath, shr.Path) || del && strings.HasPrefix(shr.Path, relPath) {
 			res = shr.copyShare()
 			break
 		}
@@ -83,30 +83,31 @@ func (u *UserConfig) GetShare(relPath string) (res *ShareItem) {
 }
 
 func (u *UserConfig) deleteShare(relPath string) (res bool) {
-	Config.lock()
-	defer Config.unlock()
 	res = false
 
 	for i, shr := range u.Shares {
 		if strings.HasPrefix(relPath, shr.Path) {
 			u.Shares = append(u.Shares[:i], u.Shares[i+1:]...)
+			delDavShare(shr, u.Username)
 			res = true
 			break
 		}
 
 	}
+
 	u.sortShares()
+
 	return
 }
 
 func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
-	Config.lock()
-	defer Config.unlock()
-
+	config.lock()
 	u.Shares = append(u.Shares, shr)
 	u.sortShares()
 	shr.Hash = GenShareHash(u.Username, shr.Path)
 	res = true
+	config.unlock()
+	addDavShare(shr, u.Username)
 	return
 }
 

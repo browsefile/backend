@@ -48,7 +48,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 			}
 		}
 	case "my":
-		shr := c.User.GetShare(r.URL.Path)
+		shr := c.User.GetShare(r.URL.Path, false)
 		err, item := shareListing(c.User.UserConfig, shr, c, w, r, fitFilter)
 		if !checkShareErr(err, shr.Path) {
 			merge(res.Listing, item)
@@ -57,7 +57,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 		if "/" == r.URL.Path {
 			return renderJSON(w, c.User.Shares)
 		} else {
-			shr := c.User.GetShare(r.URL.Path)
+			shr := c.User.GetShare(r.URL.Path, false)
 			if shr == nil {
 				shr = &config.ShareItem{}
 				shr.Path = r.URL.Path
@@ -217,7 +217,7 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (re
 	}
 	switch c.ShareType {
 	case "gen-ex":
-		shr := c.User.GetShare(r.URL.Path)
+		shr := c.User.GetShare(r.URL.Path, false)
 		var h string
 		if shr == nil {
 			h = config.GenShareHash(c.User.Username, r.URL.Path)
@@ -229,7 +229,7 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (re
 		return renderJSON(w, l)
 
 	case "my-meta":
-		shr := c.User.GetShare(r.URL.Path)
+		shr := c.User.GetShare(r.URL.Path, false)
 		if shr != nil {
 			if !c.Config.DeleteShare(c.User.UserConfig, r.URL.Path) {
 				return http.StatusBadRequest, err

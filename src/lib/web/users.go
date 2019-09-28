@@ -193,7 +193,7 @@ func makeFS(path string) (int, error) {
 			return http.StatusInternalServerError, err
 		}
 
-		err = os.MkdirAll(path, 0666)
+		err = os.MkdirAll(path, cnst.PERM_DEFAULT)
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
