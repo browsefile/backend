@@ -17,10 +17,13 @@ func addDavShare(shr *ShareItem, own string) {
 			u, _ := usersRam[uName]
 			config.checkSymLinkPath(shr, u.Username, own)
 		}
-
 	}
 }
-func delDavShare(shr *ShareItem, user string) {
-	dPath := filepath.Join(config.GetDavPath(user), cnst.WEB_DAV_FOLDER, "shares", shr.Path)
-	os.RemoveAll(dPath)
+func delDavShare(shr *ShareItem, owner string) {
+	for _, u := range config.Users {
+		dp := filepath.Join(config.FilesPath, u.Username, cnst.WEB_DAV_FOLDER, "shares", owner, shr.Path)
+		_ = os.RemoveAll(dp)
+
+	}
+
 }
