@@ -119,27 +119,35 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 	}
 
 	switch c.Router {
-	case "download":
+	case cnst.R_DOWNLOAD:
 		code, err = downloadHandler(c, w, r)
-	case "download-share":
-		code, err = downloadSharesHandler(c, w, r)
-	case "resource":
+	case cnst.R_RESOURCE:
 		code, err = resourceHandler(c, w, r)
-	case "users":
+	case cnst.R_USERS:
 		code, err = usersHandler(c, w, r)
-	case "settings":
+	case cnst.R_SETTINGS:
 		code, err = settingsHandler(c, w, r)
-	case "shares":
+	case cnst.R_SHARES:
 		code, err = shareHandler(c, w, r)
-	case "search":
+	case cnst.R_SEARCH:
 		code, err = searchHandler(c, w, r)
-	case "playlist":
+	case cnst.R_PLAYLIST:
 		code, err = makePlaylist(c, w, r)
-	case "playlist-share":
-		code, err = makeSharePlaylist(c, w, r)
 
 	default:
 		code = http.StatusNotFound
+	}
+	if (c.Router == cnst.R_SETTINGS ||
+		c.Router == cnst.R_USERS ||
+		c.Router == cnst.R_RESOURCE ||
+		c.Router == cnst.R_SHARES) &&
+		r.Method == http.MethodPatch ||
+		r.Method == http.MethodPut ||
+		r.Method == http.MethodPost {
+		if c.Config != nil {
+			c.Config.WriteConfig()
+		}
+
 	}
 
 	return code, err

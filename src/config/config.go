@@ -1,7 +1,6 @@
 package config
 
 import (
-	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -65,10 +64,6 @@ type Auth struct {
 	Key string `json:"key"`
 }
 
-func GenShareHash(userName, itmPath string) string {
-	itmPath = strings.ReplaceAll(itmPath, "/", "")
-	return base64.StdEncoding.EncodeToString(md5.New().Sum([]byte(userName + itmPath)))
-}
 func (gc *GlobalConfig) GetDavPath(userName string) string {
 	return filepath.Join(gc.FilesPath, userName)
 
@@ -76,14 +71,10 @@ func (gc *GlobalConfig) GetDavPath(userName string) string {
 func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
 	config.lock()
 	defer config.unlock()
-
-	i := gc.getUserIndex(usr.Username)
-	if i >= 0 {
-		res = gc.Users[i].deleteShare(p)
-		if res {
-			gc.Users[i].sortShares()
-			gc.RefreshUserRam()
-		}
+	res = usr.deleteShare(p)
+	if res {
+		usr.sortShares()
+		gc.RefreshUserRam()
 	}
 
 	return
@@ -145,8 +136,27 @@ func (cfg *GlobalConfig) Verify() {
 func (cfg *GlobalConfig) GetUserHomePath(userName string) string {
 	return filepath.Join(cfg.FilesPath, userName, "files")
 }
+func (cfg *GlobalConfig) GetUserSharesPath(userName string) string {
+	return filepath.Join(cfg.FilesPath, userName, "shares")
+}
 func (cfg *GlobalConfig) GetUserPreviewPath(userName string) string {
 	return filepath.Join(cfg.FilesPath, userName, "preview")
+}
+func (cfg *GlobalConfig) GetSharePreviewPath(url string) (res string) {
+	//cut username
+	u := strings.TrimPrefix(url, "/")
+	if len(u) > 0 {
+		arr := strings.Split(u, "/")
+		if len(arr) > 1 {
+			user, ok := cfg.GetByUsername(arr[0])
+			if ok {
+				shrPath := strings.Replace(u, arr[0], "", 1)
+				res = filepath.Join(cfg.GetUserPreviewPath(user.Username), shrPath)
+			}
+		}
+	}
+
+	return res
 }
 
 func (cfg *GlobalConfig) ReadConfigFile() {
@@ -184,12 +194,17 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 		u.sortShares()
 	}
 	cfg.setupLog()
-	cfg.setUpDavPaths()
+	cfg.setUpPaths()
 
 }
-func (cfg *GlobalConfig) setUpDavPaths() {
+func (cfg *GlobalConfig) setUpPaths() {
 	for _, u := range config.Users {
-		cfg.checkDavSharesFolder(u);
+		//create shares folder
+		if err := os.MkdirAll(cfg.GetUserSharesPath(u.Username), cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
+			log.Println("config : Cant create share path for user ", err)
+		}
+
+		cfg.checkDavFolder(u);
 		//fix bad symlinks, or build missed for share for specific user
 		for _, owner := range config.Users {
 			//skip same user
@@ -198,18 +213,16 @@ func (cfg *GlobalConfig) setUpDavPaths() {
 			}
 
 			for _, shr := range u.Shares {
-				cfg.checkSymLinkPath(shr, owner.Username, u.Username)
+				cfg.checkShareSymLinkPath(shr, owner.Username, u.Username)
 			}
 		}
 	}
 }
-func (cfg *GlobalConfig) checkDavSharesFolder(u *UserConfig) (err error) {
+func (cfg *GlobalConfig) checkDavFolder(u *UserConfig) (err error) {
 	dp := cfg.GetDavPath(u.Username)
 	sharePath := filepath.Join(dp, cnst.WEB_DAV_FOLDER, "shares")
 	oFlsPath := filepath.Join(dp, cnst.WEB_DAV_FOLDER, "files")
-	if err = os.MkdirAll(sharePath, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
-		log.Println("config : Cant create shares path, at dav ", err)
-	}
+
 	if err = os.MkdirAll(oFlsPath, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
 		log.Println("config : Cant create files path, at dav ", err)
 		//check symlink from user home dir, to the user's webdav Path
@@ -220,12 +233,27 @@ func (cfg *GlobalConfig) checkDavSharesFolder(u *UserConfig) (err error) {
 	if err = os.Symlink(cfg.GetUserHomePath(u.Username), oFlsPath); err != nil && !os.IsExist(err) {
 		log.Println("config : Cant create user files path, at dav ", err)
 	}
+
+	//check shares symlink
+	if err = os.MkdirAll(sharePath, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
+		log.Println("config : Cant create shares path, at dav ", err)
+	}
+
+	if _, err = os.Readlink(sharePath); err != nil {
+		os.Remove(sharePath)
+	}
+	if err = os.Symlink(cfg.GetUserSharesPath(u.Username), sharePath); err != nil && !os.IsExist(err) {
+		log.Println("config : Cant create user files path, at dav ", err)
+	}
 	return
 }
 
-func (cfg *GlobalConfig) checkSymLinkPath(shr *ShareItem, user, owner string) {
+func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, user, owner string) {
+	if strings.EqualFold(owner, user) {
+		return
+	}
 	var err error
-	dp := filepath.Join(cfg.GetDavPath(user), cnst.WEB_DAV_FOLDER, "shares", owner)
+	dp := filepath.Join(cfg.GetUserSharesPath(user), owner)
 	//check basic folder exists
 	if err = os.MkdirAll(dp, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
 		log.Println("config : Cant create share path for userF ", err)
@@ -272,6 +300,8 @@ func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 }
 
 func (cfg *GlobalConfig) WriteConfig() {
+	cfg.lock()
+	defer cfg.unlock()
 	//todo check hash if config changed
 	jsonData, err := json.MarshalIndent(cfg, "", "    ")
 	if err != nil {
@@ -488,7 +518,7 @@ func (cfg *GlobalConfig) lock() {
 	cfg.updateLock.Lock()
 }
 func (cfg *GlobalConfig) unlock() {
-	cfg.WriteConfig()
+	//cfg.WriteConfig()
 	cfg.updateLock.Unlock()
 }
 

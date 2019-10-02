@@ -112,8 +112,20 @@ func (c *Context) GetUserHomePath() string {
 func (c *Context) GetUserPreviewPath() string {
 	return c.Config.GetUserPreviewPath(c.User.Username)
 }
+func (c *Context) GetUserSharesPath() string {
+	return c.Config.GetUserSharesPath(c.User.Username)
+}
 
 func (c *Context) GenPreview(out string) {
+	if len(c.Config.ScriptPath) > 0 {
+		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
+		if t == cnst.IMAGE || t == cnst.VIDEO {
+			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
+		}
+	}
+}
+
+func (c *Context) GenSharesPreview(out string) {
 	if len(c.Config.ScriptPath) > 0 {
 		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
 		if t == cnst.IMAGE || t == cnst.VIDEO {
@@ -156,14 +168,14 @@ type UserModel struct {
 	FileSystem FileSystem `json:"-"`
 	// FileSystem is the virtual file system the user has access, uses to store previews.
 	FileSystemPreview FileSystem `json:"-"`
+	FileSystemShares  FileSystem `json:"-"`
 }
 
 func ToUserModel(u *config.UserConfig, cfg *config.GlobalConfig) *UserModel {
-	p := cfg.GetUserHomePath(u.Username)
-
 	return &UserModel{u, u.Username,
-		fileutils.Dir(p),
+		fileutils.Dir(cfg.GetUserHomePath(u.Username)),
 		fileutils.Dir(cfg.GetUserPreviewPath(u.Username)),
+		fileutils.Dir(cfg.GetUserSharesPath(u.Username)),
 	}
 }
 
@@ -173,7 +185,7 @@ type Context struct {
 	User *UserModel
 	File *File
 	// On API handlers, Router is the APi handler we want.
-	Router string
+	Router int
 	*Params
 }
 
@@ -212,6 +224,8 @@ type Params struct {
 
 	Sort  string
 	Order string
+	//is share request
+	IsShare bool
 }
 
 // HashPassword generates an hash from a password using bcrypt.

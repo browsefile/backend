@@ -5,21 +5,36 @@ import (
 	"os"
 )
 
+//settings
 const (
 	FilePath1      = "browsefile.json"
 	FilePath2      = "/etc/browsefile.json"
 	GUEST          = "guest"
-	// mime internal formats
-	VIDEO          = "video"
-	IMAGE          = "image"
-	AUDIO          = "audio"
-	PDF            = "pdf"
-	TEXT           = "text"
-	BLOB           = "blob"
 	WEB_DAV_URL    = "/" + WEB_DAV_FOLDER
 	WEB_DAV_FOLDER = "wd"
 	//default permission for paths creation
-	PERM_DEFAULT   = 0765
+	PERM_DEFAULT = 0765
+)
+
+//mime types
+const (
+	VIDEO = "video"
+	IMAGE = "image"
+	AUDIO = "audio"
+	PDF   = "pdf"
+	TEXT  = "text"
+	BLOB  = "blob"
+)
+
+//routes
+const (
+	R_SEARCH   = 1
+	R_SETTINGS = 2
+	R_USERS    = 3
+	R_RESOURCE = 4
+	R_DOWNLOAD = 5
+	R_SHARES   = 7
+	R_PLAYLIST = 8
 )
 
 var MIME_EXT = [][]string{{

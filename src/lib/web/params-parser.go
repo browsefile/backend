@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
 	"net/http"
 	"strconv"
@@ -24,7 +25,7 @@ func ProcessParams(c *fb.Context, r *http.Request) (isShares bool) {
 	c.Override, _ = strconv.ParseBool(c.Query.Get("override"))
 	c.Algo = c.Query.Get("algo")
 	c.Auth = c.Query.Get("auth")
-	c.RootHash = fb.FixNonStandardURIEnc(c.RootHash)
+	c.RootHash = c.RootHash
 	//search request
 	q := c.Query.Get("query")
 	if len(q) > 0 {
@@ -48,22 +49,17 @@ func ProcessParams(c *fb.Context, r *http.Request) (isShares bool) {
 		}
 		if (c.Image || c.Audio || c.Video) && strings.EqualFold(arr[0], "m3u") {
 			c.Algo = arr[0]
-			if isShares {
-				c.Router = "playlist-share"
-			} else {
-				c.Router = "playlist"
-			}
-
+			c.Router = cnst.R_PLAYLIST
 		}
 	}
 
 	//in case download, might be multiple files
-	if strings.HasPrefix(c.Router, "dow") || strings.HasPrefix(c.Router, "pla") {
+	if cnst.R_DOWNLOAD == c.Router ||
+		cnst.R_PLAYLIST == c.Router {
 		f := c.Query.Get("files")
 		if len(f) > 0 {
 			c.FilePaths = strings.Split(f, ",")
 		}
-
 	} else if r.Method == http.MethodPatch {
 		c.Destination = r.Header.Get("Destination")
 		if len(c.Destination) == 0 {
@@ -88,27 +84,23 @@ func setFileType(c *fb.Context, t string) {
 
 func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
 	c.Router, r.URL.Path = fb.SplitURL(r.URL.Path)
-	if strings.EqualFold(c.Router, "search") {
+	if c.Router == cnst.R_SEARCH {
 		r, _ := fb.SplitURL(r.URL.Path)
-		isShares = strings.HasPrefix(r, "shares")
+		isShares = r == cnst.R_SHARES
 	} else {
-		isShares = strings.HasPrefix(c.Router, "shares")
+		isShares = c.Router == cnst.R_SHARES
+	}
+	c.Params.IsShare = isShares
+	if isShares {
+		rp, p := fb.SplitURL(r.URL.Path)
+		if rp == cnst.R_DOWNLOAD {
+			c.Router = cnst.R_DOWNLOAD
+			r.URL.Path = p
+		}
 	}
 	//redirect to the real handler in shares case
-	if isShares {
-		//possibility to process shares view/download
-		if !(strings.EqualFold(c.ShareType, "my-list") ||
-			strings.EqualFold(c.ShareType, "my") ||
-			strings.EqualFold(c.ShareType, "list") ||
-			strings.EqualFold(c.ShareType, "gen-ex")) {
-			c.Router, r.URL.Path = fb.SplitURL(r.URL.Path)
-		}
-
-		if c.Router == "download" {
-			c.Router = "download-share"
-		} else if c.Router == "resource" || c.Router == "external" {
-			c.Router = "shares"
-		}
+	if isShares && (c.Router == cnst.R_RESOURCE || c.Router == cnst.R_EXTERNAL) {
+		c.Router = cnst.R_SHARES
 	}
 
 	return

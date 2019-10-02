@@ -26,6 +26,9 @@ func SlashClean(name string) string {
 
 // getBasedOnExtensions checks if a file can be edited by its mimeExt.
 func GetBasedOnExtensions(name string) (res bool, t string) {
+	if len(name) == 0 {
+		return false, ""
+	}
 	name = strings.ToLower(name)
 	ext := filepath.Ext(name)
 	if ext == "" {
@@ -64,7 +67,7 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 	return
 }
 
-//should get information about original file. Depending on previewType, it will return correct relative path at the file system
+//should get information about file.
 func GetFileInfo(scope, urlPath string) (info os.FileInfo, err error, path string) {
 	dir := Dir(scope)
 	info, err = dir.Stat(urlPath)
@@ -109,7 +112,7 @@ func ReplacePrevExt(srcPath string) (path string, t string) {
 		path = srcPath
 	}
 
-	return
+	return path, t
 }
 
 // Will return input and output to be processed to the bash convert/ffmpeg in order to generate preview

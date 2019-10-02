@@ -11,6 +11,7 @@ import (
 	"github.com/maruel/natural"
 	"hash"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -71,28 +72,60 @@ type Listing struct {
 	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 }
 
+// build correct path, and replace user in context in case external share
+func ResolvePaths(c *Context, url string) (p, previewPath, urlPath string, err error) {
+	if c.IsShare {
+		if c.IsExternalShare() {
+			itm, usr := c.Config.GetExternal(c.RootHash)
+			if itm == nil {
+				return "", "", "", nil
+			}
+			c.User = ToUserModel(usr, c.Config)
+			/*urlPath = itm.Path
+			urlString = urlPath*/
+			p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
+			//if share root listing
+
+			if len(url) == 1 {
+				urlPath = itm.Path
+			} else {
+				urlPath = itm.Path + url
+			}
+
+		} else {
+			p, previewPath = c.GetUserSharesPath(), c.Config.GetSharePreviewPath(url)
+			urlPath = url
+		}
+
+	} else {
+		p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
+		urlPath = url
+	}
+	return
+}
+
 // MakeInfo gets the file information and, in case of error, returns the
 // respective HTTP error code
-func MakeInfo(url *url.URL, c *Context) (*File, error) {
-	var err error
-	homePath, previewPath := c.GetUserHomePath(), c.GetUserPreviewPath()
+func MakeInfo(urlPath, urlString string, c *Context) (*File, error) {
+	p, previewPath, urlPath2, err := ResolvePaths(c, urlPath)
+	urlPath = urlPath2
 
-	info, err, path := fileutils.GetFileInfo(homePath, url.Path)
+	info, err, path := fileutils.GetFileInfo(p, urlPath)
 
 	//create user paths if not exists
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(homePath, 0775)
+		err = os.MkdirAll(p, 0775)
 		os.MkdirAll(previewPath, 0775)
-		fileutils.ModPermission(c.User.UID, c.User.GID, homePath)
+		fileutils.ModPermission(c.User.UID, c.User.GID, p)
 		if err != nil {
 			return nil, err
 		}
-		info, err, path = fileutils.GetFileInfo(homePath, url.Path)
+		info, err, path = fileutils.GetFileInfo(p, urlPath)
 	}
 
 	i := &File{
-		URL:         url.String(),
-		VirtualPath: url.Path,
+		URL:         urlString,
+		VirtualPath: urlPath,
 		Path:        path,
 	}
 
@@ -114,27 +147,34 @@ func MakeInfo(url *url.URL, c *Context) (*File, error) {
 	return i, nil
 }
 func (i *File) MakeListing(c *Context, fitFilter FitFilter) (files []os.FileInfo, paths []string, err error) {
+	isExternal := c.IsExternalShare()
 
 	if c.IsRecursive {
 		files = make([]os.FileInfo, 0, 500)
 		paths = make([]string, 0, 500)
-		err := filepath.Walk(filepath.Join(c.GetUserHomePath(), i.VirtualPath),
-			func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
-					files = append(files, info)
-					paths = append(paths, strings.TrimPrefix(path, c.GetUserHomePath()))
-				}
-
-				return nil
-			})
-		if err != nil {
-			log.Println(err)
+		isShare := c.IsShare
+		var p string
+		if isShare && !isExternal {
+			p = c.GetUserSharesPath()
+		} else {
+			p = c.GetUserHomePath()
 		}
+		files, paths = i.listRecurs(c, fitFilter, filepath.Join(p, i.VirtualPath), files, paths)
 	} else {
-		f, err := c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+		var f *os.File
+		var err error
+		if isExternal {
+			f, err = c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+			//replace original user
+			usr, _ := c.Config.GetByUsername("guest")
+			c.User = ToUserModel(usr, c.Config)
+
+		} else if c.IsShare {
+			f, err = c.User.FileSystemShares.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+		} else {
+			f, err = c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+		}
+
 		if err != nil {
 			return nil, nil, err
 		}
@@ -147,6 +187,69 @@ func (i *File) MakeListing(c *Context, fitFilter FitFilter) (files []os.FileInfo
 	}
 	return files, paths, nil
 
+}
+func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []os.FileInfo, paths []string) ([]os.FileInfo, []string) {
+	err := filepath.Walk(path,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if c.IsShare && !c.IsExternalShare() {
+				f2, _ := filepath.EvalSymlinks(path)
+				info, _ = os.Stat(f2)
+				if info.IsDir() {
+					fls, e := ioutil.ReadDir(f2)
+					if e != nil {
+						return nil
+					}
+					for _, f := range fls {
+						if f.IsDir() {
+							i.listRecurs(c, fitFilter, filepath.Join(f2, f.Name()), files, paths)
+
+						} else if fitFilter != nil && fitFilter(f.Name(), path) || fitFilter == nil {
+							path = filepath.Join(f2, f.Name())
+							path = strings.TrimPrefix(path, c.Config.FilesPath)
+							userName := strings.TrimPrefix(i.URL, "/")
+							userName = strings.Split(userName, "/")[0]
+							arr := strings.SplitN(path, "/", 4)
+							if len(arr) < 4 {
+								log.Println("file: cant split path in recursion ", path)
+							} else {
+
+								path = "/" + userName + "/" + arr[3]
+								files = append(files, f)
+								paths = append(paths, path)
+							}
+						}
+					}
+					return nil
+				} else {
+					if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
+						files = append(files, info)
+						paths = append(paths, f2)
+					}
+				}
+
+			} else if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
+				files = append(files, info)
+				if c.IsExternalShare() {
+					path = strings.TrimPrefix(path, c.GetUserHomePath())
+					root := strings.TrimPrefix(path, "/")
+					root = strings.Split(root, "/")[0]
+					path = strings.TrimPrefix(path, "/"+root)
+				} else {
+					path = strings.TrimPrefix(path, c.GetUserHomePath())
+				}
+				paths = append(paths, path)
+			}
+
+			return nil
+		})
+	if err != nil {
+		log.Println(err)
+	}
+	return files, paths
 }
 
 // GetListing gets the information about a specific directory and its files.
@@ -163,11 +266,18 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 	)
 	files, paths, err := i.MakeListing(c, fitFilter)
 	if err != nil {
+		log.Println("file: ", err)
 		return err
 	}
 	baseurl, err := url.PathUnescape(i.URL)
 	if err != nil {
 		return err
+	}
+
+	isShare := c.IsShare
+	isExternal := c.IsExternalShare()
+	if isShare && c.IsRecursive {
+		isShare = false
 	}
 	for ind, f := range files {
 		name := f.Name()
@@ -179,6 +289,11 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 			if err == nil {
 				f = info
 			}
+		}
+		if isShare && !c.IsRecursive && !isExternal {
+			p := filepath.Join(i.Path, name)
+			f2, _ := filepath.EvalSymlinks(p)
+			f, _ = os.Stat(f2)
 		}
 
 		if f.IsDir() {
@@ -209,7 +324,6 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 			URL:       fUrl.String(),
 			Extension: filepath.Ext(name),
 		}
-
 		i.SetFileType(false)
 
 		if fitFilter != nil && !c.IsRecursive {

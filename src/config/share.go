@@ -1,6 +1,10 @@
 package config
 
 import (
+	"crypto/md5"
+	"encoding/base64"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -63,51 +67,28 @@ func (shr *ShareItem) IsActive() (res bool) {
 	return
 }
 
-/**
-ru  request user su share user
-*/
-func GetShare(ru, su, reqPath string) (res *ShareItem, user *UserConfig) {
-	shareUser, ok := config.GetByUsername(su)
+func addSharePath(shr *ShareItem, own string) {
+	if shr.AllowLocal {
+		for _, u := range config.Users {
+			config.checkShareSymLinkPath(shr, u.Username, own)
 
-	config.lockR()
-	defer config.unlockR()
-
-	if ok {
-		item := shareUser.GetShare(reqPath, false)
-		if item != nil && item.IsAllowed(ru) {
-			res = item
-			user = shareUser
+		}
+	} else if len(shr.AllowUsers) > 0 {
+		for _, uName := range shr.AllowUsers {
+			u, _ := usersRam[uName]
+			config.checkShareSymLinkPath(shr, u.Username, own)
 		}
 	}
-
-	return
 }
+func delSharePath(shr *ShareItem, owner string) {
+	for _, u := range config.Users {
+		dp := filepath.Join(config.FilesPath, u.Username, "shares", owner, shr.Path)
+		_ = os.RemoveAll(dp)
 
-//filter out allowed shares, and returns modified Path, starting with username
-func GetAllowedShares(user string, excludeSelf bool) (res map[string][]*AllowedShare) {
-	users := config.GetUsers()
-
-	config.lockR()
-	defer config.unlockR()
-
-	res = make(map[string][]*AllowedShare)
-	//check user and allowed Path
-	for _, ui := range users {
-		for _, shr := range ui.Shares {
-			if shr.IsActive() && (shr.AllowLocal || shr.IsAllowed(user)) {
-				//ignore own files
-				if excludeSelf && strings.EqualFold(ui.Username, user) {
-					continue
-				}
-				if res[ui.Username] == nil {
-					res[ui.Username] = make([]*AllowedShare, 0, 10)
-				}
-				res[ui.Username] = append(res[ui.Username], &AllowedShare{
-					ui,
-					shr,
-				})
-			}
-		}
 	}
-	return res
+
+}
+func GenShareHash(userName, itmPath string) string {
+	itmPath = strings.ReplaceAll(itmPath, "/", "")
+	return base64.StdEncoding.EncodeToString(md5.New().Sum([]byte(userName + itmPath)))
 }

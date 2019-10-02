@@ -2,14 +2,10 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"strings"
 )
 
@@ -32,27 +28,7 @@ func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 }
 
 func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
-	//list of all shares
-	var res = &fb.File{
-		Listing: &fb.Listing{Items: make([]*fb.File, 0, 100)},
-	}
-	isDef := false
-	isExternal := c.IsExternalShare()
-
 	switch c.ShareType {
-	case "my-list":
-		for _, shr := range c.User.Shares {
-			err, resLoc := shareListing(c.User.UserConfig, shr, c, w, r, fitFilter)
-			if !checkShareErr(err, shr.Path) {
-				merge(res.Listing, resLoc)
-			}
-		}
-	case "my":
-		shr := c.User.GetShare(r.URL.Path, false)
-		err, item := shareListing(c.User.UserConfig, shr, c, w, r, fitFilter)
-		if !checkShareErr(err, shr.Path) {
-			merge(res.Listing, item)
-		}
 	case "my-meta":
 		if "/" == r.URL.Path {
 			return renderJSON(w, c.User.Shares)
@@ -65,100 +41,10 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 			return renderJSON(w, shr)
 		}
 
-	case "list":
-		for _, v := range config.GetAllowedShares(c.User.Username, true) {
-			for _, item := range v {
-				err, resLoc := shareListing(item.UserConfig, item.ShareItem, c, w, r, fitFilter)
-				if !checkShareErr(err, item.Path) {
-					merge(res.Listing, resLoc)
-				}
-			}
-		}
 	default:
-		//share resource handler
-		item, uc := getShare(r.URL.Path, c)
-
-		if item != nil && len(item.Path) > 0 {
-			if !isExternal {
-				item.Path = r.URL.Path
-			}
-			err, resLoc := shareListing(uc, item, c, w, r, fitFilter)
-
-			if !checkShareErr(err, item.Path) {
-				if !c.File.IsDir {
-					res = c.File
-					res.SetFileType(true)
-
-					if res.Type == cnst.TEXT {
-						var content []byte
-						//todo: fix me, what if file too big ?
-						content, err = ioutil.ReadFile(res.Path)
-						if err != nil {
-							return cnst.ErrorToHTTP(err, true), err
-						}
-
-						res.Content = string(content)
-					}
-					// Tries to get the file type.
-
-					isDef = true
-
-					// Serve a preview if the file can't be edited or the
-					// user has no permission to edit this file. Otherwise,
-					// just serve the editor.
-					if !res.CanBeEdited() || !c.User.AllowEdit {
-						res.Kind = "preview"
-					} else {
-						res.Kind = "editor"
-					}
-					if isExternal {
-						res.URL += "/?rootHash=" + c.RootHash
-					}
-
-				} else {
-					if isExternal {
-						for _, itm := range resLoc.Items {
-							itm.URL = strings.TrimPrefix(itm.URL, item.Path) + "?rootHash=" + c.RootHash
-						}
-					}
-					merge(res.Listing, resLoc)
-				}
-
-				res.Name = c.File.Name
-				res.Size = c.File.Size
-				res.Language = c.File.Language
-
-			}
-			res.URL = r.URL.Path
-			res.VirtualPath = item.Path
-			res.Path = ""
-
-		}
+		return resourceGetHandler(c, w, r, fitFilter)
 	}
-
-	if !isDef && res.NumFiles == 0 && res.NumDirs == 0 {
-		return http.StatusNotFound, nil
-	}
-	if !isExternal {
-		res.URL += "/?share=" + c.ShareType
-	}
-
-	if !isDef {
-		res.IsDir = true
-		res.VirtualPath = "/"
-		res.Kind = "listing"
-		// Copy the query values into the Listing struct
-		if err := HandleSortOrder(c, w, r, "/"); err == nil {
-			res.Sort = c.Sort
-			res.Order = c.Order
-			res.ApplySort()
-		}
-
-		res.AllowGeneratePreview = len(c.Config.ScriptPath) > 0
-	}
-
-	return renderJSON(w, res)
-}
+} /*
 func checkShareErr(err error, path string) (res bool) {
 	if err != nil {
 		log.Printf("cant fetch share path %v", path)
@@ -206,7 +92,7 @@ func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w
 
 	return
 }
-
+*/
 func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res int, err error) {
 	itm := &config.ShareItem{}
 	if !strings.EqualFold(c.ShareType, "gen-ex") {

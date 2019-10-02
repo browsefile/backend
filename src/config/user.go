@@ -88,7 +88,7 @@ func (u *UserConfig) deleteShare(relPath string) (res bool) {
 	for i, shr := range u.Shares {
 		if strings.HasPrefix(relPath, shr.Path) {
 			u.Shares = append(u.Shares[:i], u.Shares[i+1:]...)
-			delDavShare(shr, u.Username)
+			delSharePath(shr, u.Username)
 			res = true
 			break
 		}
@@ -107,7 +107,7 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	shr.Hash = GenShareHash(u.Username, shr.Path)
 	res = true
 	config.unlock()
-	addDavShare(shr, u.Username)
+	addSharePath(shr, u.Username)
 	return
 }
 
