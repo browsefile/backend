@@ -1,135 +1,137 @@
 {
-    "users": [
+  "users": [
+    {
+      "hashPasswordFirstRun": false,
+      "admin": false,
+      "allowEdit": true,
+      "allowNew": true,
+      "lockPassword": false,
+      "locale": "en",
+      "password": "$2a$10$wWxfOR4o2Uw2dafsVEHUiueCdH/bSb4esUJlmi8gIN.SebX3Lt/5O",
+      "username": "user1",
+      "viewMode": "mosaic",
+      "shares": [
         {
-            "hashPasswordFirstRun": false,
-            "admin": false,
-            "allowEdit": true,
-            "allowNew": true,
-            "lockPassword": false,
-            "locale": "en",
-            "password": "$2a$10$wWxfOR4o2Uw2dafsVEHUiueCdH/bSb4esUJlmi8gIN.SebX3Lt/5O",
-            "username": "user1",
-            "viewMode": "mosaic",
-            "shares": [
-                {
-                    "path": "/share",
-                    "allowExternal": true,
-                    "allowLocal": true,
-                    "allowedUsers": [
-                        "admin",
-                        "user"
-                    ]
-                }
-            ],
-            "ipAuth": [],
-            "uid": 1000,
-            "gid": 1000
-        },
-        {
-            "hashPasswordFirstRun": false,
-            "admin": false,
-            "allowEdit": true,
-            "allowNew": true,
-            "lockPassword": false,
-            "locale": "en",
-            "password": "$2a$10$vxDANZNGJqEVpdIYsjwpX.TiWtQjwPhncQb7UgWKVPi2gceivIQSW",
-            "username": "user2",
-            "viewMode": "mosaic",
-            "shares": [
-                {
-                    "path": "/share",
-                    "allowExternal": true,
-                    "allowLocal": false,
-                    "allowedUsers": [
-                        "admin",
-                        "user1"
-                    ]
-                }
-            ],
-            "ipAuth": [],
-            "uid": 1000,
-            "gid": 1000
-        },
-        {
-            "hashPasswordFirstRun": false,
-            "admin": false,
-            "allowEdit": true,
-            "allowNew": true,
-            "lockPassword": false,
-            "locale": "en",
-            "password": "$2a$10$6u8xE1gC/UG5cQCQrp8h0O81RxzrdGD91bumnSsZp24/x15habVoS",
-            "username": "user3",
-            "viewMode": "mosaic",
-            "shares": [],
-            "ipAuth": [],
-            "uid": 1000,
-            "gid": 1000
-        },
-        {
-            "hashPasswordFirstRun": false,
-            "admin": true,
-            "allowEdit": true,
-            "allowNew": true,
-            "lockPassword": false,
-            "locale": "en",
-            "password": "$2a$10$/9ERnOj5YgDBtmCRGlMHQuJ.KuzeWG8tkbB0ZUwdJJmAh3wE3/j4u",
-            "username": "admin",
-            "viewMode": "list",
-            "shares": [
-                {
-                    "path": "/share",
-                    "allowExternal": false,
-                    "allowLocal": false,
-                    "allowedUsers": [
-                        "user1"
-                    ]
-                },
-                {
-                    "path": "/movies",
-                    "allowExternal": true,
-                    "allowLocal": true,
-                    "allowedUsers": [
-                        "user1",
-                        "user2",
-                        "user3"
-                    ]
-                },
-                {
-                    "path": "/sdfsdf",
-                    "allowExternal": false,
-                    "allowLocal": false,
-                    "allowedUsers": [
-                        "user2"
-                    ]
-                }
-            ],
-            "ipAuth": [
-                "127.0.0.1"
-            ],
-            "uid": 1000,
-            "gid": 1000
+          "path": "/share",
+          "allowExternal": true,
+          "allowLocal": true,
+          "allowedUsers": [
+            "admin",
+            "user"
+          ]
         }
-    ],
-    "port": 8081,
-    "ip": "127.0.0.1",
-    "log": "stdout",
-    "tlsKey": "",
-    "tlsCert": "",
-    "filesPath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp2",
-    "captchaConfig": {
-        "host": "",
-        "key": "",
-        "secret": ""
+      ],
+      "ipAuth": [],
+      "uid": 1000,
+      "gid": 1000
     },
-    "auth": {
-        "method": "default",
-        "header": "X-Forwarded-User",
-        "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
+    {
+      "hashPasswordFirstRun": false,
+      "admin": false,
+      "allowEdit": true,
+      "allowNew": true,
+      "lockPassword": false,
+      "locale": "en",
+      "password": "$2a$10$vxDANZNGJqEVpdIYsjwpX.TiWtQjwPhncQb7UgWKVPi2gceivIQSW",
+      "username": "user2",
+      "viewMode": "mosaic",
+      "shares": [
+        {
+          "path": "/share",
+          "allowExternal": true,
+          "allowLocal": false,
+          "allowedUsers": [
+            "admin",
+            "user1"
+          ]
+        }
+      ],
+      "ipAuth": [],
+      "uid": 1000,
+      "gid": 1000
     },
-    "preview": {
-        "scriptPath": "/home/v/GolangProjects/browsefile/backend/bfconvert.sh",
-        "threads": 2,
-        "previewOnFirstRun": false
+    {
+      "hashPasswordFirstRun": false,
+      "admin": false,
+      "allowEdit": true,
+      "allowNew": true,
+      "lockPassword": false,
+      "locale": "en",
+      "password": "$2a$10$6u8xE1gC/UG5cQCQrp8h0O81RxzrdGD91bumnSsZp24/x15habVoS",
+      "username": "user3",
+      "viewMode": "mosaic",
+      "shares": [],
+      "ipAuth": [],
+      "uid": 1000,
+      "gid": 1000
     },
-    "externalShareHost": "http://127.0.0.1:8081"
+    {
+      "hashPasswordFirstRun": false,
+      "admin": true,
+      "allowEdit": true,
+      "allowNew": true,
+      "lockPassword": false,
+      "locale": "en",
+      "password": "$2a$10$/9ERnOj5YgDBtmCRGlMHQuJ.KuzeWG8tkbB0ZUwdJJmAh3wE3/j4u",
+      "username": "admin",
+      "viewMode": "list",
+      "shares": [
+        {
+          "path": "/share",
+          "allowExternal": true,
+          "allowLocal": false,
+          "allowedUsers": [
+            "user1"
+          ]
+        },
+        {
+          "path": "/movies",
+          "allowExternal": true,
+          "allowLocal": true,
+          "allowedUsers": [
+            "user1",
+            "user2",
+            "user3"
+          ]
+        },
+        {
+          "path": "/sdfsdf",
+          "allowExternal": false,
+          "allowLocal": false,
+          "allowedUsers": [
+            "user2"
+          ]
+        }
+      ],
+      "ipAuth": [
+        "127.0.0.1"
+      ],
+      "uid": 1000,
+      "gid": 1000
+    }
+  ],
+  "https": {
+    "port": 8082,
+    "ip": "127.0.0.1"
+  },
+  "log": "stdout",
+  "tlsKey": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp/server.key",
+  "tlsCert": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp/server.crt",
+  "filesPath": "/run/media/v/1390ab77-3888-441a-ac20-cb46d9511e27/tmp2",
+  "captchaConfig": {
+    "host": "",
+    "key": "",
+    "secret": ""
+  },
+  "auth": {
+    "method": "default",
+    "header": "X-Forwarded-User",
+    "key": "2Iwwf2bjWhQiJq9OoRpOmQkgXRixnY86KSGlARHO9lcAWeyh2ULxqM7LEDELx/Jv4NdR1ZPHo6iE7B1h3FTFIQ=="
+  },
+  "preview": {
+    "scriptPath": "/home/v/GolangProjects/browsefile/backend/bfconvert.sh",
+    "threads": 2,
+    "previewOnFirstRun": false
+  },
+  "externalShareHost": "http://127.0.0.1:8081"
 }

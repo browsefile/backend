@@ -25,7 +25,7 @@ func makePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 	paths := fetchFilesRecursively(c)
 
 	sort.Sort(sort.Reverse(byName(paths)))
-	h := getHost(c, c.IsShare)
+	h := getHost(c, r)
 	for _, p := range paths {
 		serveFile(c, w, filepath.Base(p), p, h, c.IsShare)
 	}
@@ -87,17 +87,29 @@ func serveFile(c *fb.Context, pw http.ResponseWriter, fName, p, host string, isS
 	io.WriteString(pw, "\n\n")
 
 }
-func getHost(c *fb.Context, isShare bool) string {
-	h := c.Config.IP + ":" + strconv.Itoa(c.Config.Port)
-	if isShare {
+func getHost(c *fb.Context, r *http.Request) string {
+	var h string
+	if c.IsExternalShare() {
+		h = strings.TrimSuffix(c.Config.ExternalShareHost, "/")
+	} else {
+		if r.TLS == nil {
+			h = c.Config.Http.IP + ":" + strconv.Itoa(c.Config.Http.Port)
+		} else {
+			h = c.Config.Tls.IP + ":" + strconv.Itoa(c.Config.Tls.Port)
+		}
+	}
+
+	if c.IsShare {
 		h += "/api/shares/download"
 	} else {
 		h += "/api/download"
 	}
-	if len(c.Config.TLSKey) > 0 {
-		h = "https://" + h
-	} else {
-		h = "http://" + h
+	if !c.IsExternalShare() {
+		if len(c.Config.TLSKey) > 0 {
+			h = "https://" + h
+		} else {
+			h = "http://" + h
+		}
 	}
 	return h
 }

@@ -99,7 +99,7 @@ func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
 		}
 	}
 	//redirect to the real handler in shares case
-	if isShares && (c.Router == cnst.R_RESOURCE || c.Router == cnst.R_EXTERNAL) {
+	if isShares && (c.Router == cnst.R_RESOURCE ) {
 		c.Router = cnst.R_SHARES
 	}
 

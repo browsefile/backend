@@ -29,33 +29,58 @@ func main() {
 
 	cfg.ReadConfigFile()
 	cfg.Verify()
-
+	var listener, listenerTLS net.Listener
+	var err error
+	isHttp := cfg.Http != nil && cfg.Http.Port > 0
+	isTLS := cfg.Tls != nil && cfg.Tls.Port > 0 && len(cfg.TLSCert) > 0 && len(cfg.TLSCert) > 0
 	// Builds the address and a listener.
-	listener, err := net.Listen("tcp", cfg.IP+":"+strconv.Itoa(cfg.Port))
-	if err != nil {
-		log.Fatal(err)
+	if isHttp {
+		listener, err = net.Listen("tcp", cfg.Http.IP+":"+strconv.Itoa(cfg.Http.Port))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+	if isTLS {
+		listenerTLS, err = net.Listen("tcp", cfg.Tls.IP+":"+strconv.Itoa(cfg.Tls.Port))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	srv := &http.Server{Handler: handler(cfg), ReadTimeout: 5 * time.Hour, WriteTimeout: 5 * time.Hour}
 	// Tell the user the port in which is listening.
-	log.Println("Listening on", listener.Addr().String())
-
-	isTls := len(cfg.TLSCert) > 0 && len(cfg.TLSCert) > 0
-	if isTls {
-		log.Print("davs://", listener.Addr().String(), cnst.WEB_DAV_URL)
-	} else {
-		log.Print("dav://", listener.Addr().String(), cnst.WEB_DAV_URL)
+	if isHttp {
+		log.Println("Listening http://" + listener.Addr().String())
+		log.Println("dav://" + listener.Addr().String() + cnst.WEB_DAV_URL)
 	}
+	if isTLS {
+		log.Println()
+		log.Println("Listening https://" + listenerTLS.Addr().String())
+		log.Println("davs://" + listenerTLS.Addr().String() + cnst.WEB_DAV_URL)
+		if isHttp {
+			go func() {
+				err = srv.ServeTLS(listenerTLS, cfg.TLSCert, cfg.TLSKey)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}()
+		} else {
+			err = srv.ServeTLS(listenerTLS, cfg.TLSCert, cfg.TLSKey)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 
-	if isTls {
-		err = srv.ServeTLS(listener, cfg.TLSCert, cfg.TLSKey)
-	} else {
+	}
+	if isHttp {
 		err = srv.Serve(listener)
+
+		// Starts the server.
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	// Starts the server.
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func handler(cfg *config.GlobalConfig) http.Handler {

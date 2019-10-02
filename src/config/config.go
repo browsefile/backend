@@ -25,8 +25,8 @@ update automatically
 */
 type GlobalConfig struct {
 	Users   []*UserConfig `json:"users"`
-	Port    int           `json:"port"`
-	IP      string        `json:"ip"`
+	Http    *ListenConf   `json:"http"`
+	Tls     *ListenConf   `json:"https"`
 	Log     string        `json:"log"`
 	TLSKey  string        `json:"tlsKey"`
 	TLSCert string        `json:"tlsCert"`
@@ -40,6 +40,16 @@ type GlobalConfig struct {
 	updateLock        *sync.RWMutex `json:"-"`
 	//Path to config file
 	Path string `json:"-"`
+}
+
+type ListenConf struct {
+	Port int    `json:"port"`
+	IP   string `json:"ip"`
+}
+
+func (l *ListenConf) copy() *ListenConf {
+	return &ListenConf{l.Port, l.IP}
+
 }
 
 // Auth settings.
@@ -482,8 +492,8 @@ func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 	defer cfg.unlockR()
 	return &GlobalConfig{
 		Users:             cfg.GetUsers(),
-		Port:              cfg.Port,
-		IP:                cfg.IP,
+		Http:              &ListenConf{cfg.Http.Port, cfg.Http.IP},
+		Tls:               &ListenConf{cfg.Tls.Port, cfg.Tls.IP},
 		Log:               cfg.Log,
 		CaptchaConfig:     cfg.CopyCaptchaConfig(),
 		Auth:              cfg.CopyAuth(),
@@ -498,8 +508,8 @@ func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.lock()
 	defer cfg.unlock()
-	cfg.Port = u.Port
-	cfg.IP = u.IP
+	cfg.Http = u.Http.copy()
+	cfg.Tls = u.Tls.copy()
 	cfg.Log = u.Log
 	cfg.Users = u.GetUsers()
 	cfg.Auth = u.CopyAuth()
