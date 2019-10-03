@@ -9,7 +9,7 @@ Browse files on your router or raspberry or any other embedded device through we
 - web dav server with shares feature
 
 For configuration details see wiki
-![alt text](https://imgur.com/a/sKWJlfz)
+![demo](https://user-images.githubusercontent.com/9258443/66141524-7c3ed780-e60c-11e9-9171-ce92cd1e5067.gif)
 
 ℹ INFO: Sep 2019
 -added possibility to download content as .m3u playlist
