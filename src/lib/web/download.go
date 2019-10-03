@@ -127,9 +127,8 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 
 		ok, _ := fileutils.Exists(prevPath)
 		if !ok {
-			if c.IsShare {
-				//TODO:
-				//c.GenSharesPreview(prevPath)
+			if c.IsShare && !c.IsExternalShare() {
+				c.GenSharesPreview(prevPath)
 			} else {
 				c.GenPreview(prevPath)
 			}

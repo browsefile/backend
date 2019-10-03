@@ -42,7 +42,8 @@ func (p *PreviewGen) Setup(t int, scr string) {
 		for ; p.threadsCount > 0; p.threadsCount-- {
 			go func() {
 			Begin:
-				genPrew(<-p.ch)
+				scp := <-p.ch
+				p.ProcessPath(filepath.Dir(scp.in), filepath.Dir(scp.out))
 				goto Begin
 			}()
 		}
@@ -57,25 +58,11 @@ func (p *PreviewGen) Process(pc *PreviewData) {
 		if err != nil {
 			err = os.MkdirAll(dirPath, 0775)
 		}
-		//do not wait for video preview generation, because it can take a while!
-		if p.threadsCount == 1 && !strings.EqualFold(pc.fType, cnst.VIDEO) {
-			genPrew(pc)
-
-		} else {
-			//otherwise run async for immediate response
-			p.ch <- pc
-
-		}
+		p.ch <- pc
 	}
 }
-
 func (pd PreviewGen) GetDefaultData(in, out, t string) (rs *PreviewData) {
 	rs = new(PreviewData)
-	/*dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Println("could not determinate current working folder")
-		log.Fatal(err)
-	}*/
 	rs.Setup(pd.scriptPath)
 	if len(in) > 0 && len(out) > 0 && len(t) > 0 {
 		rs.SetPaths(in, out, t)
@@ -96,7 +83,6 @@ func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 			if ok && (strings.EqualFold(cnst.IMAGE, t) || strings.EqualFold(cnst.VIDEO, t)) {
 				var out string
 				out, err = fileutils.GenPreviewConvertPath(path, scope, previewScope)
-				//yep generate in 1 thread, because in case n files, it can run out of ram on devices with low ram
 				genPrew(p.GetDefaultData(path, out, t))
 			}
 

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -128,10 +129,19 @@ func (c *Context) GenPreview(out string) {
 
 func (c *Context) GenSharesPreview(out string) {
 	if len(c.Config.ScriptPath) > 0 {
+
 		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
 		if t == cnst.IMAGE || t == cnst.VIDEO {
-			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
+
+			f2, err := filepath.EvalSymlinks(c.File.Path)
+			if err == nil {
+				c.Pgen.Process(c.Pgen.GetDefaultData(f2, out, t))
+			} else {
+				log.Println(err)
+			}
+
 		}
+
 	}
 }
 func (c *Context) IsExternalShare() (r bool) {
