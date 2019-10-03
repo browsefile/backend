@@ -57,7 +57,8 @@ func reCaptcha(host, secret, response string) (bool, error) {
 	return data.Success, nil
 }
 func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res bool) {
-	if c.Config.Method == "ip" {
+	cfgM := c.GetAuthConfig(r)
+	if cfgM.AuthMethod == "ip" {
 		u, res := c.Config.GetByIp(r.RemoteAddr)
 		if !res {
 			return false
@@ -105,11 +106,13 @@ func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res 
 
 // authHandler processes the authentication for the user.
 func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	if c.FileBrowser.Config.Method == "none" {
+	cfgM := c.GetAuthConfig(r)
+
+	if cfgM.AuthMethod == "none" {
 		// NoAuth instances shouldn't call this method.
 		return 0, nil
-	} else if c.FileBrowser.Config.Method == "proxy" || c.FileBrowser.Config.Method == "ip" {
-		isIp := c.FileBrowser.Config.Method == "ip"
+	} else if cfgM.AuthMethod == "proxy" || cfgM.AuthMethod == "ip" {
+		isIp := cfgM.AuthMethod == "ip"
 		var uc *config.UserConfig
 		var ok bool
 		if isIp {
@@ -245,7 +248,8 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 // validateAuth is used to validate the authentication and returns the
 // User if it is valid.
 func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
-	if c.Config.Method == "none" {
+	cfgM := c.GetAuthConfig(r)
+	if cfgM.AuthMethod == "none" {
 		admin := c.Config.GetAdmin()
 		if admin == nil {
 			return false, nil
@@ -255,7 +259,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 		return true, c.User
 	}
 	// If proxy auth is used do not verify the JWT token if the header is provided.
-	if c.Config.Method == "proxy" {
+	if cfgM.AuthMethod == "proxy" {
 		u, ok := c.Config.GetByUsername(r.Header.Get(c.Config.Header))
 		if !ok {
 			return false, nil
@@ -271,7 +275,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 	var claims claims
 	var u *config.UserConfig
 	var ok bool
-	if c.Config.Method == "ip" {
+	if cfgM.AuthMethod == "ip" {
 		u, ok = c.Config.GetByIp(r.RemoteAddr)
 		if !ok {
 			return false, nil

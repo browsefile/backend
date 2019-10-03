@@ -43,12 +43,13 @@ type GlobalConfig struct {
 }
 
 type ListenConf struct {
-	Port int    `json:"port"`
-	IP   string `json:"ip"`
+	Port       int    `json:"port"`
+	IP         string `json:"ip"`
+	AuthMethod string `json:"authMethod"`
 }
 
 func (l *ListenConf) copy() *ListenConf {
-	return &ListenConf{l.Port, l.IP}
+	return &ListenConf{l.Port, l.IP, l.AuthMethod}
 
 }
 
@@ -67,7 +68,6 @@ type Auth struct {
 	// - 'proxy', which requires a valid user and the user name has to be provided through an
 	//   web header.
 	// - 'none', which allows anyone to access the filebrowser instance.
-	Method string `json:"method"`
 	// If 'Method' is set to 'proxy' the header configured below is used to identify the user.
 	Header string `json:"header"`
 
@@ -115,7 +115,6 @@ func (auth *Auth) CopyAuth() *Auth {
 	return &Auth{
 		Key:    auth.Key,
 		Header: auth.Header,
-		Method: auth.Method,
 	}
 
 }
@@ -492,8 +491,8 @@ func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 	defer cfg.unlockR()
 	return &GlobalConfig{
 		Users:             cfg.GetUsers(),
-		Http:              &ListenConf{cfg.Http.Port, cfg.Http.IP},
-		Tls:               &ListenConf{cfg.Tls.Port, cfg.Tls.IP},
+		Http:              &ListenConf{cfg.Http.Port, cfg.Http.IP, cfg.Http.AuthMethod},
+		Tls:               &ListenConf{cfg.Tls.Port, cfg.Tls.IP, cfg.Tls.AuthMethod},
 		Log:               cfg.Log,
 		CaptchaConfig:     cfg.CopyCaptchaConfig(),
 		Auth:              cfg.CopyAuth(),

@@ -9,6 +9,7 @@ import (
 	"github.com/browsefile/backend/src/lib/preview"
 	"golang.org/x/crypto/bcrypt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 )
@@ -135,6 +136,17 @@ func (c *Context) GenSharesPreview(out string) {
 }
 func (c *Context) IsExternalShare() (r bool) {
 	return len(c.RootHash) > 0
+}
+func (c *Context) GetAuthConfig(r *http.Request) *config.ListenConf {
+	isTls := r.TLS != nil
+	var cfgM *config.ListenConf
+	if isTls {
+		cfgM = c.Config.Tls
+	} else {
+		cfgM = c.Config.Http
+
+	}
+	return cfgM
 }
 
 // DefaultUser is used on New, when no 'base' user is provided.

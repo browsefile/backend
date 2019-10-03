@@ -256,7 +256,8 @@ func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
 
 	// If we're updating the default user. Only for NoAuth
 	// implementations. Used to change the viewMode.
-	if c.Config.Method == "none" {
+	cfgM := c.GetAuthConfig(r)
+	if cfgM.AuthMethod == "none" {
 		admin := c.Config.GetAdmin()
 		admin.ViewMode = u.ViewMode
 		c.Config.Update(admin)

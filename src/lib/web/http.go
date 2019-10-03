@@ -164,6 +164,8 @@ func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file stri
 	c.RootHash = c.Query.Get("rootHash")
 	isEx := len(c.RootHash) > 0
 	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
+	cfgM := c.GetAuthConfig(r)
+
 	data := map[string]interface{}{
 		"Name":            "Browsefile",
 		"DisableExternal": false,
@@ -171,7 +173,7 @@ func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file stri
 		"isExternal":      isEx,
 		"StaticURL":       "/static",
 		"Signup":          false,
-		"NoAuth":          strings.ToLower(c.Config.Method) == "noauth" || strings.ToLower(c.Config.Method) == "ip",
+		"NoAuth":          strings.ToLower(cfgM.AuthMethod) == "noauth" || strings.ToLower(cfgM.AuthMethod) == "ip",
 		"ReCaptcha":       c.ReCaptcha.Key != "" && c.ReCaptcha.Secret != "",
 		"ReCaptchaHost":   c.ReCaptcha.Host,
 		"ReCaptchaKey":    c.ReCaptcha.Key,
