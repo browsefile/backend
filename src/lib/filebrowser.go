@@ -77,9 +77,6 @@ func (fb *FileBrowser) Setup() (bool, error) {
 				log.Println(err)
 			}
 		}
-		for _, shr := range u.Shares {
-			shr.Hash = config.GenShareHash(u.Username, shr.Path)
-		}
 	}
 
 	if needUpdate {

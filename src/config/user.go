@@ -104,7 +104,9 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	config.lock()
 	u.Shares = append(u.Shares, shr)
 	u.sortShares()
-	shr.Hash = GenShareHash(u.Username, shr.Path)
+	if shr.AllowExternal {
+		shr.Hash = GenShareHash(u.Username, shr.Path)
+	}
 	res = true
 	config.unlock()
 	addSharePath(shr, u.Username)

@@ -293,9 +293,15 @@ func (cfg *GlobalConfig) parseConf(jsonFile *os.File) (err error) {
 	return
 }
 func (cfg *GlobalConfig) Init() {
-	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
+	for _, u := range cfg.Users {
+		for _, shr := range u.Shares {
+			shr.Hash = GenShareHash(u.Username, shr.Path)
+		}
+	}
+	cfg.updateLock = new(sync.RWMutex)
 	cfg.RefreshUserRam()
+
 }
 func (cfg *GlobalConfig) GetAdmin() *UserConfig {
 	cfg.lockR()
@@ -392,7 +398,7 @@ func (cfg *GlobalConfig) GetByIp(ip string) (*UserConfig, bool) {
 		return nil, ok
 	}
 
-	return res, ok
+	return res.copyUser(), ok
 }
 
 func (cfg *GlobalConfig) GetUsers() (res []*UserConfig) {
@@ -419,13 +425,21 @@ func (cfg *GlobalConfig) Add(u *UserConfig) error {
 
 	return nil
 }
+func (cfg *GlobalConfig) UpdatePassword(u *UserConfig) error {
+	cfg.lock()
+	defer cfg.unlock()
+	i := cfg.getUserIndex(u.Username)
+	if i >= 0 {
+		//update only specific fields
+		cfg.Users[i].Password = u.Password
+	} else {
+		return errors.New("User does not exists " + u.Username)
+	}
+	return nil
+}
 func (cfg *GlobalConfig) Update(u *UserConfig) error {
 	cfg.lock()
 	defer cfg.unlock()
-	_, exists := usersRam[u.Username]
-	if !exists {
-		return errors.New("User does not exists " + u.Username)
-	}
 
 	i := cfg.getUserIndex(u.Username)
 	if i >= 0 {
@@ -442,6 +456,8 @@ func (cfg *GlobalConfig) Update(u *UserConfig) error {
 		cfg.Users[i].UID = u.UID
 		cfg.Users[i].GID = u.GID
 		cfg.RefreshUserRam()
+	} else {
+		return errors.New("User does not exists " + u.Username)
 	}
 
 	return nil
@@ -510,7 +526,6 @@ func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.Http = u.Http.copy()
 	cfg.Tls = u.Tls.copy()
 	cfg.Log = u.Log
-	cfg.Users = u.GetUsers()
 	cfg.Auth = u.CopyAuth()
 	cfg.CaptchaConfig = u.CopyCaptchaConfig()
 	cfg.FilesPath = u.FilesPath

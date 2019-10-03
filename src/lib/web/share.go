@@ -44,55 +44,7 @@ func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitF
 	default:
 		return resourceGetHandler(c, w, r, fitFilter)
 	}
-} /*
-func checkShareErr(err error, path string) (res bool) {
-	if err != nil {
-		log.Printf("cant fetch share path %v", path)
-		res = true
-	}
-	return
 }
-func merge(fin, n *fb.Listing) {
-	fin.Items = append(fin.Items, n.Items...)
-	fin.NumDirs += n.NumDirs
-	fin.NumFiles += n.NumFiles
-}
-
-func shareListing(uc *config.UserConfig, shr *config.ShareItem, c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (err error, res *fb.Listing) {
-	//replace user as for normal listing
-	c.User = fb.ToUserModel(uc, c.Config)
-	orig := r.URL.Path
-	isExternal := c.IsExternalShare()
-	if isExternal {
-		r.URL.Path = filepath.Join(shr.Path, r.URL.Path)
-	} else {
-		r.URL.Path = shr.Path
-	}
-	c.File, err = fb.MakeInfo(r.URL, c)
-	if err != nil {
-		log.Println(err)
-	}
-	if c.File.IsDir {
-		if err != nil {
-			return err, nil
-		}
-
-		listingHandler(c, w, r, fitFilter)
-		c.File.Listing.AllowGeneratePreview = len(c.Config.ScriptPath) > 0
-		r.URL.Path = orig
-		res = c.File.Listing
-		if !isExternal {
-			suffix := "?share=" + uc.Username
-			for _, itm := range res.Items {
-				itm.URL += suffix
-			}
-		}
-
-	}
-
-	return
-}
-*/
 func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res int, err error) {
 	itm := &config.ShareItem{}
 	if !strings.EqualFold(c.ShareType, "gen-ex") {

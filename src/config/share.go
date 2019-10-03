@@ -29,14 +29,14 @@ type AllowedShare struct {
 
 //allow access to the specific share link
 func (shr *ShareItem) IsAllowed(user string) (res bool) {
-	_, ok := config.GetByUsername(user)
+	usr, ok := config.GetByUsername(user)
 
 	config.lockR()
 	defer config.unlockR()
 
-	if ok && shr.AllowLocal {
+	if ok && shr.AllowLocal && !usr.IsGuest() {
 		res = true
-	} else if shr.AllowExternal && len(user) == 0 {
+	} else if shr.AllowExternal && len(shr.Hash) > 0 {
 		res = true
 	} else {
 		for _, uname := range shr.AllowUsers {

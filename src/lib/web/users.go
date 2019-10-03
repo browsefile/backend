@@ -295,7 +295,7 @@ func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
 			return http.StatusInternalServerError, err
 		}
 
-		err = c.Config.Update(c.User.UserConfig)
+		err = c.Config.UpdatePassword(c.User.UserConfig)
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
@@ -351,6 +351,7 @@ func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
 	} else {
 		u.Password = suser.Password
 	}
+	u.Shares = suser.Shares
 
 	// Updates the whole User struct because we always are supposed
 	// to send a new entire object.

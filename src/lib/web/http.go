@@ -34,6 +34,7 @@ func Handler(m *fb.FileBrowser) http.Handler {
 		}
 
 		if err != nil {
+			w.WriteHeader(code)
 			log.Print(err)
 		}
 	})
@@ -143,7 +144,8 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 		c.Router == cnst.R_SHARES) &&
 		r.Method == http.MethodPatch ||
 		r.Method == http.MethodPut ||
-		r.Method == http.MethodPost {
+		r.Method == http.MethodPost ||
+		r.Method == http.MethodDelete {
 		if c.Config != nil {
 			c.Config.WriteConfig()
 		}

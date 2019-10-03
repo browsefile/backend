@@ -29,6 +29,7 @@ func main() {
 
 	cfg.ReadConfigFile()
 	cfg.Verify()
+	cfg.Init()
 	var listener, listenerTLS net.Listener
 	var err error
 	isHttp := cfg.Http != nil && cfg.Http.Port > 0

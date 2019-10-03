@@ -78,7 +78,10 @@ func ResolvePaths(c *Context, url string) (p, previewPath, urlPath string, err e
 		if c.IsExternalShare() {
 			itm, usr := c.Config.GetExternal(c.RootHash)
 			if itm == nil {
-				return "", "", "", nil
+				return "", "", "", cnst.ErrNotExist
+			}
+			if !itm.IsAllowed(c.User.Username) {
+				return "", "", "", cnst.ErrShareAccess
 			}
 			c.User = ToUserModel(usr, c.Config)
 			/*urlPath = itm.Path

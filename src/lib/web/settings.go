@@ -48,6 +48,7 @@ func settingsPutHandler(c *fb.Context, r *http.Request) (int, error) {
 	}
 	mod.Init()
 	c.Config.UpdateConfig(mod)
+	c.Config.RefreshUserRam()
 
 	return http.StatusOK, nil
 }
