@@ -6,9 +6,10 @@ Browse files on your router or raspberry or any other embedded device through we
 - videos/images preview 
 - share files between users. 
 - planned mobile/desktop clients
+- web dav server with shares feature
 
 For configuration details see wiki
-![alt text](https://lh5.googleusercontent.com/MMH_UOn6EDAkT5CVjxChms1VOgdqlacuGUUogAnrsPwUafnX1TA5d4EmXPblTNFLCOQuO1fFEfGtpgP96pR1=w1920-h976-rw)
+![alt text](https://imgur.com/a/sKWJlfz)
 
 ℹ INFO: Sep 2019
 -added possibility to download content as .m3u playlist
