@@ -5,8 +5,8 @@
             "admin": false,
             "allowEdit": true,
             "allowNew": true,
-            "lockPassword": false,
-            "locale": "en",
+            "lockPassword": true,
+            "locale": "it",
             "password": "$2a$10$wWxfOR4o2Uw2dafsVEHUiueCdH/bSb4esUJlmi8gIN.SebX3Lt/5O",
             "username": "user1",
             "viewMode": "mosaic",
@@ -72,18 +72,10 @@
             "allowNew": true,
             "lockPassword": false,
             "locale": "en",
-            "password": "$2a$10$Urf90zeiAtUK1xtX/D520OQw1ri24N7sdtGzgUtOqtbJri7RPczri",
+            "password": "$2a$10$K/fixHTL4zsYdJdwus/m8OAoP2WmXZcfM2eog.cAaxQ38rn6GeUd2",
             "username": "admin",
             "viewMode": "list",
             "shares": [
-                {
-                    "path": "/share",
-                    "allowExternal": true,
-                    "allowLocal": false,
-                    "allowedUsers": [
-                        "user1"
-                    ]
-                },
                 {
                     "path": "/movies",
                     "allowExternal": true,
@@ -101,6 +93,30 @@
                     "allowedUsers": [
                         "user2"
                     ]
+                },
+                {
+                    "path": "/share/",
+                    "allowExternal": false,
+                    "allowLocal": true,
+                    "allowedUsers": [
+                        "user1"
+                    ]
+                },
+                {
+                    "path": "/share/",
+                    "allowExternal": true,
+                    "allowLocal": true,
+                    "allowedUsers": [
+                        "user1"
+                    ]
+                },
+                {
+                    "path": "/share/t/mus./",
+                    "allowExternal": true,
+                    "allowLocal": false,
+                    "allowedUsers": [
+                        "user1"
+                    ]
                 }
             ],
             "ipAuth": [
@@ -113,7 +129,7 @@
     "http": {
         "port": 8081,
         "ip": "127.0.0.1",
-        "authMethod": "default"
+        "authMethod": "ip"
     },
     "https": {
         "port": 8082,
@@ -138,5 +154,5 @@
         "threads": 2,
         "previewOnFirstRun": false
     },
-    "externalShareHost": "http://127.0.0.1:8081"
+    "externalShareHost": "https://hm.com:8082"
 }
