@@ -110,21 +110,10 @@ func ResolvePaths(c *Context, url string) (p, previewPath, urlPath string, err e
 // MakeInfo gets the file information and, in case of error, returns the
 // respective HTTP error code
 func MakeInfo(urlPath, urlString string, c *Context) (*File, error) {
-	p, previewPath, urlPath2, err := ResolvePaths(c, urlPath)
+	p, _, urlPath2, err := ResolvePaths(c, urlPath)
 	urlPath = urlPath2
 
 	info, err, path := fileutils.GetFileInfo(p, urlPath)
-
-	//create user paths if not exists
-	if os.IsNotExist(err) {
-		err = os.MkdirAll(p, 0775)
-		os.MkdirAll(previewPath, 0775)
-		fileutils.ModPermission(c.User.UID, c.User.GID, p)
-		if err != nil {
-			return nil, err
-		}
-		info, err, path = fileutils.GetFileInfo(p, urlPath)
-	}
 
 	i := &File{
 		URL:         urlString,
