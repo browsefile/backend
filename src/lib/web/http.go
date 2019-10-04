@@ -101,9 +101,9 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 	//allow only GET requests, for external share
 	if valid && c.User.IsGuest() && (!isShares ||
 		!strings.EqualFold(r.Method, http.MethodGet) ||
-		strings.HasPrefix(r.URL.Path, "/resource") ||
-		strings.HasPrefix(r.URL.Path, "/user") ||
-		strings.HasPrefix(r.URL.Path, "/sett")) {
+		c.Router == cnst.R_RESOURCE ||
+		c.Router == cnst.R_USERS ||
+		c.Router == cnst.R_SETTINGS) {
 		return http.StatusForbidden, nil
 	}
 
