@@ -80,8 +80,8 @@ func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) (err er
 	}
 	w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
 	pr, pw := io.Pipe()
-
-	cmd := exec.Command("zip", append([]string{"-0rqj", "-"}, files...)...)
+//j - cut path, and store only
+	cmd := exec.Command("zip", append([]string{"-0rq", "-"}, files...)...)
 	cmd.Stdout = pw
 	cmd.Stderr = os.Stderr
 	go func() {

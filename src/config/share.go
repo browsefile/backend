@@ -70,16 +70,25 @@ func (shr *ShareItem) IsActive() (res bool) {
 func addSharePath(shr *ShareItem, own string) {
 	if shr.AllowLocal {
 		for _, u := range config.Users {
-			config.checkShareSymLinkPath(shr, u.Username, own)
+			processSharePath(shr, u, own)
 
 		}
 	} else if len(shr.AllowUsers) > 0 {
 		for _, uName := range shr.AllowUsers {
 			u, _ := usersRam[uName]
-			config.checkShareSymLinkPath(shr, u.Username, own)
+			processSharePath(shr, u, own)
 		}
 	}
 }
+func processSharePath(shr *ShareItem, u *UserConfig, own string) {
+	if !config.checkShareSymLinkPath(shr, u.Username, own) {
+		owner, ok := config.GetByUsername(own)
+		if ok {
+			owner.deleteShare(shr.Path)
+		}
+	}
+}
+
 func delSharePath(shr *ShareItem, owner string) {
 	for _, u := range config.Users {
 		dp := filepath.Join(config.FilesPath, u.Username, "shares", owner, shr.Path)

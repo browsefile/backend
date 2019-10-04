@@ -79,8 +79,8 @@ func (gc *GlobalConfig) GetDavPath(userName string) string {
 
 }
 func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
-	config.lock()
-	defer config.unlock()
+	gc.lock()
+	defer gc.unlock()
 	res = usr.deleteShare(p)
 	if res {
 		usr.sortShares()
@@ -92,8 +92,8 @@ func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
 
 //since we sure that this method will not modify, just return original
 func (gc *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConfig) {
-	config.lockR()
-	defer config.unlockR()
+	gc.lockR()
+	defer gc.unlockR()
 	for _, user := range gc.Users {
 		for _, item := range user.Shares {
 			if strings.EqualFold(hash, item.Hash) {
@@ -207,7 +207,8 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 
 }
 func (cfg *GlobalConfig) setUpPaths() {
-	for _, u := range config.Users {
+	needUpdate := false
+	for _, u := range cfg.Users {
 		//create shares folder
 		if err := os.MkdirAll(cfg.GetUserSharesPath(u.Username), cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
 			log.Println("config : Cant create share path for user ", err)
@@ -215,16 +216,22 @@ func (cfg *GlobalConfig) setUpPaths() {
 
 		cfg.checkDavFolder(u);
 		//fix bad symlinks, or build missed for share for specific user
-		for _, owner := range config.Users {
+		for _, owner := range cfg.Users {
 			//skip same user
 			if strings.EqualFold(owner.Username, u.Username) {
 				continue
 			}
 
 			for _, shr := range u.Shares {
-				cfg.checkShareSymLinkPath(shr, owner.Username, u.Username)
+				if !cfg.checkShareSymLinkPath(shr, owner.Username, u.Username) {
+					owner.deleteShare(shr.Path)
+					needUpdate = true
+				}
 			}
 		}
+	}
+	if needUpdate {
+		cfg.WriteConfig()
 	}
 }
 func (cfg *GlobalConfig) checkDavFolder(u *UserConfig) (err error) {
@@ -257,7 +264,9 @@ func (cfg *GlobalConfig) checkDavFolder(u *UserConfig) (err error) {
 	return
 }
 
-func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, user, owner string) {
+//returns true in case share good, otherwise original share path does not exists
+func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, user, owner string) (res bool) {
+	res = true
 	if strings.EqualFold(owner, user) {
 		return
 	}
@@ -275,12 +284,16 @@ func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, user, owner strin
 		//take the parent folder
 		_ = os.MkdirAll(filepath.Dir(dPath), cnst.PERM_DEFAULT)
 		if shr.IsActive() && shr.IsAllowed(user) {
-			if err = os.Symlink(sPath, dPath); err != nil && !os.IsExist(err) {
+			//check if share valid
+			if _, err = os.Stat(sPath); err != nil && os.IsNotExist(err) {
+				res = false
+			} else if err = os.Symlink(sPath, dPath); err != nil && !os.IsExist(err) {
 				log.Println("config : Cant create share sym link at ", err)
 			}
 
 		}
 	}
+	return res
 }
 
 func (cfg *GlobalConfig) parseConf(jsonFile *os.File) (err error) {
@@ -371,7 +384,7 @@ func (cfg *GlobalConfig) GetByUsername(username string) (*UserConfig, bool) {
 	defer cfg.unlockR()
 
 	if username == cnst.GUEST {
-		admin := config.GetAdmin()
+		admin := cfg.GetAdmin()
 		return &UserConfig{
 			Username:  username,
 			Locale:    admin.Locale,

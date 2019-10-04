@@ -208,43 +208,35 @@ func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []
 					}
 					for _, f := range fls {
 						if f.IsDir() {
-							i.listRecurs(c, fitFilter, filepath.Join(f2, f.Name()), files, paths)
+							files, paths = i.listRecurs(c, fitFilter, filepath.Join(f2, f.Name()), files, paths)
 
-						} else if fitFilter != nil && fitFilter(f.Name(), path) || fitFilter == nil {
-							path = filepath.Join(f2, f.Name())
-							path = strings.TrimPrefix(path, c.Config.FilesPath)
-							userName := strings.TrimPrefix(i.URL, "/")
-							userName = strings.Split(userName, "/")[0]
-							arr := strings.SplitN(path, "/", 4)
-							if len(arr) < 4 {
-								log.Println("file: cant split path in recursion ", path)
-							} else {
-
-								path = "/" + userName + "/" + arr[3]
+						} else {
+							path = strings.TrimPrefix(f2, c.Config.FilesPath)
+							if fitFilter != nil && fitFilter(f.Name(), path) ||
+								fitFilter == nil {
+								//cut files from path
+								arr := strings.SplitN(path, "/", 4)
+								paths = append(paths, filepath.Join("/", arr[1], arr[3], f.Name()))
 								files = append(files, f)
-								paths = append(paths, path)
 							}
 						}
 					}
 					return nil
-				} else {
-					if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
-						files = append(files, info)
-						paths = append(paths, f2)
-					}
 				}
 
-			} else if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
-				files = append(files, info)
-				if c.IsExternalShare() {
-					path = strings.TrimPrefix(path, c.GetUserHomePath())
-					root := strings.TrimPrefix(path, "/")
-					root = strings.Split(root, "/")[0]
-					path = strings.TrimPrefix(path, "/"+root)
-				} else {
-					path = strings.TrimPrefix(path, c.GetUserHomePath())
+			} else if fitFilter != nil {
+				path = strings.TrimPrefix(path, c.GetUserHomePath())
+
+				if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
+					if c.IsExternalShare() {
+						//replace root share folder with rootHash
+						path = "/" + strings.SplitN(path, "/", 3)[2]
+					} else {
+						path = strings.TrimPrefix(path, c.GetUserHomePath())
+					}
+					files = append(files, info)
+					paths = append(paths, path)
 				}
-				paths = append(paths, path)
 			}
 
 			return nil
