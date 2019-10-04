@@ -19,6 +19,8 @@ type PreviewGen struct {
 
 func genPrew(pd *PreviewData) {
 	if _, err := os.Stat(pd.out); os.IsNotExist(err) {
+		//create missed paths
+		os.MkdirAll(filepath.Dir(pd.out), cnst.PERM_DEFAULT)
 		cmd := exec.Command("/bin/sh", pd.convert, pd.in, pd.out, pd.fType)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
@@ -53,11 +55,6 @@ func (p *PreviewGen) Process(pc *PreviewData) {
 	if len(pc.in) == 0 || len(pc.out) == 0 {
 		log.Printf("Error, in(%v) or out(%v) paths are empty ", pc.in, pc.out)
 	} else if _, err := os.Stat(pc.out); err != nil {
-		dirPath := filepath.Dir(pc.out)
-		_, err := os.Stat(dirPath)
-		if err != nil {
-			err = os.MkdirAll(dirPath, 0775)
-		}
 		p.ch <- pc
 	}
 }
