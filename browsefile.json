@@ -10,17 +10,7 @@
             "password": "$2a$10$wWxfOR4o2Uw2dafsVEHUiueCdH/bSb4esUJlmi8gIN.SebX3Lt/5O",
             "username": "user1",
             "viewMode": "mosaic",
-            "shares": [
-                {
-                    "path": "/share",
-                    "allowExternal": true,
-                    "allowLocal": true,
-                    "allowedUsers": [
-                        "admin",
-                        "user"
-                    ]
-                }
-            ],
+            "shares": [],
             "ipAuth": [],
             "uid": 1000,
             "gid": 1000
@@ -85,38 +75,6 @@
                         "user2",
                         "user3"
                     ]
-                },
-                {
-                    "path": "/sdfsdf",
-                    "allowExternal": false,
-                    "allowLocal": false,
-                    "allowedUsers": [
-                        "user2"
-                    ]
-                },
-                {
-                    "path": "/share/",
-                    "allowExternal": false,
-                    "allowLocal": true,
-                    "allowedUsers": [
-                        "user1"
-                    ]
-                },
-                {
-                    "path": "/share/",
-                    "allowExternal": true,
-                    "allowLocal": true,
-                    "allowedUsers": [
-                        "user1"
-                    ]
-                },
-                {
-                    "path": "/share/t/mus./",
-                    "allowExternal": true,
-                    "allowLocal": false,
-                    "allowedUsers": [
-                        "user1"
-                    ]
                 }
             ],
             "ipAuth": [
@@ -129,7 +87,7 @@
     "http": {
         "port": 8081,
         "ip": "127.0.0.1",
-        "authMethod": "ip"
+        "authMethod": "default"
     },
     "https": {
         "port": 8082,

@@ -83,7 +83,7 @@ func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
 	defer gc.unlock()
 	res = usr.deleteShare(p)
 	if res {
-		usr.sortShares()
+
 		gc.RefreshUserRam()
 	}
 
@@ -192,7 +192,7 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 		}
 	}
 	fmt.Println("using config at path : " + cfg.Path)
-	cfg.RefreshUserRam()
+
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
 
@@ -200,14 +200,19 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 		for _, shr := range u.Shares {
 			shr.Path = strings.TrimSuffix(shr.Path, "/")
 		}
-		u.sortShares()
 	}
+	cfg.RefreshUserRam()
 	cfg.setupLog()
 	cfg.setUpPaths()
 
 }
 func (cfg *GlobalConfig) setUpPaths() {
 	needUpdate := false
+	for _, u := range cfg.Users {
+		//rebuild shares paths
+		p := cfg.GetUserSharesPath(u.Username)
+		os.RemoveAll(p)
+	}
 	for _, u := range cfg.Users {
 		//create shares folder
 		if err := os.MkdirAll(cfg.GetUserSharesPath(u.Username), cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
@@ -224,7 +229,8 @@ func (cfg *GlobalConfig) setUpPaths() {
 
 			for _, shr := range u.Shares {
 				if !cfg.checkShareSymLinkPath(shr, owner.Username, u.Username) {
-					owner.deleteShare(shr.Path)
+					u.deleteShare(shr.Path)
+
 					needUpdate = true
 				}
 			}
@@ -280,7 +286,7 @@ func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, user, owner strin
 		dPath := filepath.Join(dp, shr.Path)
 		//source path for symlink
 		sPath := filepath.Join(cfg.GetUserHomePath(owner), shr.Path)
-		_ = os.Remove(dPath)
+		_ = os.RemoveAll(dPath)
 		//take the parent folder
 		_ = os.MkdirAll(filepath.Dir(dPath), cnst.PERM_DEFAULT)
 		if shr.IsActive() && shr.IsAllowed(user) {

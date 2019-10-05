@@ -3,7 +3,6 @@ package config
 import (
 	"github.com/browsefile/backend/src/cnst"
 	"golang.org/x/net/webdav"
-	"sort"
 	"strings"
 )
 
@@ -70,12 +69,16 @@ func (u *UserConfig) IsGuest() bool {
 
 }
 
-func (u *UserConfig) GetShare(relPath string, del bool) (res *ShareItem) {
+func (u *UserConfig) GetShares(relPath string, del bool) (res []*ShareItem) {
 	config.lockR()
 	defer config.unlockR()
 	for _, shr := range u.Shares {
-		if strings.HasPrefix(relPath, shr.Path) || del && strings.HasPrefix(shr.Path, relPath) {
-			res = shr.copyShare()
+		if del {
+			if strings.HasPrefix(relPath, shr.Path) || strings.HasPrefix(shr.Path, relPath) {
+				res = append(res, shr.copyShare())
+			}
+		} else if strings.EqualFold(relPath, shr.Path) {
+			res = append(res, shr.copyShare())
 			break
 		}
 	}
@@ -86,7 +89,7 @@ func (u *UserConfig) deleteShare(relPath string) (res bool) {
 	res = false
 
 	for i, shr := range u.Shares {
-		if strings.HasPrefix(relPath, shr.Path) {
+		if strings.HasPrefix(relPath, shr.Path) || strings.HasPrefix(shr.Path, relPath) {
 			u.Shares = append(u.Shares[:i], u.Shares[i+1:]...)
 			delSharePath(shr, u.Username)
 			res = true
@@ -95,7 +98,6 @@ func (u *UserConfig) deleteShare(relPath string) (res bool) {
 
 	}
 
-	u.sortShares()
 
 	return
 }
@@ -103,7 +105,6 @@ func (u *UserConfig) deleteShare(relPath string) (res bool) {
 func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	config.lock()
 	u.Shares = append(u.Shares, shr)
-	u.sortShares()
 	if shr.AllowExternal {
 		shr.Hash = GenShareHash(u.Username, shr.Path)
 	}
@@ -113,9 +114,3 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	return
 }
 
-//sort users shares, in order to check them in correct way during runtime
-func (u *UserConfig) sortShares() {
-	sort.Slice(u.Shares[:], func(i, j int) bool {
-		return len([]rune(u.Shares[i].Path)) < len([]rune(u.Shares[j].Path))
-	})
-}

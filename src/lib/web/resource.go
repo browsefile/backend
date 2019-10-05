@@ -147,26 +147,26 @@ func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request
 		return cnst.ErrorToHTTP(err, true), err
 	}
 	//delete share
-	if itm := findShare(c.User.UserConfig, r.URL.Path); itm != nil {
+	for _, itm := range findShare(c.User.UserConfig, r.URL.Path) {
 		c.Config.DeleteShare(c.User.UserConfig, itm.Path)
+		_ = c.Config.Update(c.User.UserConfig)
 	}
 
 	return http.StatusOK, nil
 }
-func findShare(u *config.UserConfig, p string) *config.ShareItem {
-	//delete share
-	itm := u.GetShare(p, true)
-	if itm != nil {
+func findShare(u *config.UserConfig, p string) (res []*config.ShareItem) {
+
+	for _, itm := range u.GetShares(p, true) {
 		itmPath := strings.TrimSuffix(itm.Path, "/")
 		itmPath = strings.TrimPrefix(itmPath, "/")
 		delPath := strings.TrimSuffix(p, "/")
 		delPath = strings.TrimPrefix(delPath, "/")
 		//check if it is not sub path from share
 		if len(itmPath) == len(delPath) || strings.HasPrefix(itmPath, delPath) {
-			return itm
+			res = append(res, itm)
 		}
 	}
-	return nil
+	return res
 }
 func removePreview(c *fb.Context, r *http.Request) {
 	info, err := c.User.FileSystemPreview.Stat(r.URL.Path)
@@ -310,9 +310,9 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 		err = c.User.FileSystem.Rename(src, dst)
 		if err == nil {
 			//check if share exists
-			if itm := findShare(c.User.UserConfig, r.URL.Path); itm != nil {
-				//just delete share, since it is not actual anymore
+			for _, itm := range findShare(c.User.UserConfig, r.URL.Path) {
 				c.Config.DeleteShare(c.User.UserConfig, itm.Path)
+				_ = c.Config.Update(c.User.UserConfig)
 			}
 		}
 

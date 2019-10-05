@@ -85,6 +85,7 @@ func processSharePath(shr *ShareItem, u *UserConfig, own string) {
 		owner, ok := config.GetByUsername(own)
 		if ok {
 			owner.deleteShare(shr.Path)
+			config.Update(owner)
 		}
 	}
 }
