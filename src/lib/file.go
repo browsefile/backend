@@ -213,7 +213,7 @@ func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []
 					return nil
 				}
 
-			} else if fitFilter != nil {
+			} else {
 				path = strings.TrimPrefix(path, c.GetUserHomePath())
 
 				if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {

@@ -45,7 +45,9 @@ func (p *PreviewGen) Setup(t int, scr string) {
 			go func() {
 			Begin:
 				scp := <-p.ch
-				p.ProcessPath(filepath.Dir(scp.in), filepath.Dir(scp.out))
+				_, t := fileutils.GetBasedOnExtensions(scp.in)
+				genPrew(p.GetDefaultData(scp.in, scp.out, t))
+				//p.ProcessPath(filepath.Dir(scp.in), filepath.Dir(scp.out))
 				goto Begin
 			}()
 		}

@@ -75,6 +75,12 @@
                         "user2",
                         "user3"
                     ]
+                },
+                {
+                    "path": "/share",
+                    "allowExternal": true,
+                    "allowLocal": false,
+                    "allowedUsers": []
                 }
             ],
             "ipAuth": [
