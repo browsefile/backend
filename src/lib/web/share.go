@@ -17,7 +17,9 @@ func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 
 	switch r.Method {
 	case http.MethodGet:
-		return shareGetHandler(c, w, r, nil)
+		return shareGetHandler(c, w, r, func(name, p string) bool {
+			return resourceMediaFilter(c, name, p)
+		})
 	case http.MethodDelete:
 		return shareDeleteHandler(c, w, r)
 	case http.MethodPost:

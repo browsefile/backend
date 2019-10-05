@@ -11,9 +11,12 @@ import (
 
 func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
 	filter := func(name, p string) bool {
-
-		fitUrl := strings.Contains(name, c.SearchString) ||
-			strings.Contains(p, c.SearchString)
+		hasSearch := len(c.SearchString) > 0 && len(name) > 0
+		var fitUrl bool
+		if hasSearch {
+			fitUrl = strings.Contains(name, c.SearchString) ||
+				strings.Contains(p, c.SearchString)
+		}
 
 		var fitType bool
 		ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
@@ -22,10 +25,10 @@ func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, 
 			fitType = t == cnst.IMAGE && c.Image ||
 				t == cnst.AUDIO && c.Audio ||
 				t == cnst.VIDEO && c.Video ||
-				t == cnst.PDF
+				t == cnst.PDF && c.Pdf
 		}
 
-		return hasType && fitType && fitUrl || !hasType && fitUrl
+		return hasType && fitType && (fitUrl || !hasSearch) || !hasType && fitUrl
 	}
 	c.IsRecursive = true
 	_, r.URL.Path = fb.SplitURL(r.URL.Path)

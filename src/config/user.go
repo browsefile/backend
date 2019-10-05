@@ -98,12 +98,12 @@ func (u *UserConfig) deleteShare(relPath string) (res bool) {
 
 	}
 
-
 	return
 }
 
 func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	config.lock()
+	shr.Path = strings.TrimSuffix(shr.Path, "/")
 	u.Shares = append(u.Shares, shr)
 	if shr.AllowExternal {
 		shr.Hash = GenShareHash(u.Username, shr.Path)
@@ -113,4 +113,3 @@ func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
 	addSharePath(shr, u.Username)
 	return
 }
-

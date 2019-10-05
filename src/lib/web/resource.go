@@ -17,6 +17,22 @@ import (
 	"strings"
 )
 
+var (
+	resourceMediaFilter = func(c *fb.Context, name, p string) bool {
+
+		var fitType bool
+		ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
+		hasType := c.Audio || c.Video || c.Pdf || c.Image
+		if ok && hasType {
+			fitType = t == cnst.IMAGE && c.Image ||
+				t == cnst.AUDIO && c.Audio ||
+				t == cnst.VIDEO && c.Video ||
+				t == cnst.PDF && c.Pdf
+
+		}
+		return hasType && fitType || !hasType
+	}
+)
 // sanitizeURL sanitizes the URL to prevent path transversal
 // using fileutils.SlashClean and adds the trailing slash bar.
 func sanitizeURL(url string) string {
@@ -33,18 +49,7 @@ func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 	switch r.Method {
 	case http.MethodGet:
 		return resourceGetHandler(c, w, r, func(name, p string) bool {
-
-			var fitType bool
-			ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
-			hasType := c.Audio || c.Video || c.Pdf || c.Image
-			if ok && hasType {
-				fitType = t == cnst.IMAGE && c.Image ||
-					t == cnst.AUDIO && c.Audio ||
-					t == cnst.VIDEO && c.Video ||
-					t == cnst.PDF
-
-			}
-			return hasType && fitType || !hasType
+			return resourceMediaFilter(c, name, p)
 		})
 	case http.MethodDelete:
 		return resourceDeleteHandler(c, w, r)
