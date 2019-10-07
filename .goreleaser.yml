@@ -11,7 +11,7 @@ build:
   env:
     - CGO_ENABLED=0
   ldflags:
-    - -s -w -X github.com/browsefile/backend/v0.1/version.Version={{ .Version }} -X github.com/browsefile/backend/v0.1/version.CommitSHA={{ .ShortCommit }}
+    - -s -w -X github.com/browsefile/backend/src/cnst.Version={{ .Version }}
   main: src/main.go
   binary: bf
   goos:

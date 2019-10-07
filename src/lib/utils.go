@@ -2,6 +2,8 @@ package lib
 
 import (
 	"github.com/browsefile/backend/src/cnst"
+	"mime"
+	"path/filepath"
 	"strings"
 )
 
@@ -43,4 +45,8 @@ func parseRouter(r string) (res int) {
 		res = 0
 	}
 	return
+}
+func GetMimeType(f string) string {
+	m := mime.TypeByExtension(filepath.Ext(f))
+	return m
 }

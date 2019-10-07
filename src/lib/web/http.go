@@ -6,9 +6,8 @@ import (
 	fb "github.com/browsefile/backend/src/lib"
 	"html/template"
 	"log"
-	"mime"
 	"net/http"
-	"path/filepath"
+
 	"strings"
 )
 
@@ -157,7 +156,7 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 
 // renderFile renders a file using a template with some needed variables.
 func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file string) (int, error) {
-	contentType := mime.TypeByExtension(filepath.Ext(file))
+	contentType := fb.GetMimeType(file)
 	if len(contentType) == 0 {
 		contentType = cnst.TEXT
 	}
@@ -171,7 +170,7 @@ func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file stri
 	data := map[string]interface{}{
 		"Name":            "Browsefile",
 		"DisableExternal": false,
-		"Version":         fb.Version,
+		"Version":         cnst.Version,
 		"isExternal":      isEx,
 		"StaticURL":       "/static",
 		"Signup":          false,

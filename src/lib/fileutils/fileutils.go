@@ -84,15 +84,9 @@ func PreviewPathMod(orig, scope, pScope string) (p string) {
 	p, _ = ReplacePrevExt(p)
 	return
 }
-func Exists(path string) (bool, error) {
+func Exists(path string) bool {
 	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
+	return err == nil
 }
 
 //modify existing file extension to the preview

@@ -6,7 +6,6 @@ import (
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"io"
 	"log"
-	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -44,18 +43,13 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		// Otherwise, just append the current path.
 		for _, name := range c.FilePaths {
 
-			// Unescape the name.
-			if c.IsExternalShare() {
-
-			} else {
-				name, err = fileutils.CleanPath(name)
-			}
+			name, err = fileutils.CleanPath(name)
 
 			if err != nil {
 				return http.StatusInternalServerError, err
 			}
 
-			c.File, err = fb.MakeInfo(name, r.URL.String(), c)
+			c.File, err = fb.MakeInfo(name, r.URL.Path, c)
 			if err != nil {
 				return cnst.ErrorToHTTP(err, false), err
 			}
@@ -69,7 +63,6 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) (err error) {
 	// Defines the file name.
 	name := ""
-
 	if c.File != nil {
 		name = c.File.Name
 	}
@@ -80,7 +73,7 @@ func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) (err er
 	}
 	w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
 	pr, pw := io.Pipe()
-//j - cut path, and store only
+	//j - cut path, and store only file
 	cmd := exec.Command("zip", append([]string{"-0rq", "-"}, files...)...)
 	cmd.Stdout = pw
 	cmd.Stderr = os.Stderr
@@ -125,8 +118,7 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 			prevPath = fileutils.PreviewPathMod(c.File.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
 		}
 
-		ok, _ := fileutils.Exists(prevPath)
-		if !ok {
+		if !fileutils.Exists(prevPath) {
 			if c.IsShare && !c.IsExternalShare() {
 				c.GenSharesPreview(prevPath)
 			} else {
@@ -134,12 +126,12 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 			}
 
 		} else {
-			w.Header().Set("Content-Type", getMimeType(prevPath))
+			w.Header().Set("Content-Type", fb.GetMimeType(prevPath))
 			return servePreview(c, w, r, prevPath)
 		}
 	}
 	c.File.SetFileType(false)
-	m := getMimeType(c.File.Path)
+	m := fb.GetMimeType(c.File.Path)
 	if len(m) == 0 {
 		m = c.File.Type
 	}
@@ -159,10 +151,7 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 
 	return http.StatusNotFound, nil
 }
-func getMimeType(f string) string {
-	m := mime.TypeByExtension(filepath.Ext(f))
-	return m
-}
+
 func servePreview(c *fb.Context, w http.ResponseWriter, r *http.Request, p string) (int, error) {
 	previewFile, err := os.Open(p)
 	stat, _ := os.Stat(p)

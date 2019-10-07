@@ -5,6 +5,13 @@ import (
 	"os"
 )
 
+var (
+	// Version is the current File Browser version.
+	Version        = "(untracked)"
+	MosaicViewMode = "mosaic"
+	CommitSHA=""
+)
+
 //settings
 const (
 	FilePath1      = "browsefile.json"

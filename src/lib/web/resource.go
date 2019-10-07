@@ -75,12 +75,6 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 		return cnst.ErrorToHTTP(err, false), err
 	}
 
-	// If it's a dir and the path doesn't end with a trailing slash,
-	// add a trailing slash to the path.
-	if f.IsDir && !strings.HasSuffix(r.URL.Path, "/") {
-		r.URL.Path = r.URL.Path + "/"
-	}
-
 	// If it is a dir, go and serve the listing.
 	if f.IsDir {
 		c.File = f
@@ -176,7 +170,7 @@ func findShare(u *config.UserConfig, p string) (res []*config.ShareItem) {
 func removePreview(c *fb.Context, r *http.Request) {
 	info, err := c.User.FileSystemPreview.Stat(r.URL.Path)
 	if err != nil {
-		log.Printf("resource: preview file locked or it does not exists %s", err)
+		//log.Printf("resource: preview file locked or it does not exists %s", err)
 		return
 	}
 	var src string
@@ -195,7 +189,7 @@ func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 	info, err := c.User.FileSystem.Stat(src)
 	_, t := fileutils.GetBasedOnExtensions(src)
 	if err != nil {
-		log.Printf("resource: preview file locked or it does not exists %s", err)
+		//log.Printf("resource: preview file locked or it does not exists %s", err)
 		return
 	}
 	if t == cnst.IMAGE || t == cnst.VIDEO {
@@ -236,10 +230,16 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 
 		// Otherwise we try to create the directory.
 		err := c.User.FileSystem.Mkdir(r.URL.Path, 0775, c.User.UID, c.User.GID)
-
-		p := filepath.Join(c.GetUserHomePath(), r.URL.Path)
-		os.Chown(p, c.User.UID, c.User.GID)
-		c.User.FileSystemPreview.Mkdir(p, 0775, c.User.UID, c.User.GID)
+		if err != nil {
+			p := filepath.Join(c.GetUserHomePath(), r.URL.Path)
+			err = os.Chown(p, c.User.UID, c.User.GID)
+			if err != nil {
+				c.User.FileSystemPreview.Mkdir(p, 0775, c.User.UID, c.User.GID)
+			}
+			if !os.IsPermission(err){
+				log.Println(err)
+			}
+		}
 		return cnst.ErrorToHTTP(err, false), err
 	}
 
@@ -274,8 +274,7 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		if err == nil {
 			c.File = inf
 			modP := fileutils.PreviewPathMod(r.URL.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
-			ok, _ := fileutils.Exists(modP)
-			if !ok {
+			if !fileutils.Exists(modP) {
 				c.GenPreview(modP)
 			}
 		}

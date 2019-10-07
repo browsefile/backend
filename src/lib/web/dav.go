@@ -19,8 +19,8 @@ func ServeDav(c *lib.Context, w http.ResponseWriter, r *http.Request) {
 
 	// If this request modified the files and the user doesn't have permission, or modify any share
 	// to do so, return forbidden.
-	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
-		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") {
+	if r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
+		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE" {
 		if (strings.HasPrefix(r.URL.Path, cnst.WEB_DAV_URL+"/shares") ||
 			!strings.HasPrefix(r.URL.Path, cnst.WEB_DAV_URL+"/files")) ||
 			!(c.User.AllowEdit || c.User.AllowNew) {

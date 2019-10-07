@@ -46,7 +46,9 @@ func fetchFilesRecursively(c *fb.Context) (res []string) {
 		if err != nil {
 			log.Println(err)
 		}
+
 		if file != nil {
+			c.SearchString = ""
 			_, paths, err := file.MakeListing(c, func(name, p string) bool {
 				if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name)); ok && fitMediaFilter(c, t) {
 					return true

@@ -167,7 +167,7 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	}
 
 	u.Password = pw
-	u.ViewMode = fb.MosaicViewMode
+	u.ViewMode = cnst.MosaicViewMode
 
 	// Saves the user to the database.
 	err = c.Config.Add(u.UserConfig)

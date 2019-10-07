@@ -14,13 +14,6 @@ import (
 	"os"
 	"path/filepath"
 )
-
-const (
-	// Version is the current File Browser version.
-	Version        = "(untracked)"
-	MosaicViewMode = "mosaic"
-)
-
 // ReCaptcha settings.
 type ReCaptcha struct {
 	Host   string
@@ -40,6 +33,75 @@ type FileBrowser struct {
 	//generates preview
 	Pgen   *preview.PreviewGen
 	Config *config.GlobalConfig
+}
+
+// FileSystem is the interface to work with the file system.
+type FileSystem interface {
+	Mkdir(name string, perm os.FileMode, uid, gid int) error
+	OpenFile(name string, flag int, perm os.FileMode, uid, gid int) (*os.File, error)
+	RemoveAll(name string) error
+	Rename(oldName, newName string) error
+	Stat(name string) (os.FileInfo, error)
+	Copy(src, dst string, uid, gid int) error
+}
+
+type UserModel struct {
+	*config.UserConfig
+	ID string `json:"ID"`
+	// FileSystem is the virtual file system the user has access.
+	FileSystem FileSystem `json:"-"`
+	// FileSystem is the virtual file system the user has access, uses to store previews.
+	FileSystemPreview FileSystem `json:"-"`
+	FileSystemShares  FileSystem `json:"-"`
+}
+
+// Context contains the needed information to make handlers work.
+type Context struct {
+	*FileBrowser
+	User *UserModel
+	File *File
+	// On API handlers, Router is the APi handler we want.
+	Router int
+	*Params
+}
+
+//params in URL request
+type Params struct {
+	//indicate that requested preview
+	PreviewType string
+	//return files list by recursion
+	IsRecursive bool
+	//indicate about share request
+	ShareType    string
+	SearchString string
+	//external share item root dir hash
+	RootHash string
+	//download type, zip or playlist m3u8
+	Algo string
+	//download multiple files
+	FilePaths []string
+
+	Auth string
+
+	Checksum string
+
+	Inline bool
+	// playlist & search file mime types
+	Audio bool
+	Image bool
+	Video bool
+	Pdf   bool
+	Query url.Values
+	//override existing file
+	Override bool
+	// used in resource patch requests type
+	Destination string
+	Action      string
+
+	Sort  string
+	Order string
+	//is share request
+	IsShare bool
 }
 
 // FSBuilder is the File System Builder.
@@ -170,81 +232,12 @@ var DefaultUser = UserModel{
 	FileSystemPreview: fileutils.Dir("."),
 }
 
-// FileSystem is the interface to work with the file system.
-type FileSystem interface {
-	Mkdir(name string, perm os.FileMode, uid, gid int) error
-	OpenFile(name string, flag int, perm os.FileMode, uid, gid int) (*os.File, error)
-	RemoveAll(name string) error
-	Rename(oldName, newName string) error
-	Stat(name string) (os.FileInfo, error)
-	Copy(src, dst string, uid, gid int) error
-}
-
-type UserModel struct {
-	*config.UserConfig
-	ID string `json:"ID"`
-	// FileSystem is the virtual file system the user has access.
-	FileSystem FileSystem `json:"-"`
-	// FileSystem is the virtual file system the user has access, uses to store previews.
-	FileSystemPreview FileSystem `json:"-"`
-	FileSystemShares  FileSystem `json:"-"`
-}
-
 func ToUserModel(u *config.UserConfig, cfg *config.GlobalConfig) *UserModel {
 	return &UserModel{u, u.Username,
 		fileutils.Dir(cfg.GetUserHomePath(u.Username)),
 		fileutils.Dir(cfg.GetUserPreviewPath(u.Username)),
 		fileutils.Dir(cfg.GetUserSharesPath(u.Username)),
 	}
-}
-
-// Context contains the needed information to make handlers work.
-type Context struct {
-	*FileBrowser
-	User *UserModel
-	File *File
-	// On API handlers, Router is the APi handler we want.
-	Router int
-	*Params
-}
-
-//params in URL request
-type Params struct {
-	//indicate that requested preview
-	PreviewType string
-	//return files list by recursion
-	IsRecursive bool
-	//indicate about share request
-	ShareType    string
-	SearchString string
-	//external share item root dir hash
-	RootHash string
-	//download type, zip or playlist m3u8
-	Algo string
-	//download multiple files
-	FilePaths []string
-
-	Auth string
-
-	Checksum string
-
-	Inline bool
-	// playlist & search file mime types
-	Audio bool
-	Image bool
-	Video bool
-	Pdf   bool
-	Query url.Values
-	//override existing file
-	Override bool
-	// used in resource patch requests type
-	Destination string
-	Action      string
-
-	Sort  string
-	Order string
-	//is share request
-	IsShare bool
 }
 
 // HashPassword generates an hash from a password using bcrypt.

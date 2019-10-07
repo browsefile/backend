@@ -18,7 +18,7 @@ type PreviewGen struct {
 }
 
 func genPrew(pd *PreviewData) {
-	if _, err := os.Stat(pd.out); os.IsNotExist(err) {
+	if !fileutils.Exists(pd.out) {
 		//create missed paths
 		os.MkdirAll(filepath.Dir(pd.out), cnst.PERM_DEFAULT)
 		cmd := exec.Command("/bin/sh", pd.convert, pd.in, pd.out, pd.fType)

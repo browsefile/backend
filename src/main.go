@@ -11,12 +11,17 @@ import (
 	"log"
 	"net"
 	"net/http"
+	//_ "net/http/pprof"
 	"os"
 	"strconv"
 	"time"
 )
 
 func main() {
+	/*	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()*/
+	fmt.Println("browsefile", cnst.Version)
 	cfg := new(config.GlobalConfig)
 	if len(os.Args) > 1 {
 		if os.Args[1] == "-h" {

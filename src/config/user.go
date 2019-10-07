@@ -72,6 +72,7 @@ func (u *UserConfig) IsGuest() bool {
 func (u *UserConfig) GetShares(relPath string, del bool) (res []*ShareItem) {
 	config.lockR()
 	defer config.unlockR()
+	relPath = strings.TrimSuffix(relPath, "/")
 	for _, shr := range u.Shares {
 		if del {
 			if strings.HasPrefix(relPath, shr.Path) || strings.HasPrefix(shr.Path, relPath) {

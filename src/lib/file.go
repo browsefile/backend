@@ -34,11 +34,11 @@ type File struct {
 	// The absolute URL.
 	URL string `json:"url"`
 	// The extension of the file.
-	Extension string `json:"extension"`
+	//Extension string `json:"extension"`
 	// The last modified time.
 	ModTime time.Time `json:"modified"`
 	// The File Mode.
-	Mode os.FileMode `json:"mode"`
+	//Mode os.FileMode `json:"mode"`
 	// Indicates if this file is a directory.
 	IsDir bool `json:"isDir"`
 	// Absolute path.
@@ -84,8 +84,6 @@ func ResolvePaths(c *Context, url string) (p, previewPath, urlPath string, err e
 				return "", "", "", cnst.ErrShareAccess
 			}
 			c.User = ToUserModel(usr, c.Config)
-			/*urlPath = itm.Path
-			urlString = urlPath*/
 			p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
 			//if share root listing
 
@@ -127,10 +125,8 @@ func MakeInfo(urlPath, urlString string, c *Context) (*File, error) {
 
 	i.Name = info.Name()
 	i.ModTime = info.ModTime()
-	i.Mode = info.Mode()
 	i.IsDir = info.IsDir()
 	i.Size = info.Size()
-	i.Extension = filepath.Ext(i.Name)
 
 	if i.IsDir && !strings.HasSuffix(i.URL, "/") {
 		i.URL += "/"
@@ -266,14 +262,7 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 	for ind, f := range files {
 		name := f.Name()
 
-		if strings.HasPrefix(f.Mode().String(), "L") {
-			// It's a symbolic link. We try to follow it. If it doesn't work,
-			// we stay with the link information instead if the target's.
-			info, err := os.Stat(f.Name())
-			if err == nil {
-				f = info
-			}
-		}
+		//resolve share symlink
 		if isShare && !c.IsRecursive && !isExternal {
 			p := filepath.Join(i.Path, name)
 			f2, _ := filepath.EvalSymlinks(p)
@@ -299,31 +288,28 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 			fUrl = url.URL{Path: baseurl + name}
 		}
 
-		i := &File{
-			Name:      f.Name(),
-			Size:      f.Size(),
-			ModTime:   f.ModTime(),
-			Mode:      f.Mode(),
-			IsDir:     f.IsDir(),
-			URL:       fUrl.String(),
-			Extension: filepath.Ext(name),
+		fI := &File{
+			Name:    f.Name(),
+			Size:    f.Size(),
+			ModTime: f.ModTime(),
+			IsDir:   f.IsDir(),
+			URL:     fUrl.String(),
 		}
-		i.SetFileType(false)
+		fI.SetFileType(false)
 
 		if fitFilter != nil && !c.IsRecursive {
-			if fitFilter(i.Name, fUrl.Path) {
-				fileinfos = append(fileinfos, i)
+			if fitFilter(fI.Name, fUrl.Path) {
+				fileinfos = append(fileinfos, fI)
 			} else {
 				if f.IsDir() {
 					dirCount--
 				} else {
 					fileCount--
 				}
-
 			}
 
 		} else {
-			fileinfos = append(fileinfos, i)
+			fileinfos = append(fileinfos, fI)
 		}
 	}
 
@@ -343,7 +329,7 @@ func (f *File) SetFileType(checkContent bool) {
 		return
 	}
 	var isOk bool
-	isOk, f.Type = fileutils.GetBasedOnExtensions(f.Extension)
+	isOk, f.Type = fileutils.GetBasedOnExtensions(filepath.Ext(f.Name))
 	// Tries to get the file mimetype using its extension.
 	if !isOk && checkContent {
 		log.Println("Can't detect file type, based on extension ", f.Name)

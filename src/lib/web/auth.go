@@ -72,13 +72,13 @@ func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res 
 	// Gets the correct user for this request.
 	username, password, ok := r.BasicAuth()
 	if !ok {
-		http.Error(w, "Not authorized", 401)
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 
 	user, ok := c.Config.GetByUsername(username)
 	if !ok {
-		http.Error(w, "Not authorized", 401)
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 	auth := r.Header.Get("Authorization")
@@ -89,7 +89,7 @@ func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res 
 		//very expensive operation, need to minimize hash function call
 		if !fb.CheckPasswordHash(password, user.Password) {
 			log.Println("Wrong Password for user", username)
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 

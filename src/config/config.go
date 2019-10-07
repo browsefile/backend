@@ -195,12 +195,6 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 
 	cfg.updateLock = new(sync.RWMutex)
 	config = cfg
-
-	for _, u := range cfg.Users {
-		for _, shr := range u.Shares {
-			shr.Path = strings.TrimSuffix(shr.Path, "/")
-		}
-	}
 	cfg.RefreshUserRam()
 	cfg.setupLog()
 	cfg.setUpPaths()
