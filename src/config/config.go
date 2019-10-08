@@ -43,8 +43,14 @@ type GlobalConfig struct {
 }
 
 type ListenConf struct {
-	Port       int    `json:"port"`
-	IP         string `json:"ip"`
+	Port int    `json:"port"`
+	IP   string `json:"ip"`
+	// Define if which of the following authentication mechansims should be used:
+	// - 'default', which requires a user and a password.
+	// - 'proxy', which requires a valid user and the user name has to be provided through an
+	//   web header.
+	// - 'none', which allows anyone to access the filebrowser instance.
+	// If 'Method' is set to 'proxy' the header configured below is used to identify the user.
 	AuthMethod string `json:"authMethod"`
 }
 
@@ -63,15 +69,8 @@ type PreviewConf struct {
 
 // Auth settings.
 type Auth struct {
-	// Define if which of the following authentication mechansims should be used:
-	// - 'default', which requires a user and a password.
-	// - 'proxy', which requires a valid user and the user name has to be provided through an
-	//   web header.
-	// - 'none', which allows anyone to access the filebrowser instance.
-	// If 'Method' is set to 'proxy' the header configured below is used to identify the user.
 	Header string `json:"header"`
-
-	Key string `json:"key"`
+	Key    string `json:"key"`
 }
 
 func (gc *GlobalConfig) GetDavPath(userName string) string {
@@ -83,7 +82,6 @@ func (gc *GlobalConfig) DeleteShare(usr *UserConfig, p string) (res bool) {
 	defer gc.unlock()
 	res = usr.deleteShare(p)
 	if res {
-
 		gc.RefreshUserRam()
 	}
 
@@ -170,26 +168,50 @@ func (cfg *GlobalConfig) GetSharePreviewPath(url string) (res string) {
 
 func (cfg *GlobalConfig) ReadConfigFile() {
 	var paths []string
-
+	argumentPath := len(cfg.Path) > 0
 	if len(cfg.Path) > 0 {
 		paths = append(paths, cfg.Path)
+		argumentPath = true
 	}
 	paths = append(paths, cnst.FilePath1, cnst.FilePath2)
-	for _, p := range paths {
-		jsonFile, err := os.Open(p)
-		defer jsonFile.Close()
-		if err != nil {
-			fmt.Println("can't open " + p)
-			fmt.Println(err)
-		} else {
-			err = cfg.parseConf(jsonFile)
-			if err != nil {
-				fmt.Print("failed to parse config at " + p)
-				continue
-			}
-			cfg.Path = p
-			break
+	if !argumentPath {
+		curPath, err := os.Getwd()
+		if err == nil {
+			paths = append(paths, filepath.Join(curPath, cnst.FilePath1))
 		}
+	}
+	for i, p := range paths {
+		err := cfg.parseConf(p)
+		if err != nil && i < len(paths)-1 {
+			continue
+		}
+		cfg.Path = p
+		//if no paths fit, then try to use current process folder or path that set from cmd argument(preferred)
+		if i == len(paths)-1 && err != nil {
+			if argumentPath {
+				cfg.Path = paths[0]
+			}
+			cfg.FilesPath = filepath.Join(filepath.Dir(cfg.Path), "bf-data")
+
+			// DefaultUser is used on New, when no 'config' exists
+			cfg.Users = append(cfg.Users, &UserConfig{
+				Username:  "admin",
+				AllowNew:  true,
+				Admin:     true,
+				AllowEdit: true,
+				FirstRun:  true,
+				Password:  "admin",
+				ViewMode:  "mosaic",
+				Locale:    "en",
+			})
+			cfg.Http = &ListenConf{AuthMethod: "default", IP: "127.0.0.1", Port: 8999}
+			cfg.ExternalShareHost = "http://127.0.0.1:8999"
+			cfg.PreviewConf = &PreviewConf{Threads: 2, ScriptPath: filepath.Join(filepath.Dir(cfg.Path), "bfconvert.sh")}
+			cfg.CaptchaConfig = &CaptchaConfig{}
+			cfg.Auth = &Auth{Header: "X-Forwarded-User"}
+			cfg.Log = "stdout"
+		}
+		break
 	}
 	fmt.Println("using config at path : " + cfg.Path)
 
@@ -210,7 +232,11 @@ func (cfg *GlobalConfig) setUpPaths() {
 	for _, u := range cfg.Users {
 		//create shares folder
 		if err := os.MkdirAll(cfg.GetUserSharesPath(u.Username), cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
-			log.Println("config : Cant create share path for user ", err)
+			log.Println("config : Cant create share path for user "+u.Username, err)
+		}
+		//create user files folder
+		if err := os.MkdirAll(cfg.GetUserHomePath(u.Username), cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
+			log.Println("config : Cant create files path for user "+u.Username, err)
 		}
 
 		cfg.checkDavFolder(u);
@@ -265,16 +291,17 @@ func (cfg *GlobalConfig) checkDavFolder(u *UserConfig) (err error) {
 }
 
 //returns true in case share good, otherwise original share path does not exists
-func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, user, owner string) (res bool) {
+func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, shrUser, owner string) (res bool) {
 	res = true
-	if strings.EqualFold(owner, user) {
+	if strings.EqualFold(owner, shrUser) {
 		return
 	}
 	var err error
-	dp := filepath.Join(cfg.GetUserSharesPath(user), owner)
+	dp := filepath.Join(cfg.GetUserSharesPath(shrUser), owner)
 	//check basic folder exists
 	if err = os.MkdirAll(dp, cnst.PERM_DEFAULT); err != nil && !os.IsExist(err) {
-		log.Println("config : Cant create share path for userF ", err)
+		log.Printf("config : Cant create share path at %s ", dp)
+
 	} else {
 		//destination path for symlink
 		dPath := filepath.Join(dp, shr.Path)
@@ -283,27 +310,30 @@ func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, user, owner strin
 		_ = os.RemoveAll(dPath)
 		//take the parent folder
 		_ = os.MkdirAll(filepath.Dir(dPath), cnst.PERM_DEFAULT)
-		if shr.IsActive() && shr.IsAllowed(user) {
+		if shr.IsActive() && shr.IsAllowed(shrUser) {
 			//check if share valid
 			if _, err = os.Stat(sPath); err != nil && os.IsNotExist(err) {
 				res = false
 			} else if err = os.Symlink(sPath, dPath); err != nil && !os.IsExist(err) {
-				log.Println("config : Cant create share sym link at ", err)
+				log.Printf("config : Cant create share sym link from '%s' TO '%s'", sPath, dPath)
 			}
-
 		}
 	}
 	return res
 }
 
-func (cfg *GlobalConfig) parseConf(jsonFile *os.File) (err error) {
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	err = json.Unmarshal(byteValue, &cfg)
-	if err != nil {
-		fmt.Print("can't parse " + cfg.Path)
-		fmt.Print(err)
+func (cfg *GlobalConfig) parseConf(p string) (r error) {
+	if jsonFile, err := os.Open(p); err == nil {
+		byteValue, _ := ioutil.ReadAll(jsonFile)
+		err = json.Unmarshal(byteValue, &cfg)
+		jsonFile.Close()
+	} else {
+		fmt.Printf("can't open %s", p)
+		fmt.Println(err)
+		r = err
 	}
-	return
+
+	return r
 }
 func (cfg *GlobalConfig) Init() {
 	config = cfg
@@ -335,6 +365,10 @@ func (cfg *GlobalConfig) WriteConfig() {
 	if err != nil {
 		log.Println(err)
 	} else {
+		err = os.MkdirAll(filepath.Dir(cfg.Path), cnst.PERM_DEFAULT)
+		if err != nil {
+			log.Println(err)
+		}
 		err = ioutil.WriteFile(cfg.Path, jsonData, cnst.PERM_DEFAULT)
 		if err != nil {
 			log.Println("config : cant write config file", err)

@@ -74,7 +74,6 @@ archives:
   - name_template: "{{.Os}}-{{.Arch}}{{if .Arm}}v{{.Arm}}{{end}}-{{ .ProjectName }}"
 
     files:
-      - browsefile.json
       - bfconvert.sh
     format: tar.gz
     format_overrides:

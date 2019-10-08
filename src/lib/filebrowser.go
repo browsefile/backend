@@ -116,7 +116,7 @@ func (fb *FileBrowser) Setup() (bool, error) {
 	// map and Assets box.
 	fb.Assets = rice.MustFindBox("../../frontend/dist")
 
-	// Tries to get the encryption key from the database.
+	// Tries to get the encryption key from the config.
 	// If it doesn't exist, create a new one of 256 bits.
 	_, err := fb.Config.GetKeyBytes()
 	if err != nil || err == cnst.ErrNotExist {
@@ -218,19 +218,7 @@ func (c *Context) GetAuthConfig(r *http.Request) *config.ListenConf {
 	return cfgM
 }
 
-// DefaultUser is used on New, when no 'base' user is provided.
-var DefaultUser = UserModel{
-	UserConfig: &config.UserConfig{
-		AllowEdit:    true,
-		AllowNew:     true,
-		LockPassword: false,
-		Admin:        true,
-		Locale:       "",
-		ViewMode:     "mosaic",
-	},
-	FileSystem:        fileutils.Dir("."),
-	FileSystemPreview: fileutils.Dir("."),
-}
+
 
 func ToUserModel(u *config.UserConfig, cfg *config.GlobalConfig) *UserModel {
 	return &UserModel{u, u.Username,
