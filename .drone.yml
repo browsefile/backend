@@ -1,0 +1,42 @@
+workspace:
+  base: /go
+  path: github.com/browsefile/backend
+
+kind: pipeline
+name: bf
+
+steps:
+  - name: fetch
+    image: docker:git
+    commands:
+      - git fetch origin master
+      - git submodule update --init --recursive
+      - git fetch --tags
+
+  - name: install-rice
+    image: golang:latest
+    commands:
+      - go get github.com/GeertJohan/go.rice
+      - go get github.com/GeertJohan/go.rice/rice
+    depends_on: [fetch]
+
+  - name: b-front
+    image: node
+    commands:
+      - cd frontend
+      - npm i
+      - npm run-script build
+      - cd ..
+    depends_on: [fetch, install-rice]
+
+
+  - name: release
+    image: docker:golang:latest
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - curl -sL https://git.io/goreleaser | bash
+    when:
+      event: tag
+    depends_on: [b-front, fetch, install-rice]
