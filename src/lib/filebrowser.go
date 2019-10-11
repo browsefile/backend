@@ -9,11 +9,9 @@ import (
 	"github.com/browsefile/backend/src/lib/preview"
 	"golang.org/x/crypto/bcrypt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
-	"path/filepath"
 )
+
 // ReCaptcha settings.
 type ReCaptcha struct {
 	Host   string
@@ -55,54 +53,6 @@ type UserModel struct {
 	FileSystemShares  FileSystem `json:"-"`
 }
 
-// Context contains the needed information to make handlers work.
-type Context struct {
-	*FileBrowser
-	User *UserModel
-	File *File
-	// On API handlers, Router is the APi handler we want.
-	Router int
-	*Params
-}
-
-//params in URL request
-type Params struct {
-	//indicate that requested preview
-	PreviewType string
-	//return files list by recursion
-	IsRecursive bool
-	//indicate about share request
-	ShareType    string
-	SearchString string
-	//external share item root dir hash
-	RootHash string
-	//download type, zip or playlist m3u8
-	Algo string
-	//download multiple files
-	FilePaths []string
-
-	Auth string
-
-	Checksum string
-
-	Inline bool
-	// playlist & search file mime types
-	Audio bool
-	Image bool
-	Video bool
-	Pdf   bool
-	Query url.Values
-	//override existing file
-	Override bool
-	// used in resource patch requests type
-	Destination string
-	Action      string
-
-	Sort  string
-	Order string
-	//is share request
-	IsShare bool
-}
 
 // FSBuilder is the File System Builder.
 type FSBuilder func(scope string) FileSystem
@@ -166,59 +116,6 @@ func (fb *FileBrowser) Setup() (bool, error) {
 
 	return needUpdate, nil
 }
-
-func (c *Context) GetUserHomePath() string {
-	return c.Config.GetUserHomePath(c.User.Username)
-}
-func (c *Context) GetUserPreviewPath() string {
-	return c.Config.GetUserPreviewPath(c.User.Username)
-}
-func (c *Context) GetUserSharesPath() string {
-	return c.Config.GetUserSharesPath(c.User.Username)
-}
-
-func (c *Context) GenPreview(out string) {
-	if len(c.Config.ScriptPath) > 0 {
-		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
-		if t == cnst.IMAGE || t == cnst.VIDEO {
-			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
-		}
-	}
-}
-
-func (c *Context) GenSharesPreview(out string) {
-	if len(c.Config.ScriptPath) > 0 {
-
-		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
-		if t == cnst.IMAGE || t == cnst.VIDEO {
-
-			f2, err := filepath.EvalSymlinks(c.File.Path)
-			if err == nil {
-				c.Pgen.Process(c.Pgen.GetDefaultData(f2, out, t))
-			} else {
-				log.Println(err)
-			}
-
-		}
-
-	}
-}
-func (c *Context) IsExternalShare() (r bool) {
-	return len(c.RootHash) > 0
-}
-func (c *Context) GetAuthConfig(r *http.Request) *config.ListenConf {
-	isTls := r.TLS != nil
-	var cfgM *config.ListenConf
-	if isTls {
-		cfgM = c.Config.Tls
-	} else {
-		cfgM = c.Config.Http
-
-	}
-	return cfgM
-}
-
-
 
 func ToUserModel(u *config.UserConfig, cfg *config.GlobalConfig) *UserModel {
 	return &UserModel{u, u.Username,

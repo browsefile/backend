@@ -2,11 +2,10 @@ package web
 
 import (
 	"github.com/browsefile/backend/src/cnst"
-	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/maruel/natural"
 	"io"
-	"log"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -14,87 +13,67 @@ import (
 	"strings"
 )
 
-func makePlaylist(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+//generates m3u playlist
+func makePlaylist(c *lib.Context) (int, error) {
 	var err error
 
 	if len(c.FilePaths) == 0 {
 		return http.StatusNotFound, err
 	}
-	w.Header().Set("Content-Disposition", "attachment; filename=playlist.m3u")
-
-	paths := fetchFilesRecursively(c)
-
-	sort.Sort(sort.Reverse(byName(paths)))
-	h := getHost(c, r)
-	for _, p := range paths {
-		serveFile(c, w, filepath.Base(p), p, h, c.IsShare)
+	c.RESP.Header().Set("Content-Disposition", "attachment; filename=playlist.m3u")
+	c.FitFilter = func(name, p string) bool {
+		if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name)); ok && fitMediaFilter(c, t) {
+			return true
+		}
+		return false
+	}
+	code, err, _ := prepareFiles(c, c.URL)
+	if err != nil {
+		return code, err
+	}
+	sort.Sort(sort.Reverse(byName(c.FilePaths)))
+	h := getHost(c)
+	for _, p := range c.FilePaths {
+		serveFile(c, filepath.Base(p), p, h)
 	}
 
 	return http.StatusOK, nil
 }
 
-func fetchFilesRecursively(c *fb.Context) (res []string) {
-	var err error
-	for _, f := range c.FilePaths {
-
-		if f, err = fileutils.CleanPath(f); err != nil {
-			continue
-		}
-
-		c.IsRecursive = true
-		file, err := fb.MakeInfo(f, f, c)
-		if err != nil {
-			log.Println(err)
-		}
-
-		if file != nil {
-			c.SearchString = ""
-			_, paths, err := file.MakeListing(c, func(name, p string) bool {
-				if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name)); ok && fitMediaFilter(c, t) {
-					return true
-				}
-				return false
-			})
-			if err == nil {
-				res = append(res, paths...)
-			}
-
-		}
-
-	}
-	return res
-}
-func fitMediaFilter(c *fb.Context, t string) bool {
+func fitMediaFilter(c *lib.Context, t string) bool {
 	return c.Audio && strings.EqualFold(t, cnst.AUDIO) ||
 		c.Video && strings.EqualFold(t, cnst.VIDEO) ||
 		c.Image && strings.EqualFold(t, cnst.IMAGE)
 }
 
-func serveFile(c *fb.Context, pw http.ResponseWriter, fName, p, host string, isShare bool) {
+//write specific m3u tags into response
+func serveFile(c *lib.Context, fName, p, host string) {
 
-	io.WriteString(pw, "#EXTINF:0 tvg-name=")
-	io.WriteString(pw, fName)
-	io.WriteString(pw, "\n")
-	io.WriteString(pw, host)
-	io.WriteString(pw, p)
-	io.WriteString(pw, "?inline=true")
+	io.WriteString(c.RESP, "#EXTINF:0 tvg-name=")
+	io.WriteString(c.RESP, fName)
+	io.WriteString(c.RESP, "\n")
+	io.WriteString(c.RESP, host)
+	io.WriteString(c.RESP, p)
+	io.WriteString(c.RESP, "?inline=true")
 
 	if c.IsExternalShare() {
-		io.WriteString(pw, "&rootHash="+c.RootHash)
+		io.WriteString(c.RESP, "&rootHash="+c.RootHash)
 	}
 	if len(c.Auth) > 0 {
-		io.WriteString(pw, "&auth="+c.Auth)
+		io.WriteString(c.RESP, "&auth="+c.Auth)
 	}
 
-	io.WriteString(pw, "\n\n")
+	io.WriteString(c.RESP, "\n\n")
 
 }
-func getHost(c *fb.Context, r *http.Request) string {
+
+//returns correct URL for playlist link in file
+func getHost(c *lib.Context) string {
 	var h string
 	if c.IsExternalShare() {
 		h = strings.TrimSuffix(c.Config.ExternalShareHost, "/")
 	} else {
-		if r.TLS == nil {
+		if c.REQ.TLS == nil {
 			h = c.Config.Http.IP + ":" + strconv.Itoa(c.Config.Http.Port)
 		} else {
 			h = c.Config.Tls.IP + ":" + strconv.Itoa(c.Config.Tls.Port)
@@ -107,7 +86,7 @@ func getHost(c *fb.Context, r *http.Request) string {
 		h += "/api/download"
 	}
 	if !c.IsExternalShare() {
-		if len(c.Config.TLSKey) > 0 {
+		if c.REQ.TLS != nil {
 			h = "https://" + h
 		} else {
 			h = "http://" + h

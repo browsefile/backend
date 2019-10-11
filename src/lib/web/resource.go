@@ -43,34 +43,35 @@ func sanitizeURL(url string) string {
 	return path
 }
 
-func resourceHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	r.URL.Path = sanitizeURL(r.URL.Path)
+func resourceHandler(c *fb.Context) (int, error) {
+	c.URL = sanitizeURL(c.URL)
 
-	switch r.Method {
+	switch c.Method {
 	case http.MethodGet:
-		return resourceGetHandler(c, w, r, func(name, p string) bool {
+		c.FitFilter = func(name, p string) bool {
 			return resourceMediaFilter(c, name, p)
-		})
+		}
+		return resourceGetHandler(c)
 	case http.MethodDelete:
-		return resourceDeleteHandler(c, w, r)
+		return resourceDeleteHandler(c)
 	case http.MethodPut:
-		code, err := resourcePostPutHandler(c, w, r)
+		code, err := resourcePostPutHandler(c)
 		if code != http.StatusOK {
 			return code, err
 		}
 		return code, err
 	case http.MethodPatch:
-		return resourcePatchHandler(c, r)
+		return resourcePatchHandler(c)
 	case http.MethodPost:
-		return resourcePostPutHandler(c, w, r)
+		return resourcePostPutHandler(c)
 	}
 
 	return http.StatusNotImplemented, nil
 }
 
-func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
+func resourceGetHandler(c *fb.Context) (int, error) {
 	// GetUsers the information of the directory/file.
-	f, err := fb.MakeInfo(r.URL.Path, r.URL.String(), c)
+	f, err := fb.MakeInfo(c)
 	if err != nil {
 		return cnst.ErrorToHTTP(err, false), err
 	}
@@ -78,8 +79,8 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	// If it is a dir, go and serve the listing.
 	if f.IsDir {
 		c.File = f
-		listingHandler(c, w, r, fitFilter)
-		return renderJSON(w, f)
+		listingHandler(c)
+		return renderJSON(c.RESP, f)
 	}
 
 	// Tries to get the file type.
@@ -103,23 +104,23 @@ func resourceGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, f
 	// just serve the editor.
 	if !f.CanBeEdited() || !c.User.AllowEdit {
 		f.Kind = "preview"
-		return renderJSON(w, f)
+		return renderJSON(c.RESP, f)
 	}
 
 	f.Kind = "editor"
 
-	return renderJSON(w, f)
+	return renderJSON(c.RESP, f)
 }
 
-func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
+func listingHandler(c *fb.Context) (int, error) {
 	c.File.Kind = "listing"
 
 	// Tries to get the listing data.
-	if err := c.File.GetListing(c, fitFilter); err != nil {
+	if err := c.File.ProcessList(c); err != nil {
 		return cnst.ErrorToHTTP(err, true), err
 	}
 	// Copy the query values into the Listing struct
-	if err := HandleSortOrder(c, w, r, "/"); err == nil {
+	if err := HandleSortOrder(c, "/"); err == nil {
 		c.File.Listing.Sort = c.Sort
 		c.File.Listing.Order = c.Order
 	} else {
@@ -132,21 +133,21 @@ func listingHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFi
 	return 0, nil
 }
 
-func resourceDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func resourceDeleteHandler(c *fb.Context) (int, error) {
 	// Prevent the removal of the root directory.
-	if r.URL.Path == "/" || !c.User.AllowEdit {
+	if c.URL == "/" || !c.User.AllowEdit {
 		return http.StatusForbidden, nil
 	}
-	removePreview(c, r)
+	removePreview(c)
 
 	// Remove the file or folder.
-	err := c.User.FileSystem.RemoveAll(r.URL.Path)
+	err := c.User.FileSystem.RemoveAll(c.URL)
 
 	if err != nil {
 		return cnst.ErrorToHTTP(err, true), err
 	}
 	//delete share
-	for _, itm := range findShare(c.User.UserConfig, r.URL.Path) {
+	for _, itm := range findShare(c.User.UserConfig, c.URL) {
 		c.Config.DeleteShare(c.User.UserConfig, itm.Path)
 		_ = c.Config.Update(c.User.UserConfig)
 	}
@@ -167,17 +168,17 @@ func findShare(u *config.UserConfig, p string) (res []*config.ShareItem) {
 	}
 	return res
 }
-func removePreview(c *fb.Context, r *http.Request) {
-	info, err := c.User.FileSystemPreview.Stat(r.URL.Path)
+func removePreview(c *fb.Context) {
+	info, err := c.User.FileSystemPreview.Stat(c.URL)
 	if err != nil {
 		//log.Printf("resource: preview file locked or it does not exists %s", err)
 		return
 	}
 	var src string
 	if !info.IsDir() {
-		src, _ = fileutils.ReplacePrevExt(r.URL.Path)
+		src, _ = fileutils.ReplacePrevExt(c.URL)
 	} else {
-		src = r.URL.Path
+		src = c.URL
 	}
 
 	err = c.User.FileSystemPreview.RemoveAll(src)
@@ -205,38 +206,38 @@ func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 	}
 }
 
-func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	if !c.User.AllowNew && r.Method == http.MethodPost {
+func resourcePostPutHandler(c *fb.Context) (int, error) {
+	if !c.User.AllowNew && c.Method == http.MethodPost {
 		return http.StatusForbidden, nil
 	}
 
-	if !c.User.AllowEdit && r.Method == http.MethodPut {
+	if !c.User.AllowEdit && c.Method == http.MethodPut {
 		return http.StatusForbidden, nil
 	}
 
 	// Discard any invalid upload before returning to avoid connection
 	// reset error.
 	defer func() {
-		io.Copy(ioutil.Discard, r.Body)
+		io.Copy(ioutil.Discard, c.REQ.Body)
 	}()
 
 	// Checks if the current request is for a directory and not a file.
-	if strings.HasSuffix(r.URL.Path, "/") {
+	if strings.HasSuffix(c.URL, "/") {
 		// If the method is PUT, we return 405 Method not Allowed, because
 		// POST should be used instead.
-		if r.Method == http.MethodPut {
+		if c.Method == http.MethodPut {
 			return http.StatusMethodNotAllowed, nil
 		}
 
 		// Otherwise we try to create the directory.
-		err := c.User.FileSystem.Mkdir(r.URL.Path, 0775, c.User.UID, c.User.GID)
+		err := c.User.FileSystem.Mkdir(c.URL, 0775, c.User.UID, c.User.GID)
 		if err != nil {
-			p := filepath.Join(c.GetUserHomePath(), r.URL.Path)
+			p := filepath.Join(c.GetUserHomePath(), c.URL)
 			err = os.Chown(p, c.User.UID, c.User.GID)
 			if err != nil {
 				c.User.FileSystemPreview.Mkdir(p, 0775, c.User.UID, c.User.GID)
 			}
-			if !os.IsPermission(err){
+			if !os.IsPermission(err) {
 				log.Println(err)
 			}
 		}
@@ -246,20 +247,20 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	// If using POST method, we are trying to create a new file so it is not
 	// desirable to override an already existent file. Thus, we check
 	// if the file already exists. If so, we just return a 409 Conflict.
-	if r.Method == http.MethodPost && !c.Override {
-		if _, err := c.User.FileSystem.Stat(r.URL.Path); err == nil {
+	if c.Method == http.MethodPost && !c.Override {
+		if _, err := c.User.FileSystem.Stat(c.URL); err == nil {
 			return http.StatusConflict, errors.New("There is already a file on that path")
 		}
 	}
 	// Create/Open the file.
-	f, err := c.User.FileSystem.OpenFile(r.URL.Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775, c.User.UID, c.User.GID)
+	f, err := c.User.FileSystem.OpenFile(c.URL, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775, c.User.UID, c.User.GID)
 	if err != nil {
 		return cnst.ErrorToHTTP(err, false), err
 	}
 	defer f.Close()
 
 	// Copies the new content for the file.
-	_, err = io.Copy(f, r.Body)
+	_, err = io.Copy(f, c.REQ.Body)
 	if err != nil {
 		return cnst.ErrorToHTTP(err, false), err
 	}
@@ -270,10 +271,10 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 		return cnst.ErrorToHTTP(err, false), err
 	}
 	if !fi.IsDir() {
-		inf, err := fb.MakeInfo(r.URL.Path, r.URL.String(), c)
+		inf, err := fb.MakeInfo(c)
 		if err == nil {
 			c.File = inf
-			modP := fileutils.PreviewPathMod(r.URL.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
+			modP := fileutils.PreviewPathMod(c.URL, c.GetUserHomePath(), c.GetUserPreviewPath())
 			if !fileutils.Exists(modP) {
 				c.GenPreview(modP)
 			}
@@ -282,13 +283,13 @@ func resourcePostPutHandler(c *fb.Context, w http.ResponseWriter, r *http.Reques
 	}
 	// Writes the ETag Header.
 	etag := fmt.Sprintf(`"%x%x"`, fi.ModTime().UnixNano(), fi.Size())
-	w.Header().Set("ETag", etag)
+	c.RESP.Header().Set("ETag", etag)
 
 	return http.StatusOK, nil
 }
 
 // resourcePatchHandler is the entry point for resource handler.
-func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
+func resourcePatchHandler(c *fb.Context) (int, error) {
 	if !c.User.AllowEdit {
 		return http.StatusForbidden, nil
 	}
@@ -297,7 +298,7 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 		return cnst.ErrorToHTTP(err, true), err
 	}
 	action := c.Action
-	src := r.URL.Path
+	src := c.URL
 
 	if dst == "/" || src == "/" {
 		return http.StatusForbidden, nil
@@ -314,7 +315,7 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 		err = c.User.FileSystem.Rename(src, dst)
 		if err == nil {
 			//check if share exists
-			for _, itm := range findShare(c.User.UserConfig, r.URL.Path) {
+			for _, itm := range findShare(c.User.UserConfig, c.URL) {
 				c.Config.DeleteShare(c.User.UserConfig, itm.Path)
 				_ = c.Config.Update(c.User.UserConfig)
 			}
@@ -327,39 +328,39 @@ func resourcePatchHandler(c *fb.Context, r *http.Request) (int, error) {
 
 // HandleSortOrder gets and stores for a Listing the 'sort' and 'order',
 // and reads 'limit' if given. The latter is 0 if not given. Sets cookies.
-func HandleSortOrder(c *fb.Context, w http.ResponseWriter, r *http.Request, scope string) (err error) {
+func HandleSortOrder(c *fb.Context, scope string) (err error) {
 
 	// If the query 'sort' or 'order' is empty, use defaults or any values
 	// previously saved in Cookies.
 	switch c.Sort {
 	case "":
 		c.Sort = "name"
-		if sortCookie, sortErr := r.Cookie("sort"); sortErr == nil {
+		if sortCookie, sortErr := c.REQ.Cookie("sort"); sortErr == nil {
 			c.Sort = sortCookie.Value
 		}
 	case "name", "size":
-		http.SetCookie(w, &http.Cookie{
+		http.SetCookie(c.RESP, &http.Cookie{
 			Name:   "sort",
 			Value:  c.Sort,
 			MaxAge: 31536000,
 			Path:   scope,
-			Secure: r.TLS != nil,
+			Secure: c.REQ.TLS != nil,
 		})
 	}
 
 	switch c.Order {
 	case "":
 		c.Order = "asc"
-		if orderCookie, orderErr := r.Cookie("order"); orderErr == nil {
+		if orderCookie, orderErr := c.REQ.Cookie("order"); orderErr == nil {
 			c.Order = orderCookie.Value
 		}
 	case "asc", "desc":
-		http.SetCookie(w, &http.Cookie{
+		http.SetCookie(c.RESP, &http.Cookie{
 			Name:   "order",
 			Value:  c.Order,
 			MaxAge: 31536000,
 			Path:   scope,
-			Secure: r.TLS != nil,
+			Secure: c.REQ.TLS != nil,
 		})
 	}
 

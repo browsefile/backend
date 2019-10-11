@@ -21,8 +21,6 @@ import (
 	"time"
 )
 
-type FitFilter func(name, p string) bool
-
 // File contains the information about a particular file or directory.
 type File struct {
 	// Indicates the Kind of view on the front-end (Listing, editor or preview).
@@ -73,7 +71,7 @@ type Listing struct {
 }
 
 // build correct path, and replace user in context in case external share
-func ResolvePaths(c *Context, url string) (p, previewPath, urlPath string, err error) {
+func ResolvePaths(c *Context) (p, previewPath, urlPath string, err error) {
 	if c.IsShare {
 		if c.IsExternalShare() {
 			itm, usr := c.Config.GetExternal(c.RootHash)
@@ -87,46 +85,42 @@ func ResolvePaths(c *Context, url string) (p, previewPath, urlPath string, err e
 			p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
 			//if share root listing
 
-			if len(url) == 1 {
+			if len(c.URL) == 1 {
 				urlPath = itm.Path
 			} else {
-				urlPath = itm.Path + url
+				urlPath = itm.Path + c.URL
 			}
 
 		} else {
-			p, previewPath = c.GetUserSharesPath(), c.Config.GetSharePreviewPath(url)
-			urlPath = url
+			p, previewPath = c.GetUserSharesPath(), c.Config.GetSharePreviewPath(c.URL)
+			urlPath = c.URL
 		}
 
 	} else {
 		p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
-		urlPath = url
+		urlPath = c.URL
 	}
 	return
 }
 
-// MakeInfo gets the file information and, in case of error, returns the
-// respective HTTP error code
-func MakeInfo(urlPath, urlString string, c *Context) (*File, error) {
-	p, _, urlPath2, err := ResolvePaths(c, urlPath)
-	urlPath = urlPath2
+// MakeInfo gets the file information
+func MakeInfo(c *Context) (*File, error) {
+	p, _, urlPath2, err := ResolvePaths(c)
+	c.URL = urlPath2
 
-	info, err, path := fileutils.GetFileInfo(p, urlPath)
-
-	i := &File{
-		URL:         urlString,
-		VirtualPath: urlPath,
-		Path:        path,
-	}
-
+	info, err, path := fileutils.GetFileInfo(p, c.URL)
 	if err != nil {
-		return i, err
+		return nil, err
 	}
-
-	i.Name = info.Name()
-	i.ModTime = info.ModTime()
-	i.IsDir = info.IsDir()
-	i.Size = info.Size()
+	i := &File{
+		URL:         c.URLString,
+		VirtualPath: c.URL,
+		Path:        path,
+		Name:        info.Name(),
+		IsDir:       info.IsDir(),
+		Size:        info.Size(),
+		ModTime:     info.ModTime(),
+	}
 
 	if i.IsDir && !strings.HasSuffix(i.URL, "/") {
 		i.URL += "/"
@@ -134,26 +128,26 @@ func MakeInfo(urlPath, urlString string, c *Context) (*File, error) {
 
 	return i, nil
 }
-func (i *File) MakeListing(c *Context, fitFilter FitFilter) (files []os.FileInfo, paths []string, err error) {
+
+//recursively fetch share/file paths
+func (i *File) GetListing(c *Context) (files []os.FileInfo, paths []string, err error) {
 	isExternal := c.IsExternalShare()
 
 	if c.IsRecursive {
-		files = make([]os.FileInfo, 0, 500)
-		paths = make([]string, 0, 500)
-		isShare := c.IsShare
+
 		var p string
-		if isShare && !isExternal {
+		if c.IsShare && !isExternal {
 			p = c.GetUserSharesPath()
 		} else {
 			p = c.GetUserHomePath()
 		}
-		files, paths = i.listRecurs(c, fitFilter, filepath.Join(p, i.VirtualPath), files, paths)
+		files, paths = i.listRecurs(c, filepath.Join(p, i.VirtualPath))
 	} else {
 		var f *os.File
 		var err error
 		if isExternal {
 			f, err = c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
-			//replace original user
+			//replace original user/owner
 			usr, _ := c.Config.GetByUsername("guest")
 			c.User = ToUserModel(usr, c.Config)
 
@@ -176,7 +170,7 @@ func (i *File) MakeListing(c *Context, fitFilter FitFilter) (files []os.FileInfo
 	return files, paths, nil
 
 }
-func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []os.FileInfo, paths []string) ([]os.FileInfo, []string) {
+func (i *File) listRecurs(c *Context, path string) (files []os.FileInfo, paths []string) {
 	err := filepath.Walk(path,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -184,6 +178,7 @@ func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []
 			}
 
 			if c.IsShare && !c.IsExternalShare() {
+				//get files from current user shares folder
 				f2, _ := filepath.EvalSymlinks(path)
 				info, _ = os.Stat(f2)
 				if info.IsDir() {
@@ -193,15 +188,25 @@ func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []
 					}
 					for _, f := range fls {
 						if f.IsDir() {
-							files, paths = i.listRecurs(c, fitFilter, filepath.Join(f2, f.Name()), files, paths)
+							fr, pr := i.listRecurs(c, filepath.Join(f2, f.Name()))
+							files = append(files, fr...)
+							paths = append(paths, pr...)
 
 						} else {
-							path = strings.TrimPrefix(f2, c.Config.FilesPath)
-							if fitFilter != nil && fitFilter(f.Name(), path) ||
-								fitFilter == nil {
+							//ignore path cut for download, full path required for download handler
+							if c.Router != cnst.R_DOWNLOAD {
+								path = strings.TrimPrefix(f2, c.Config.FilesPath)
+							}
+							if c.FitFilter != nil && c.FitFilter(f.Name(), path) ||
+								c.FitFilter == nil {
 								//cut files from path
-								arr := strings.SplitN(path, "/", 4)
-								paths = append(paths, filepath.Join("/", arr[1], arr[3], f.Name()))
+
+								if c.Router != cnst.R_DOWNLOAD {
+									arr := strings.SplitN(path, "/", 4)
+									paths = append(paths, filepath.Join("/", arr[1], arr[3], f.Name()))
+								} else {
+									paths = append(paths, path)
+								}
 								files = append(files, f)
 							}
 						}
@@ -210,13 +215,14 @@ func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []
 				}
 
 			} else {
-				path = strings.TrimPrefix(path, c.GetUserHomePath())
-
-				if fitFilter != nil && fitFilter(info.Name(), path) || fitFilter == nil {
+				if c.Router != cnst.R_DOWNLOAD {
+					path = strings.TrimPrefix(path, c.GetUserHomePath())
+				}
+				if c.FitFilter != nil && c.FitFilter(info.Name(), path) || c.FitFilter == nil {
 					if c.IsExternalShare() {
 						//replace root share folder with rootHash
 						path = "/" + strings.SplitN(path, "/", 3)[2]
-					} else {
+					} else if c.Router != cnst.R_DOWNLOAD {
 						path = strings.TrimPrefix(path, c.GetUserHomePath())
 					}
 					files = append(files, info)
@@ -232,8 +238,8 @@ func (i *File) listRecurs(c *Context, fitFilter FitFilter, path string, files []
 	return files, paths
 }
 
-// GetListing gets the information about a specific directory and its files.
-func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
+// ProcessList generate metainfo about dir/files
+func (i *File) ProcessList(c *Context) error {
 	// GetUsers the directory information using the Virtual File System of
 	// the user configuration.
 	var (
@@ -244,7 +250,7 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 		// Absolute URL
 		fUrl url.URL
 	)
-	files, paths, err := i.MakeListing(c, fitFilter)
+	files, paths, err := i.GetListing(c)
 	if err != nil {
 		log.Println("file: ", err)
 		return err
@@ -275,7 +281,7 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 		} else {
 			fileCount++
 		}
-
+		//take path from recursive fetch, otherwise use current
 		if c.IsRecursive {
 
 			if f.IsDir() {
@@ -297,8 +303,8 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 		}
 		fI.SetFileType(false)
 
-		if fitFilter != nil && !c.IsRecursive {
-			if fitFilter(fI.Name, fUrl.Path) {
+		if c.FitFilter != nil && !c.IsRecursive {
+			if c.FitFilter(fI.Name, fUrl.Path) {
 				fileinfos = append(fileinfos, fI)
 			} else {
 				if f.IsDir() {
@@ -317,6 +323,9 @@ func (i *File) GetListing(c *Context, fitFilter FitFilter) error {
 		Items:    fileinfos,
 		NumDirs:  dirCount,
 		NumFiles: fileCount,
+	}
+	if i.Listing.Items == nil {
+		i.Listing.Items = []*File{}
 	}
 
 	return nil

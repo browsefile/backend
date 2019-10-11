@@ -3,7 +3,9 @@
 package fileutils
 
 import (
+	"archive/zip"
 	"github.com/browsefile/backend/src/cnst"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -73,7 +75,7 @@ func GetFileInfo(scope, urlPath string) (info os.FileInfo, err error, path strin
 	info, err = dir.Stat(urlPath)
 	path = filepath.Join(scope, urlPath)
 	if err != nil {
-		return info, err, path
+		return nil, err, ""
 	}
 	return info, err, path
 }
@@ -141,4 +143,52 @@ func CleanPath(p string) (string, error) {
 	// Clean the slashes.
 	p = SlashClean(p)
 	return p, nil
+}
+
+//write archive file to writer, paths - absolute files paths, filesFolder - absolute path for users folder, this method will trim user folder path from archive
+func ServeArchiveCompress(paths []string, filesFolder string, writer io.Writer, infos []os.FileInfo) (err error) {
+	archive := zip.NewWriter(writer)
+	defer func() {
+		err = archive.Flush()
+		if err != nil {
+			log.Println(err)
+		}
+		err = archive.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+	for i, f := range paths {
+		p := CutUserPath(f, filesFolder)
+		file, _ := os.OpenFile(f, os.O_RDONLY, 0)
+		//ignore compression for now
+		header := &zip.FileHeader{Name: p, Method: zip.Store, Modified: infos[i].ModTime()}
+		if err != nil {
+			return err
+		}
+		fWrt, err := archive.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(fWrt, file)
+		if err != nil {
+			return err
+		}
+		err = file.Close()
+		if err != nil {
+			return err
+		}
+
+	}
+	return err
+}
+
+/**
+removes users path, and trim next prefix userName/files
+filesPath - path for users data directory
+*/
+func CutUserPath(p, filesPath string) string {
+	p = strings.TrimPrefix(p, filesPath)
+	arr := strings.SplitN(p, "/", 4)
+	return arr[len(arr)-1]
 }

@@ -205,6 +205,7 @@ func (cfg *GlobalConfig) ReadConfigFile() {
 				Locale:    "en",
 			})
 			cfg.Http = &ListenConf{AuthMethod: "default", IP: "127.0.0.1", Port: 8999}
+			cfg.Tls = &ListenConf{AuthMethod: "", IP: "", Port: 0}
 			cfg.ExternalShareHost = "http://127.0.0.1:8999"
 			cfg.PreviewConf = &PreviewConf{Threads: 2, ScriptPath: filepath.Join(filepath.Dir(cfg.Path), "bfconvert.sh")}
 			cfg.CaptchaConfig = &CaptchaConfig{}
@@ -552,10 +553,10 @@ func (cfg *GlobalConfig) GetKeyBytes() ([]byte, error) {
 func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 	cfg.lockR()
 	defer cfg.unlockR()
-	return &GlobalConfig{
+
+	res := &GlobalConfig{
 		Users:             cfg.GetUsers(),
 		Http:              &ListenConf{cfg.Http.Port, cfg.Http.IP, cfg.Http.AuthMethod},
-		Tls:               &ListenConf{cfg.Tls.Port, cfg.Tls.IP, cfg.Tls.AuthMethod},
 		Log:               cfg.Log,
 		CaptchaConfig:     cfg.CopyCaptchaConfig(),
 		Auth:              cfg.CopyAuth(),
@@ -566,6 +567,13 @@ func (cfg *GlobalConfig) CopyConfig() *GlobalConfig {
 		ExternalShareHost: cfg.ExternalShareHost,
 		Path:              cfg.Path,
 	}
+	if cfg.Tls != nil {
+		res.Tls = &ListenConf{cfg.Tls.Port, cfg.Tls.IP, cfg.Tls.AuthMethod}
+	} else {
+		res.Tls = &ListenConf{0, "", ""}
+	}
+
+	return res
 }
 func (cfg *GlobalConfig) UpdateConfig(u *GlobalConfig) {
 	cfg.lock()

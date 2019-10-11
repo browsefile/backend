@@ -9,11 +9,12 @@ import (
 )
 
 // set router, and all other params to the context, returns true in case request are about shares
-func ProcessParams(c *fb.Context, r *http.Request) (isShares bool) {
+func ProcessParams(c *fb.Context) (isShares bool) {
 
 	if c.Query == nil {
-		c.Query = r.URL.Query()
+		c.Query = c.REQ.URL.Query()
 	}
+
 	c.Sort = c.Query.Get("sort")
 	c.Order = c.Query.Get("order")
 	c.PreviewType = c.Query.Get("previewType")
@@ -40,9 +41,9 @@ func ProcessParams(c *fb.Context, r *http.Request) (isShares bool) {
 		//c.Query.Del("query")
 	}
 
-	isShares = setRouter(c, r)
+	isShares = setRouter(c)
 
-	if len(c.Algo) > 0 && !strings.HasPrefix(c.Algo, "z") {
+	if len(c.Algo) > 0 && !strings.HasPrefix(c.Algo, "zip") {
 		arr := strings.Split(c.Algo, "_")
 		if len(arr) > 1 {
 			setFileType(c, arr[1])
@@ -60,17 +61,21 @@ func ProcessParams(c *fb.Context, r *http.Request) (isShares bool) {
 		if len(f) > 0 {
 			c.FilePaths = strings.Split(f, ",")
 		}
-	} else if r.Method == http.MethodPatch {
-		c.Destination = r.Header.Get("Destination")
+	} else if c.REQ.Method == http.MethodPatch {
+		c.Destination = c.REQ.Header.Get("Destination")
 		if len(c.Destination) == 0 {
 			c.Destination = c.Query.Get("destination")
 		}
-		c.Action = r.Header.Get("action")
+		c.Action = c.REQ.Header.Get("action")
 		if len(c.Action) == 0 {
 			c.Action = c.Query.Get("action")
 		}
 	}
-	r.URL.RawQuery = ""
+	c.URL = c.REQ.URL.Path
+	c.URLString = c.REQ.URL.String()
+	c.Method = c.REQ.Method
+
+	c.REQ.URL.RawQuery = ""
 
 	return
 
@@ -82,24 +87,24 @@ func setFileType(c *fb.Context, t string) {
 	c.Pdf = strings.Contains(t, "p")
 }
 
-func setRouter(c *fb.Context, r *http.Request) (isShares bool) {
-	c.Router, r.URL.Path = fb.SplitURL(r.URL.Path)
+func setRouter(c *fb.Context) (isShares bool) {
+	c.Router, c.REQ.URL.Path = fb.SplitURL(c.REQ.URL.Path)
 	if c.Router == cnst.R_SEARCH {
-		r, _ := fb.SplitURL(r.URL.Path)
+		r, _ := fb.SplitURL(c.REQ.URL.Path)
 		isShares = r == cnst.R_SHARES
 	} else {
 		isShares = c.Router == cnst.R_SHARES
 	}
 	c.Params.IsShare = isShares
 	if isShares {
-		rp, p := fb.SplitURL(r.URL.Path)
+		rp, p := fb.SplitURL(c.REQ.URL.Path)
 		if rp == cnst.R_DOWNLOAD {
 			c.Router = cnst.R_DOWNLOAD
-			r.URL.Path = p
+			c.REQ.URL.Path = p
 		}
 	}
 	//redirect to the real handler in shares case
-	if isShares && (c.Router == cnst.R_RESOURCE ) {
+	if isShares && (c.Router == cnst.R_RESOURCE) {
 		c.Router = cnst.R_SHARES
 	}
 

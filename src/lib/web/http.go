@@ -20,8 +20,9 @@ func Handler(m *fb.FileBrowser) http.Handler {
 			File:        nil,
 			Params:      new(fb.Params),
 		}
-
-		code, err := serve(c, w, r)
+		c.REQ = r
+		c.RESP = w
+		code, err := serve(c)
 
 		if code >= 400 {
 			txt := http.StatusText(code)
@@ -40,66 +41,66 @@ func Handler(m *fb.FileBrowser) http.Handler {
 }
 
 // serve is the main entry point of this HTML application.
-func serve(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func serve(c *fb.Context) (int, error) {
 	// Checks if this request is made to the static assets folder. If so, and
 	// if it is a GET request, returns with the asset. Otherwise, returns
 	// a status not implemented.
-	if matchURL(r.URL.Path, "/static") {
-		if r.Method != http.MethodGet {
+	if matchURL(c.REQ.URL.Path, "/static") {
+		if c.Method != http.MethodGet {
 			return http.StatusNotImplemented, nil
 		}
 
-		return staticHandler(c, w, r)
+		return staticHandler(c)
 	}
-	if matchURL(r.URL.Path, cnst.WEB_DAV_URL) {
-		ServeDav(c, w, r)
+	if matchURL(c.REQ.URL.Path, cnst.WEB_DAV_URL) {
+		ServeDav(c, c.RESP, c.REQ)
 		return http.StatusOK, nil
 
 	}
 
 	// Checks if this request is made to the API and directs to the
 	// API handler if so.
-	if matchURL(r.URL.Path, "/api") {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api")
-		return apiHandler(c, w, r)
+	if matchURL(c.REQ.URL.Path, "/api") {
+		c.REQ.URL.Path = strings.TrimPrefix(c.REQ.URL.Path, "/api")
+		if c.REQ.URL.Path == "/auth/get" {
+			return authHandler(c)
+		}
+
+		if c.REQ.URL.Path == "/auth/renew" {
+			return renewAuthHandler(c)
+		}
+
+		return apiHandler(c)
 	}
 
 	// Any other request should show the index.html file.
-	w.Header().Set("x-content-type-options", "nosniff")
-	w.Header().Set("x-xss-protection", "1; mode=block")
+	c.RESP.Header().Set("x-content-type-options", "nosniff")
+	c.RESP.Header().Set("x-xss-protection", "1; mode=block")
 
-	return renderFile(c, r, w, "index.html")
+	return renderFile(c, "index.html")
 }
 
 // staticHandler handles the static assets path.
-func staticHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int, err error) {
-	if r.URL.Path != "/static/manifest.json" {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/static")
-		http.FileServer(c.Assets.HTTPBox()).ServeHTTP(w, r)
+func staticHandler(c *fb.Context) (code int, err error) {
+	if c.REQ.URL.Path != "/static/manifest.json" {
+		c.REQ.URL.Path = strings.TrimPrefix(c.REQ.URL.Path, "/static")
+		http.FileServer(c.Assets.HTTPBox()).ServeHTTP(c.RESP, c.REQ)
 		return 0, nil
 	}
 
-	return renderFile(c, r, w, "manifest.json")
+	return renderFile(c, "manifest.json")
 }
 
 // apiHandler is the main entry point for the /api endpoint.
-func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int, err error) {
-	if r.URL.Path == "/auth/get" {
-		return authHandler(c, w, r)
-	}
-
-	if r.URL.Path == "/auth/renew" {
-		return renewAuthHandler(c, w, r)
-	}
-
-	valid, _ := validateAuth(c, r)
+func apiHandler(c *fb.Context) (code int, err error) {
+	valid, _ := validateAuth(c)
 	if !valid {
 		return http.StatusForbidden, nil
 	}
-	isShares := ProcessParams(c, r)
+	isShares := ProcessParams(c)
 	//allow only GET requests, for external share
 	if valid && c.User.IsGuest() && (!isShares ||
-		!strings.EqualFold(r.Method, http.MethodGet) ||
+		!strings.EqualFold(c.Method, http.MethodGet) ||
 		c.Router == cnst.R_RESOURCE ||
 		c.Router == cnst.R_USERS ||
 		c.Router == cnst.R_SETTINGS) {
@@ -115,24 +116,24 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 		}
 		// do not waste bandwidth if we just want the checksum
 		c.File.Content = ""
-		return renderJSON(w, c.File)
+		return renderJSON(c.RESP, c.File)
 	}
 
 	switch c.Router {
 	case cnst.R_DOWNLOAD:
-		code, err = downloadHandler(c, w, r)
+		code, err = downloadHandler(c)
 	case cnst.R_RESOURCE:
-		code, err = resourceHandler(c, w, r)
+		code, err = resourceHandler(c)
 	case cnst.R_USERS:
-		code, err = usersHandler(c, w, r)
+		code, err = usersHandler(c)
 	case cnst.R_SETTINGS:
-		code, err = settingsHandler(c, w, r)
+		code, err = settingsHandler(c)
 	case cnst.R_SHARES:
-		code, err = shareHandler(c, w, r)
+		code, err = shareHandler(c)
 	case cnst.R_SEARCH:
-		code, err = searchHandler(c, w, r)
+		code, err = searchHandler(c)
 	case cnst.R_PLAYLIST:
-		code, err = makePlaylist(c, w, r)
+		code, err = makePlaylist(c)
 
 	default:
 		code = http.StatusNotFound
@@ -141,10 +142,10 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 		c.Router == cnst.R_USERS ||
 		c.Router == cnst.R_RESOURCE ||
 		c.Router == cnst.R_SHARES) &&
-		r.Method == http.MethodPatch ||
-		r.Method == http.MethodPut ||
-		r.Method == http.MethodPost ||
-		r.Method == http.MethodDelete {
+		c.Method == http.MethodPatch ||
+		c.Method == http.MethodPut ||
+		c.Method == http.MethodPost ||
+		c.Method == http.MethodDelete {
 		if c.Config != nil {
 			c.Config.WriteConfig()
 		}
@@ -155,17 +156,17 @@ func apiHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (code int
 }
 
 // renderFile renders a file using a template with some needed variables.
-func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file string) (int, error) {
+func renderFile(c *fb.Context, file string) (int, error) {
 	contentType := fb.GetMimeType(file)
 	if len(contentType) == 0 {
 		contentType = cnst.TEXT
 	}
-	c.Query = r.URL.Query()
+	c.Query = c.REQ.URL.Query()
 
 	c.RootHash = c.Query.Get("rootHash")
 	isEx := len(c.RootHash) > 0
-	w.Header().Set("Content-Type", contentType+"; charset=utf-8")
-	cfgM := c.GetAuthConfig(r)
+	c.RESP.Header().Set("Content-Type", contentType+"; charset=utf-8")
+	cfgM := c.GetAuthConfig()
 
 	data := map[string]interface{}{
 		"Name":            "Browsefile",
@@ -191,7 +192,7 @@ func renderFile(c *fb.Context, r *http.Request, w http.ResponseWriter, file stri
 
 	index := template.Must(template.New("index").Delims("[{[", "]}]").Parse(c.Assets.MustString(file)))
 
-	err = index.Execute(w, data)
+	err = index.Execute(c.RESP, data)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}

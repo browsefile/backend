@@ -57,7 +57,7 @@ func reCaptcha(host, secret, response string) (bool, error) {
 	return data.Success, nil
 }
 func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res bool) {
-	cfgM := c.GetAuthConfig(r)
+	cfgM := c.GetAuthConfig()
 	if cfgM.AuthMethod == "ip" {
 		u, res := c.Config.GetByIp(r.RemoteAddr)
 		if !res {
@@ -105,8 +105,8 @@ func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res 
 }
 
 // authHandler processes the authentication for the user.
-func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	cfgM := c.GetAuthConfig(r)
+func authHandler(c *fb.Context) (int, error) {
+	cfgM := c.GetAuthConfig()
 
 	if cfgM.AuthMethod == "none" {
 		// NoAuth instances shouldn't call this method.
@@ -116,9 +116,9 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 		var uc *config.UserConfig
 		var ok bool
 		if isIp {
-			uc, ok = c.Config.GetByIp(r.RemoteAddr)
+			uc, ok = c.Config.GetByIp(c.REQ.RemoteAddr)
 		} else {
-			uc, ok = c.Config.GetByUsername(r.Header.Get(c.FileBrowser.Config.Header))
+			uc, ok = c.Config.GetByUsername(c.REQ.Header.Get(c.FileBrowser.Config.Header))
 		}
 
 		// Receive the Username from the Header and check if it exists.
@@ -127,17 +127,17 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 		}
 		c.User = fb.ToUserModel(uc, c.Config)
 
-		return printToken(c, w)
+		return printToken(c)
 	}
 
 	// Receive the credentials from the request and unmarshal them.
 	var cred cred
 
-	if r.Body == nil {
+	if c.REQ.Body == nil {
 		return http.StatusForbidden, nil
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&cred)
+	err := json.NewDecoder(c.REQ.Body).Decode(&cred)
 	if err != nil {
 		return http.StatusForbidden, err
 	}
@@ -165,18 +165,18 @@ func authHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, er
 	}
 
 	c.User = fb.ToUserModel(uc, c.Config)
-	return printToken(c, w)
+	return printToken(c)
 }
 
 // renewAuthHandler is used when the front-end already has a JWT token
 // and is checking if it is up to date. If so, updates its info.
-func renewAuthHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	ok, u := validateAuth(c, r)
+func renewAuthHandler(c *fb.Context) (int, error) {
+	ok, u := validateAuth(c)
 	if !ok {
 		return http.StatusForbidden, nil
 	}
 	c.User = u
-	return printToken(c, w)
+	return printToken(c)
 }
 
 // claims is the JWT claims.
@@ -186,7 +186,7 @@ type claims struct {
 }
 
 // printToken prints the final JWT token to the user.
-func printToken(c *fb.Context, w http.ResponseWriter) (int, error) {
+func printToken(c *fb.Context) (int, error) {
 	// Creates a copy of the user and removes it password
 	// hash so it never arrives to the user.
 	u := fb.UserModel{}
@@ -211,7 +211,7 @@ func printToken(c *fb.Context, w http.ResponseWriter) (int, error) {
 
 	//expired
 	if !claims.VerifyExpiresAt(time.Now().Add(time.Hour).Unix(), true) {
-		w.Header().Add("X-Renew-Token", "true")
+		c.RESP.Header().Add("X-Renew-Token", "true")
 	}
 
 	signed, err := token.SignedString(k)
@@ -221,8 +221,8 @@ func printToken(c *fb.Context, w http.ResponseWriter) (int, error) {
 	}
 
 	// Writes the token.
-	w.Header().Set("Content-Type", "cty")
-	w.Write([]byte(signed))
+	c.RESP.Header().Set("Content-Type", "cty")
+	c.RESP.Write([]byte(signed))
 	return 0, nil
 }
 
@@ -247,8 +247,8 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 
 // validateAuth is used to validate the authentication and returns the
 // User if it is valid.
-func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
-	cfgM := c.GetAuthConfig(r)
+func validateAuth(c *fb.Context) (bool, *fb.UserModel) {
+	cfgM := c.GetAuthConfig()
 	if cfgM.AuthMethod == "none" {
 		admin := c.Config.GetAdmin()
 		if admin == nil {
@@ -260,7 +260,7 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 	}
 	// If proxy auth is used do not verify the JWT token if the header is provided.
 	if cfgM.AuthMethod == "proxy" {
-		u, ok := c.Config.GetByUsername(r.Header.Get(c.Config.Header))
+		u, ok := c.Config.GetByUsername(c.REQ.Header.Get(c.Config.Header))
 		if !ok {
 			return false, nil
 		}
@@ -276,13 +276,13 @@ func validateAuth(c *fb.Context, r *http.Request) (bool, *fb.UserModel) {
 	var u *config.UserConfig
 	var ok bool
 	if cfgM.AuthMethod == "ip" {
-		u, ok = c.Config.GetByIp(r.RemoteAddr)
+		u, ok = c.Config.GetByIp(c.REQ.RemoteAddr)
 		if !ok {
 			return false, nil
 		}
 
 	} else {
-		token, err := request.ParseFromRequest(r, extractor{}, keyFunc, request.WithClaims(&claims))
+		token, err := request.ParseFromRequest(c.REQ, extractor{}, keyFunc, request.WithClaims(&claims))
 
 		if err != nil || !token.Valid {
 			log.Println(err)

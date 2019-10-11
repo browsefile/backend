@@ -4,13 +4,12 @@ import (
 	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
-	"net/http"
 	"path/filepath"
 	"strings"
 )
 
-func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	filter := func(name, p string) bool {
+func searchHandler(c *fb.Context) (int, error) {
+	c.FitFilter = func(name, p string) bool {
 		hasSearch := len(c.SearchString) > 0 && len(name) > 0
 		var fitUrl bool
 		if hasSearch {
@@ -31,8 +30,8 @@ func searchHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, 
 		return hasType && fitType && (fitUrl || !hasSearch) || !hasType && fitUrl
 	}
 	c.IsRecursive = true
-	_, r.URL.Path = fb.SplitURL(r.URL.Path)
+	_, c.URL = fb.SplitURL(c.URL)
 
-	return resourceGetHandler(c, w, r, filter)
+	return resourceGetHandler(c)
 
 }

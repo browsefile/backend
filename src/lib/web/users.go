@@ -23,22 +23,22 @@ type modifyUserRequest struct {
 
 // usersHandler is the entry point of the users API. It's just a router
 // to send the request to its
-func usersHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func usersHandler(c *fb.Context) (int, error) {
 	// If the user isn't admin and isn't making a PUT
 	// request, then return forbidden.
-	if !c.User.Admin && r.Method != http.MethodGet {
+	if !c.User.Admin && c.Method != http.MethodGet {
 		return http.StatusForbidden, nil
 	}
 
-	switch r.Method {
+	switch c.Method {
 	case http.MethodGet:
-		return usersGetHandler(c, w, r)
+		return usersGetHandler(c)
 	case http.MethodPost:
-		return usersPostHandler(c, w, r)
+		return usersPostHandler(c)
 	case http.MethodDelete:
-		return usersDeleteHandler(c, w, r)
+		return usersDeleteHandler(c)
 	case http.MethodPut:
-		return usersPutHandler(c, r)
+		return usersPutHandler(c)
 	}
 
 	return http.StatusNotImplemented, nil
@@ -47,27 +47,27 @@ func usersHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, e
 // getUserName returns the id from the user which is present
 // in the request url. If the url is invalid and doesn't
 // contain a valid ID, it returns an fb.Error.
-func getUserName(r *http.Request) (string, error) {
+func getUserName(r string) (string) {
 	// Obtains the ID in string from the URL and converts
 	// it into an integer.
-	sid := strings.TrimPrefix(r.URL.Path, "/")
+	sid := strings.TrimPrefix(r, "/")
 	sid = strings.TrimSuffix(sid, "/")
 
-	return sid, nil
+	return sid
 }
 
 // parseUserFromRequest returns the user which is present in the request
 // body. If the body is empty or the JSON is invalid, it
 // returns an fb.Error.
-func parseUserFromRequest(c *fb.Context, r *http.Request) (*fb.UserModel, string, error) {
+func parseUserFromRequest(c *fb.Context) (*fb.UserModel, string, error) {
 	// Checks if the request body is empty.
-	if r.Body == nil {
+	if c.REQ.Body == nil {
 		return nil, "", cnst.ErrEmptyRequest
 	}
 
 	// Parses the request body and checks if it's well formed.
 	mod := &modifyUserRequest{}
-	err := json.NewDecoder(r.Body).Decode(mod)
+	err := json.NewDecoder(c.REQ.Body).Decode(mod)
 	if err != nil {
 		return nil, "", err
 	}
@@ -82,14 +82,14 @@ func parseUserFromRequest(c *fb.Context, r *http.Request) (*fb.UserModel, string
 	return mod.Data, mod.Which, nil
 }
 
-func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+func usersGetHandler(c *fb.Context) (int, error) {
 	// Request for the default user data.
-	if r.URL.Path == "/base" {
-		return renderJSON(w, c.Config.GetAdmin())
+	if c.URL == "/base" {
+		return renderJSON(c.RESP, c.Config.GetAdmin())
 	}
 
 	// Request for the listing of users.
-	if r.URL.Path == "/" {
+	if c.URL == "/" {
 		users := c.Config.GetUsers()
 		if users == nil || len(users) == 0 {
 			return http.StatusInternalServerError, errors.New("cant find any users")
@@ -109,33 +109,25 @@ func usersGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 			}
 		}
 
-		return renderJSON(w, users)
+		return renderJSON(c.RESP, users)
 	}
 
-	name, err := getUserName(r)
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-
+	name:= getUserName(c.URL)
 	u, ok := c.Config.GetByUsername(name)
 	if !ok {
-		return http.StatusNotFound, err
-	}
-
-	if err != nil {
-		return http.StatusInternalServerError, err
+		return http.StatusNotFound, cnst.ErrNotExist
 	}
 
 	u.Password = ""
-	return renderJSON(w, u)
+	return renderJSON(c.RESP, u)
 }
 
-func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	if r.URL.Path != "/" {
+func usersPostHandler(c *fb.Context) (int, error) {
+	if c.URL != "/" {
 		return http.StatusMethodNotAllowed, nil
 	}
 
-	u, _, err := parseUserFromRequest(c, r)
+	u, _, err := parseUserFromRequest(c)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -180,8 +172,8 @@ func usersPostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (in
 	}
 
 	// Set the Location header and return.
-	w.Header().Set("Location", "/settings/users/"+u.Username)
-	w.WriteHeader(http.StatusCreated)
+	c.RESP.Header().Set("Location", "/settings/users/"+u.Username)
+	c.RESP.WriteHeader(http.StatusCreated)
 	return 0, nil
 }
 
@@ -208,18 +200,19 @@ func makeFS(path string) (int, error) {
 	return 0, nil
 }
 
-func usersDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	if r.URL.Path == "/" {
+func usersDeleteHandler(c *fb.Context) (int, error) {
+	if c.URL == "/" {
 		return http.StatusMethodNotAllowed, nil
 	}
 
-	name, err := getUserName(r)
-	if err != nil {
-		return http.StatusInternalServerError, err
+	name := getUserName(c.URL)
+	_, ok := c.Config.GetByUsername(name)
+	if !ok {
+		return http.StatusInternalServerError, cnst.ErrNotExist
 	}
 
 	// Deletes the user from the database.
-	err = c.Config.Delete(name)
+	err := c.Config.Delete(name)
 	if err == cnst.ErrNotExist {
 		return http.StatusNotFound, cnst.ErrNotExist
 	}
@@ -231,16 +224,17 @@ func usersDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (
 	return http.StatusOK, nil
 }
 
-func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
+func usersPutHandler(c *fb.Context) (int, error) {
 	// New users should be created on /api/users.
-	if r.URL.Path == "/" {
+	if c.URL == "/" {
 		return http.StatusMethodNotAllowed, nil
 	}
 
 	// GetUsers the user ID from the URL and checks if it's valid.
-	name, err := getUserName(r)
-	if err != nil {
-		return http.StatusInternalServerError, err
+	name := getUserName(c.URL)
+	_, ok := c.Config.GetByUsername(name)
+	if !ok {
+		return http.StatusInternalServerError, cnst.ErrNotExist
 	}
 
 	// Checks if the user has permission to access this page.
@@ -249,14 +243,14 @@ func usersPutHandler(c *fb.Context, r *http.Request) (int, error) {
 	}
 
 	// GetUsers the user from the request body.
-	u, which, err := parseUserFromRequest(c, r)
+	u, which, err := parseUserFromRequest(c)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
 	// If we're updating the default user. Only for NoAuth
 	// implementations. Used to change the viewMode.
-	cfgM := c.GetAuthConfig(r)
+	cfgM := c.GetAuthConfig()
 	if cfgM.AuthMethod == "none" {
 		admin := c.Config.GetAdmin()
 		admin.ViewMode = u.ViewMode

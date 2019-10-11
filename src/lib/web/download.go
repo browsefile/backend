@@ -4,28 +4,26 @@ import (
 	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
 	"github.com/browsefile/backend/src/lib/fileutils"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
 // downloadHandler creates an archive in one of the supported formats (zip, tar,
 // tar.gz or tar.bz2) and sends it to be downloaded.
-func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	var err error
+func downloadHandler(c *fb.Context) (code int, err error) {
 	if len(c.FilePaths) <= 1 {
-		p := r.URL.Path
+		p := c.URL
 		if len(c.FilePaths) == 1 {
 			p, err = fileutils.CleanPath(c.FilePaths[0])
 			if err != nil {
 				return http.StatusInternalServerError, err
 			}
 		}
-		c.File, err = fb.MakeInfo(p, r.URL.String(), c)
+		c.URL = p
+		c.File, err = fb.MakeInfo(c)
 		if err != nil {
 			return cnst.ErrorToHTTP(err, false), err
 		}
@@ -33,34 +31,60 @@ func downloadHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int
 		// If the file isn't a directory, serve it using web.ServeFile. We display it
 		// inline if it is requested.
 		if !c.File.IsDir {
-			return downloadFileHandler(c, w, r)
+			return downloadFileHandler(c)
 		} else {
-			return 0, serveDownload(c, w, []string{c.File.Path})
+			//todo: remove redundant makeInfo for single file
+			c.FilePaths = []string{fileutils.CutUserPath(c.File.Path, c.Config.FilesPath)}
 		}
-	} else {
-		var files = make([]string, 0, len(c.FilePaths))
-		// If there are files in the query, sanitize their names.
-		// Otherwise, just append the current path.
-		for _, name := range c.FilePaths {
-
-			name, err = fileutils.CleanPath(name)
-
-			if err != nil {
-				return http.StatusInternalServerError, err
-			}
-
-			c.File, err = fb.MakeInfo(name, r.URL.Path, c)
-			if err != nil {
-				return cnst.ErrorToHTTP(err, false), err
-			}
-			files = append(files, c.File.Path)
-		}
-
-		return 0, serveDownload(c, w, files)
 	}
-	return 0, nil
+	code, err, infos := prepareFiles(c, c.URL)
+	if err != nil {
+		log.Println(err)
+		return code, err
+	}
+	err = serveDownload(c, infos)
+	if err != nil {
+		log.Println(err)
+		code = http.StatusNotFound
+	}
+	return code, err
 }
-func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) (err error) {
+
+//take c.FilePaths as input, and put absolute path back as a result, also recursively fetch folders for shares/files
+func prepareFiles(c *fb.Context, url string) (int, error, []os.FileInfo) {
+	var resultFiles = make([]string, 0, len(c.FilePaths))
+	var resultInfos = make([]os.FileInfo, 0, len(c.FilePaths))
+	// If there are files in the query, sanitize their names.
+	// Otherwise, just append the current path.
+	for _, p := range c.FilePaths {
+		p, err := fileutils.CleanPath(p)
+		if err != nil {
+			return http.StatusInternalServerError, err, nil
+		}
+		c.URL = p
+		c.File, err = fb.MakeInfo(c)
+		if err != nil {
+			return cnst.ErrorToHTTP(err, false), err, nil
+		}
+		c.IsRecursive = true
+		infos, paths, err := c.File.GetListing(c)
+		if err != nil {
+			return cnst.ErrorToHTTP(err, false), err, nil
+		}
+		for i, inf := range infos {
+			if !inf.IsDir() {
+				resultFiles = append(resultFiles, paths[i])
+				resultInfos = append(resultInfos, infos[i])
+			}
+		}
+
+	}
+	c.FilePaths = resultFiles
+	return http.StatusOK, nil, resultInfos
+}
+
+//set header as download, also set archive name, after archive
+func serveDownload(c *fb.Context, infos []os.FileInfo) (err error) {
 	// Defines the file name.
 	name := ""
 	if c.File != nil {
@@ -71,24 +95,12 @@ func serveDownload(c *fb.Context, w http.ResponseWriter, files []string) (err er
 	} else {
 		name += ".zip"
 	}
-	w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
-	pr, pw := io.Pipe()
-	//j - cut path, and store only file
-	cmd := exec.Command("zip", append([]string{"-0rq", "-"}, files...)...)
-	cmd.Stdout = pw
-	cmd.Stderr = os.Stderr
-	go func() {
-		defer pr.Close()
-		// copy the data written to the PipeReader via the cmd to stdout
-		if _, err := io.Copy(w, pr); err != nil {
-			log.Println(err)
-		}
-	}()
-	return cmd.Run()
-
+	c.RESP.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
+	return fileutils.ServeArchiveCompress(c.FilePaths, c.Config.FilesPath, c.RESP, infos)
 }
 
-func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
+//download single file, include preview
+func downloadFileHandler(c *fb.Context) (int, error) {
 	var err error
 	if c.File.Path, err = fileutils.CleanPath(c.File.Path); err != nil {
 		if err != nil {
@@ -107,9 +119,9 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 	//serve icon
 	if len(c.PreviewType) > 0 {
 		var prevPath string
-		_, prevPath, r.URL.Path, err = fb.ResolvePaths(c, r.URL.Path)
+		_, prevPath, c.URL, err = fb.ResolvePaths(c)
 		if c.IsExternalShare() {
-			prevPath = filepath.Join(prevPath, r.URL.Path)
+			prevPath = filepath.Join(prevPath, c.URL)
 		}
 
 		if c.IsShare {
@@ -126,8 +138,8 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 			}
 
 		} else {
-			w.Header().Set("Content-Type", fb.GetMimeType(prevPath))
-			return servePreview(c, w, r, prevPath)
+			c.RESP.Header().Set("Content-Type", fb.GetMimeType(prevPath))
+			return servePreview(c, prevPath)
 		}
 	}
 	c.File.SetFileType(false)
@@ -135,31 +147,31 @@ func downloadFileHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) 
 	if len(m) == 0 {
 		m = c.File.Type
 	}
-	w.Header().Set("Content-Type", m)
+	c.RESP.Header().Set("Content-Type", m)
 
 	if c.Inline {
-		w.Header().Set("Content-Disposition", "inline")
+		c.RESP.Header().Set("Content-Disposition", "inline")
 	} else {
 		// As per RFC6266 section 4.3
-		w.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(c.File.Name))
+		c.RESP.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(c.File.Name))
 	}
 	//serve fullsize file
 	if file != nil {
-		http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
+		http.ServeContent(c.RESP, c.REQ, stat.Name(), stat.ModTime(), file)
 		return 0, nil
 	}
 
 	return http.StatusNotFound, nil
 }
 
-func servePreview(c *fb.Context, w http.ResponseWriter, r *http.Request, p string) (int, error) {
+func servePreview(c *fb.Context, p string) (int, error) {
 	previewFile, err := os.Open(p)
 	stat, _ := os.Stat(p)
 	defer previewFile.Close()
 	if err != nil {
 		return http.StatusNotFound, err
 	} else {
-		http.ServeContent(w, r, stat.Name(), stat.ModTime(), previewFile)
+		http.ServeContent(c.RESP, c.REQ, stat.Name(), stat.ModTime(), previewFile)
 		return 0, nil
 	}
 }

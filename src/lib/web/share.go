@@ -3,94 +3,94 @@ package web
 import (
 	"encoding/json"
 	"github.com/browsefile/backend/src/config"
-	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
-func shareHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	r.URL.Path = sanitizeURL(r.URL.Path)
-	if c.User == nil && r.Method != "GET" {
+func shareHandler(c *lib.Context) (int, error) {
+	c.URL = sanitizeURL(c.URL)
+	if c.User == nil && c.Method != "GET" {
 		return http.StatusNotFound, nil
 	}
-
-	switch r.Method {
+	switch c.Method {
 	case http.MethodGet:
-		return shareGetHandler(c, w, r, func(name, p string) bool {
+		c.FitFilter = func(name, p string) bool {
 			return resourceMediaFilter(c, name, p)
-		})
+		}
+		return shareGetHandler(c)
 	case http.MethodDelete:
-		return shareDeleteHandler(c, w, r)
+		return shareDeleteHandler(c)
 	case http.MethodPost:
-		return sharePostHandler(c, w, r)
+		return sharePostHandler(c)
 	}
 
 	return http.StatusNotImplemented, nil
 }
 
-func shareGetHandler(c *fb.Context, w http.ResponseWriter, r *http.Request, fitFilter fb.FitFilter) (int, error) {
+func shareGetHandler(c *lib.Context) (int, error) {
 	switch c.ShareType {
 	case "my-meta":
-		if "/" == r.URL.Path {
-			return renderJSON(w, c.User.Shares)
+		if "/" == c.URL {
+			return renderJSON(c.RESP, c.User.Shares)
 		} else {
-			shrs := c.User.GetShares(r.URL.Path, false)
+			shrs := c.User.GetShares(c.URL, false)
 			var shr *config.ShareItem
 			if len(shrs) == 0 {
 				shr = &config.ShareItem{}
-				shr.Path = r.URL.Path
+				shr.Path = c.URL
 			} else {
 				shr = shrs[0]
 			}
-			return renderJSON(w, shr)
+			return renderJSON(c.RESP, shr)
 		}
 
 	default:
-		return resourceGetHandler(c, w, r, fitFilter)
+		return resourceGetHandler(c)
 	}
 }
-func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res int, err error) {
+func sharePostHandler(c *lib.Context) (res int, err error) {
 	itm := &config.ShareItem{}
 	if !strings.EqualFold(c.ShareType, "gen-ex") {
-		err := json.NewDecoder(r.Body).Decode(itm)
+		err := json.NewDecoder(c.REQ.Body).Decode(itm)
 		if strings.EqualFold(itm.Path, "") {
 			return http.StatusBadRequest, err
 		}
 	}
 	switch c.ShareType {
 	case "gen-ex":
-		shrs := c.User.GetShares(r.URL.Path, false)
+		shrs := c.User.GetShares(c.URL, false)
 		var shr *config.ShareItem
 		if len(shrs) == 0 {
 			shr = &config.ShareItem{}
-			shr.Path = r.URL.Path
+			shr.Path = c.URL
 		} else {
 			shr = shrs[0]
 		}
 
 		var h string
 		if shrs == nil {
-			h = config.GenShareHash(c.User.Username, r.URL.Path)
+			h = config.GenShareHash(c.User.Username, c.URL)
 		} else {
 			h = shr.Hash
 		}
 
 		l := c.Config.ExternalShareHost + "/shares?rootHash=" + url.QueryEscape(h)
-		return renderJSON(w, l)
+		return renderJSON(c.RESP, l)
 
 	case "my-meta":
-		shrs := c.User.GetShares(r.URL.Path, false)
+		shrs := c.User.GetShares(c.URL, false)
 		var shr *config.ShareItem
 		if len(shrs) == 0 {
 			shr = &config.ShareItem{}
-			shr.Path = r.URL.Path
+			shr.Path = c.URL
 		} else {
 			shr = shrs[0]
 		}
 
 		if shrs != nil {
-			if !c.Config.DeleteShare(c.User.UserConfig, r.URL.Path) {
+			if !c.Config.DeleteShare(c.User.UserConfig, c.URL) {
 				return http.StatusBadRequest, err
 			}
 		}
@@ -101,7 +101,7 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (re
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
-		itm.Path = r.URL.Path
+		itm.Path = c.URL
 
 		ok := c.User.AddShare(itm)
 		if !ok {
@@ -109,12 +109,11 @@ func sharePostHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (re
 		}
 	}
 	c.Config.Update(c.User.UserConfig)
-	return renderJSON(w, itm)
+	return renderJSON(c.RESP, itm)
 }
 
-func shareDeleteHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (int, error) {
-
-	ok := c.Config.DeleteShare(c.User.UserConfig, r.URL.Path)
+func shareDeleteHandler(c *lib.Context) (int, error) {
+	ok := c.Config.DeleteShare(c.User.UserConfig, c.URL)
 	if !ok {
 		return http.StatusNotFound, nil
 	}
