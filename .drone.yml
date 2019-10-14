@@ -38,7 +38,3 @@ steps:
     when:
       event: tag
     depends_on: [b-front, fetch, install-rice]
-
-trigger:
-  branch:
-    - master
