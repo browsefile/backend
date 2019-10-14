@@ -36,5 +36,9 @@ steps:
     commands:
       - curl -sL https://git.io/goreleaser | bash
     when:
-      event: tag
+      event: [tag]
     depends_on: [b-front, fetch, install-rice]
+
+trigger:
+  branch:
+    - master
