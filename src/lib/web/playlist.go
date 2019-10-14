@@ -27,7 +27,7 @@ func makePlaylist(c *lib.Context) (int, error) {
 		}
 		return false
 	}
-	code, err, _ := prepareFiles(c, c.URL)
+	code, err, _ := prepareFiles(c)
 	if err != nil {
 		return code, err
 	}
@@ -51,7 +51,7 @@ func serveFile(c *lib.Context, fName, p, host string) {
 
 	io.WriteString(c.RESP, "#EXTINF:0 tvg-name=")
 	io.WriteString(c.RESP, fName)
-	io.WriteString(c.RESP, "\n")
+	io.WriteString(c.RESP, "\r\n")
 	io.WriteString(c.RESP, host)
 	io.WriteString(c.RESP, p)
 	io.WriteString(c.RESP, "?inline=true")
@@ -63,7 +63,7 @@ func serveFile(c *lib.Context, fName, p, host string) {
 		io.WriteString(c.RESP, "&auth="+c.Auth)
 	}
 
-	io.WriteString(c.RESP, "\n\n")
+	io.WriteString(c.RESP, "\r\n")
 
 }
 

@@ -15,14 +15,10 @@ import (
 // tar.gz or tar.bz2) and sends it to be downloaded.
 func downloadHandler(c *fb.Context) (code int, err error) {
 	if len(c.FilePaths) <= 1 {
-		p := c.URL
 		if len(c.FilePaths) == 1 {
-			p, err = fileutils.CleanPath(c.FilePaths[0])
-			if err != nil {
-				return http.StatusInternalServerError, err
-			}
+			c.URL = c.FilePaths[0]
 		}
-		c.URL = p
+		c.URL = fileutils.SlashClean(c.URL)
 		c.File, err = fb.MakeInfo(c)
 		if err != nil {
 			return cnst.ErrorToHTTP(err, false), err
@@ -37,7 +33,7 @@ func downloadHandler(c *fb.Context) (code int, err error) {
 			c.FilePaths = []string{fileutils.CutUserPath(c.File.Path, c.Config.FilesPath)}
 		}
 	}
-	code, err, infos := prepareFiles(c, c.URL)
+	code, err, infos := prepareFiles(c)
 	if err != nil {
 		log.Println(err)
 		return code, err
@@ -51,16 +47,14 @@ func downloadHandler(c *fb.Context) (code int, err error) {
 }
 
 //take c.FilePaths as input, and put absolute path back as a result, also recursively fetch folders for shares/files
-func prepareFiles(c *fb.Context, url string) (int, error, []os.FileInfo) {
+func prepareFiles(c *fb.Context) (int, error, []os.FileInfo) {
 	var resultFiles = make([]string, 0, len(c.FilePaths))
 	var resultInfos = make([]os.FileInfo, 0, len(c.FilePaths))
+	var err error
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
 	for _, p := range c.FilePaths {
-		p, err := fileutils.CleanPath(p)
-		if err != nil {
-			return http.StatusInternalServerError, err, nil
-		}
+		p := fileutils.SlashClean(p)
 		c.URL = p
 		c.File, err = fb.MakeInfo(c)
 		if err != nil {
@@ -102,11 +96,7 @@ func serveDownload(c *fb.Context, infos []os.FileInfo) (err error) {
 //download single file, include preview
 func downloadFileHandler(c *fb.Context) (int, error) {
 	var err error
-	if c.File.Path, err = fileutils.CleanPath(c.File.Path); err != nil {
-		if err != nil {
-			return http.StatusNotFound, err
-		}
-	}
+	c.File.Path = fileutils.SlashClean(c.File.Path)
 
 	file, err := os.Open(c.File.Path)
 	defer file.Close()

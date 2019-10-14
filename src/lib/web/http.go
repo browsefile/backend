@@ -22,6 +22,7 @@ func Handler(m *fb.FileBrowser) http.Handler {
 		}
 		c.REQ = r
 		c.RESP = w
+		c.Method = c.REQ.Method
 		code, err := serve(c)
 
 		if code >= 400 {

@@ -7,7 +7,6 @@ import (
 	"github.com/browsefile/backend/src/cnst"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -132,19 +131,6 @@ func ModPermission(uid, gid int, path string) (err error) {
 	return err
 
 }
-
-// just in case
-func CleanPath(p string) (string, error) {
-	p, err := url.QueryUnescape(p)
-	if err != nil {
-		return "", err
-	}
-
-	// Clean the slashes.
-	p = SlashClean(p)
-	return p, nil
-}
-
 //write archive file to writer, paths - absolute files paths, filesFolder - absolute path for users folder, this method will trim user folder path from archive
 func ServeArchiveCompress(paths []string, filesFolder string, writer io.Writer, infos []os.FileInfo) (err error) {
 	archive := zip.NewWriter(writer)
