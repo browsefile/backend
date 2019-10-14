@@ -8,6 +8,8 @@ steps:
   - name: fetch
     image: docker:git
     commands:
+      - go version
+      - go env
       - git fetch origin master
       - git submodule update --init --recursive
       - git fetch --tags
