@@ -8,8 +8,6 @@ steps:
   - name: fetch
     image: docker:git
     commands:
-      - go version
-      - go env
       - git fetch origin master
       - git submodule update --init --recursive
       - git fetch --tags
@@ -17,6 +15,8 @@ steps:
   - name: install-rice
     image: golang:latest
     commands:
+      - go version
+      - go env
       - go get github.com/GeertJohan/go.rice
       - go get github.com/GeertJohan/go.rice/rice
     depends_on: [fetch]
