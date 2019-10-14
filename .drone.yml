@@ -1,7 +1,8 @@
 workspace:
   base: /go
   path: github.com/browsefile/backend
-
+  branches:
+    - master
 kind: pipeline
 name: bf
 
@@ -12,6 +13,7 @@ steps:
       - git fetch origin master
       - git submodule update --init --recursive
       - git fetch --tags
+
 
   - name: install-rice
     image: golang:latest
