@@ -1,7 +1,6 @@
 workspace:
   base: /go
   path: github.com/browsefile/backend
-
 kind: pipeline
 name: bf
 
@@ -12,8 +11,6 @@ steps:
       - git fetch origin master
       - git submodule update --init --recursive
       - git fetch --tags
-    branches:
-      - master
 
   - name: install-rice
     image: golang:latest
@@ -21,8 +18,6 @@ steps:
       - go get github.com/GeertJohan/go.rice
       - go get github.com/GeertJohan/go.rice/rice
     depends_on: [fetch]
-    branches:
-      - master
 
   - name: b-front
     image: node
@@ -32,9 +27,6 @@ steps:
       - npm run-script build
       - cd ..
     depends_on: [fetch, install-rice]
-    branches:
-      - master
-
 
   - name: release
     image: golang:latest
@@ -46,5 +38,7 @@ steps:
     when:
       event: tag
     depends_on: [b-front, fetch, install-rice]
-    branches:
-      - master
+
+trigger:
+  branch:
+    - master
