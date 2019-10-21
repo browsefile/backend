@@ -11,7 +11,7 @@ func TestImageThumbGen(t *testing.T) {
 	if e != nil {
 		t.Fatal(e, f)
 	}
-	inI, _, _ := fileutils.GenPreviewConvertPath(inI, "../../", "../../")
+	inI, _, _ := utils.GenPreviewConvertPath(inI, "../../", "../../")
 	cmd := getPrevCont()
 	cmd.SetPaths(inI, resI, "image")
 	g := getGen()
@@ -29,7 +29,7 @@ func TestVideoThumbGen(t *testing.T) {
 	if e != nil {
 		t.Fatal(e, f)
 	}
-	inV, _, _ := fileutils.GenPreviewConvertPath(inV, "../../", "../../")
+	inV, _, _ := utils.GenPreviewConvertPath(inV, "../../", "../../")
 	cmd := getPrevCont()
 	cmd.SetPaths(inV, resV, "video")
 	g := getGen()
@@ -41,13 +41,3 @@ func TestVideoThumbGen(t *testing.T) {
 	os.Remove(resV)
 }*/
 
-func getPrevCont() (res *PreviewData) {
-	res = new(PreviewData)
-	res.Setup(".", "../../bfconvert.sh")
-
-	return
-}
-func getGen() (res *PreviewGen) {
-	res = new(PreviewGen)
-	return
-}

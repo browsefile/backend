@@ -5,11 +5,17 @@ import (
 	"os"
 )
 
+//header keys and request url params
+var (
+	H_XAUTH        = "X-Auth"
+	P_PREVIEW_TYPE = "previewType"
+	P_ROOTHASH     = "rootHash"
+)
 var (
 	// Version is the current File Browser version.
 	Version        = "(untracked)"
 	MosaicViewMode = "mosaic"
-	CommitSHA=""
+	CommitSHA      = ""
 )
 
 //settings

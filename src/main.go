@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
-	"github.com/browsefile/backend/src/lib"
-	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/browsefile/backend/src/lib/web"
-	"golang.org/x/net/webdav"
 	"log"
 	"net"
 	"net/http"
@@ -33,8 +30,6 @@ func main() {
 	}
 
 	cfg.ReadConfigFile()
-	cfg.Verify()
-	cfg.Init()
 	var listener, listenerTLS net.Listener
 	var err error
 	isHttp := cfg.Http != nil && cfg.Http.Port > 0
@@ -53,7 +48,7 @@ func main() {
 		}
 	}
 
-	srv := &http.Server{Handler: handler(cfg), ReadTimeout: 5 * time.Hour, WriteTimeout: 5 * time.Hour}
+	srv := &http.Server{Handler: web.SetupHandler(cfg), ReadTimeout: 5 * time.Hour, WriteTimeout: 5 * time.Hour}
 	// Tell the user the port in which is listening.
 	if isHttp {
 		log.Println("Listening http://" + listener.Addr().String())
@@ -87,34 +82,4 @@ func main() {
 		}
 	}
 
-}
-
-func handler(cfg *config.GlobalConfig) http.Handler {
-	fb := &lib.FileBrowser{
-		Config:    cfg,
-		ReCaptcha: &lib.ReCaptcha{cfg.CaptchaConfig.Host, cfg.CaptchaConfig.Key, cfg.CaptchaConfig.Secret},
-		NewFS: func(scope string) lib.FileSystem {
-			return fileutils.Dir(scope)
-		},
-	}
-	DavHandler(fb)
-	needUpd, err := fb.Setup()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if needUpd {
-		cfg.WriteConfig()
-	}
-
-	return web.Handler(fb)
-}
-func DavHandler(fb *lib.FileBrowser) {
-	ramLock := webdav.NewMemLS()
-	for _, u := range fb.Config.Users {
-		u.DavHandler = &webdav.Handler{
-			FileSystem: webdav.Dir(fb.Config.GetDavPath(u.Username)),
-			LockSystem: ramLock,
-			Logger:     config.DavLogger,
-		}
-	}
 }

@@ -3,7 +3,7 @@ package web
 import (
 	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
-	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/utils"
 	"path/filepath"
 	"strings"
 )
@@ -18,7 +18,7 @@ func searchHandler(c *fb.Context) (int, error) {
 		}
 
 		var fitType bool
-		ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
+		ok, t := utils.GetBasedOnExtensions(filepath.Ext(name))
 		hasType := c.Audio || c.Video || c.Pdf || c.Image
 		if ok && hasType {
 			fitType = t == cnst.IMAGE && c.Image ||
@@ -30,7 +30,7 @@ func searchHandler(c *fb.Context) (int, error) {
 		return hasType && fitType && (fitUrl || !hasSearch) || !hasType && fitUrl
 	}
 	c.IsRecursive = true
-	_, c.URL = fb.SplitURL(c.URL)
+	_, c.URL = utils.SplitURL(c.URL)
 
 	return resourceGetHandler(c)
 

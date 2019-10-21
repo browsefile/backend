@@ -3,6 +3,7 @@ package web
 import (
 	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib/utils"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,16 +18,18 @@ func ProcessParams(c *fb.Context) (isShares bool) {
 
 	c.Sort = c.Query.Get("sort")
 	c.Order = c.Query.Get("order")
-	c.PreviewType = c.Query.Get("previewType")
+	c.PreviewType = c.Query.Get(cnst.P_PREVIEW_TYPE)
 	c.Inline, _ = strconv.ParseBool(c.Query.Get("inline"))
-	c.RootHash = c.Query.Get("rootHash")
+	c.RootHash = c.Query.Get(cnst.P_ROOTHASH)
 	c.Checksum = c.Query.Get("checksum")
 	c.ShareType = c.Query.Get("share")
 	c.IsRecursive, _ = strconv.ParseBool(c.Query.Get("recursive"))
 	c.Override, _ = strconv.ParseBool(c.Query.Get("override"))
 	c.Algo = c.Query.Get("algo")
 	c.Auth = c.Query.Get("auth")
-	c.RootHash = c.RootHash
+	if len(c.Auth) == 0 {
+		c.Auth = c.REQ.Header.Get(cnst.H_XAUTH)
+	}
 	//search request
 	q := c.Query.Get("query")
 	if len(q) > 0 {
@@ -72,7 +75,6 @@ func ProcessParams(c *fb.Context) (isShares bool) {
 		}
 	}
 	c.URL = c.REQ.URL.Path
-	c.URLString = c.REQ.URL.String()
 	c.Method = c.REQ.Method
 
 	c.REQ.URL.RawQuery = ""
@@ -88,16 +90,16 @@ func setFileType(c *fb.Context, t string) {
 }
 
 func setRouter(c *fb.Context) (isShares bool) {
-	c.Router, c.REQ.URL.Path = fb.SplitURL(c.REQ.URL.Path)
+	c.Router, c.REQ.URL.Path = utils.SplitURL(c.REQ.URL.Path)
 	if c.Router == cnst.R_SEARCH {
-		r, _ := fb.SplitURL(c.REQ.URL.Path)
+		r, _ := utils.SplitURL(c.REQ.URL.Path)
 		isShares = r == cnst.R_SHARES
 	} else {
 		isShares = c.Router == cnst.R_SHARES
 	}
 	c.Params.IsShare = isShares
 	if isShares {
-		rp, p := fb.SplitURL(c.REQ.URL.Path)
+		rp, p := utils.SplitURL(c.REQ.URL.Path)
 		if rp == cnst.R_DOWNLOAD {
 			c.Router = cnst.R_DOWNLOAD
 			c.REQ.URL.Path = p

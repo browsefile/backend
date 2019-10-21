@@ -3,7 +3,7 @@ package web
 import (
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/lib"
-	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/utils"
 	"github.com/maruel/natural"
 	"io"
 	"net/http"
@@ -22,7 +22,7 @@ func makePlaylist(c *lib.Context) (int, error) {
 	}
 	c.RESP.Header().Set("Content-Disposition", "attachment; filename=playlist.m3u")
 	c.FitFilter = func(name, p string) bool {
-		if ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name)); ok && fitMediaFilter(c, t) {
+		if ok, t := utils.GetBasedOnExtensions(filepath.Ext(name)); ok && fitMediaFilter(c, t) {
 			return true
 		}
 		return false
@@ -34,10 +34,10 @@ func makePlaylist(c *lib.Context) (int, error) {
 	sort.Sort(sort.Reverse(byName(c.FilePaths)))
 	h := getHost(c)
 	for _, p := range c.FilePaths {
-		serveFile(c, filepath.Base(p), p, h)
+		serveFileAsUrl(c, filepath.Base(p), p, h)
 	}
 
-	return http.StatusOK, nil
+	return code, nil
 }
 
 func fitMediaFilter(c *lib.Context, t string) bool {
@@ -47,7 +47,7 @@ func fitMediaFilter(c *lib.Context, t string) bool {
 }
 
 //write specific m3u tags into response
-func serveFile(c *lib.Context, fName, p, host string) {
+func serveFileAsUrl(c *lib.Context, fName, p, host string) {
 
 	io.WriteString(c.RESP, "#EXTINF:0 tvg-name=")
 	io.WriteString(c.RESP, fName)
@@ -57,7 +57,9 @@ func serveFile(c *lib.Context, fName, p, host string) {
 	io.WriteString(c.RESP, "?inline=true")
 
 	if c.IsExternalShare() {
-		io.WriteString(c.RESP, "&rootHash="+c.RootHash)
+		io.WriteString(c.RESP, "&")
+		io.WriteString(c.RESP, cnst.P_ROOTHASH)
+		io.WriteString(c.RESP, "="+c.RootHash)
 	}
 	if len(c.Auth) > 0 {
 		io.WriteString(c.RESP, "&auth="+c.Auth)

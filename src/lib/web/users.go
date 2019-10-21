@@ -11,13 +11,13 @@ import (
 	fb "github.com/browsefile/backend/src/lib"
 )
 
-type modifyRequest struct {
+type ModifyRequest struct {
 	What  string `json:"what"`  // Answer to: what data type?
 	Which string `json:"which"` // Answer to: which field?
 }
 
-type modifyUserRequest struct {
-	modifyRequest
+type ModifyUserRequest struct {
+	ModifyRequest
 	Data *fb.UserModel `json:"data"`
 }
 
@@ -66,7 +66,7 @@ func parseUserFromRequest(c *fb.Context) (*fb.UserModel, string, error) {
 	}
 
 	// Parses the request body and checks if it's well formed.
-	mod := &modifyUserRequest{}
+	mod := &ModifyUserRequest{}
 	err := json.NewDecoder(c.REQ.Body).Decode(mod)
 	if err != nil {
 		return nil, "", err
@@ -112,8 +112,8 @@ func usersGetHandler(c *fb.Context) (int, error) {
 		return renderJSON(c.RESP, users)
 	}
 
-	name:= getUserName(c.URL)
-	u, ok := c.Config.GetByUsername(name)
+	name := getUserName(c.URL)
+	u, ok := c.Config.GetUserByUsername(name)
 	if !ok {
 		return http.StatusNotFound, cnst.ErrNotExist
 	}
@@ -142,11 +142,6 @@ func usersPostHandler(c *fb.Context) (int, error) {
 		return http.StatusBadRequest, cnst.ErrEmptyPassword
 	}
 
-	// If the view mode is empty, initialize with the default one.
-	admin := c.Config.GetAdmin()
-	if u.ViewMode == "" && admin != nil {
-		u.ViewMode = admin.ViewMode
-	}
 	// Checks if the scope exists.
 	if code, err := makeFS(c.Config.GetUserHomePath(u.Username)); err != nil {
 		return code, err
@@ -162,7 +157,7 @@ func usersPostHandler(c *fb.Context) (int, error) {
 	u.ViewMode = cnst.MosaicViewMode
 
 	// Saves the user to the database.
-	err = c.Config.Add(u.UserConfig)
+	err = c.Config.AddUser(u.UserConfig)
 	if err == cnst.ErrExist {
 		return http.StatusConflict, err
 	}
@@ -174,7 +169,7 @@ func usersPostHandler(c *fb.Context) (int, error) {
 	// Set the Location header and return.
 	c.RESP.Header().Set("Location", "/settings/users/"+u.Username)
 	c.RESP.WriteHeader(http.StatusCreated)
-	return 0, nil
+	return http.StatusOK, nil
 }
 
 func makeFS(path string) (int, error) {
@@ -206,18 +201,16 @@ func usersDeleteHandler(c *fb.Context) (int, error) {
 	}
 
 	name := getUserName(c.URL)
-	_, ok := c.Config.GetByUsername(name)
+	_, ok := c.Config.GetUserByUsername(name)
 	if !ok {
 		return http.StatusInternalServerError, cnst.ErrNotExist
 	}
 
 	// Deletes the user from the database.
-	err := c.Config.Delete(name)
+	err := c.Config.DeleteUser(name)
 	if err == cnst.ErrNotExist {
 		return http.StatusNotFound, cnst.ErrNotExist
-	}
-
-	if err != nil {
+	} else if err != nil {
 		return http.StatusInternalServerError, err
 	}
 
@@ -232,7 +225,7 @@ func usersPutHandler(c *fb.Context) (int, error) {
 
 	// GetUsers the user ID from the URL and checks if it's valid.
 	name := getUserName(c.URL)
-	_, ok := c.Config.GetByUsername(name)
+	_, ok := c.Config.GetUserByUsername(name)
 	if !ok {
 		return http.StatusInternalServerError, cnst.ErrNotExist
 	}
@@ -254,7 +247,10 @@ func usersPutHandler(c *fb.Context) (int, error) {
 	if cfgM.AuthMethod == "none" {
 		admin := c.Config.GetAdmin()
 		admin.ViewMode = u.ViewMode
-		c.Config.Update(admin)
+		err = c.Config.Update(admin)
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
 		return http.StatusOK, nil
 	}
 
@@ -323,13 +319,9 @@ func usersPutHandler(c *fb.Context) (int, error) {
 		return code, err
 	}
 	// GetUsers the current saved user from the in-memory map.
-	suser, ok := c.Config.GetByUsername(name)
+	original, ok := c.Config.GetUserByUsername(name)
 	if !ok {
 		return http.StatusNotFound, nil
-	}
-
-	if err != nil {
-		return http.StatusInternalServerError, err
 	}
 
 	u.Username = name
@@ -343,9 +335,9 @@ func usersPutHandler(c *fb.Context) (int, error) {
 
 		u.Password = pw
 	} else {
-		u.Password = suser.Password
+		u.Password = original.Password
 	}
-	u.Shares = suser.Shares
+	u.Shares = original.Shares
 
 	// Updates the whole User struct because we always are supposed
 	// to send a new entire object.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
+	"github.com/browsefile/backend/src/lib/utils"
 	"html/template"
 	"log"
 	"net/http"
@@ -25,19 +26,17 @@ func Handler(m *fb.FileBrowser) http.Handler {
 		c.Method = c.REQ.Method
 		code, err := serve(c)
 
-		if code >= 400 {
+		if err != nil {
 			txt := http.StatusText(code)
 			if len(c.Params.PreviewType) == 0 {
 				log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
+				log.Println(err)
 			} else {
 				err = nil
 			}
 		}
 
-		if err != nil {
-			w.WriteHeader(code)
-			log.Print(err)
-		}
+		w.WriteHeader(code)
 	})
 }
 
@@ -62,15 +61,6 @@ func serve(c *fb.Context) (int, error) {
 	// Checks if this request is made to the API and directs to the
 	// API handler if so.
 	if matchURL(c.REQ.URL.Path, "/api") {
-		c.REQ.URL.Path = strings.TrimPrefix(c.REQ.URL.Path, "/api")
-		if c.REQ.URL.Path == "/auth/get" {
-			return authHandler(c)
-		}
-
-		if c.REQ.URL.Path == "/auth/renew" {
-			return renewAuthHandler(c)
-		}
-
 		return apiHandler(c)
 	}
 
@@ -94,7 +84,16 @@ func staticHandler(c *fb.Context) (code int, err error) {
 
 // apiHandler is the main entry point for the /api endpoint.
 func apiHandler(c *fb.Context) (code int, err error) {
+	c.REQ.URL.Path = strings.TrimPrefix(c.REQ.URL.Path, "/api")
+	if c.REQ.URL.Path == "/auth/get" {
+		return authHandler(c)
+	}
+
+	if c.REQ.URL.Path == "/auth/renew" {
+		return renewAuthHandler(c)
+	}
 	valid, _ := validateAuth(c)
+
 	if !valid {
 		return http.StatusForbidden, nil
 	}
@@ -158,7 +157,7 @@ func apiHandler(c *fb.Context) (code int, err error) {
 
 // renderFile renders a file using a template with some needed variables.
 func renderFile(c *fb.Context, file string) (int, error) {
-	contentType := fb.GetMimeType(file)
+	contentType := utils.GetMimeType(file)
 	if len(contentType) == 0 {
 		contentType = cnst.TEXT
 	}

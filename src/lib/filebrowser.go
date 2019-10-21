@@ -5,8 +5,8 @@ import (
 	"github.com/GeertJohan/go.rice"
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
-	"github.com/browsefile/backend/src/lib/fileutils"
 	"github.com/browsefile/backend/src/lib/preview"
+	"github.com/browsefile/backend/src/lib/utils"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"os"
@@ -41,6 +41,7 @@ type FileSystem interface {
 	Rename(oldName, newName string) error
 	Stat(name string) (os.FileInfo, error)
 	Copy(src, dst string, uid, gid int) error
+	String() string
 }
 
 type UserModel struct {
@@ -52,7 +53,6 @@ type UserModel struct {
 	FileSystemPreview FileSystem `json:"-"`
 	FileSystemShares  FileSystem `json:"-"`
 }
-
 
 // FSBuilder is the File System Builder.
 type FSBuilder func(scope string) FileSystem
@@ -92,9 +92,6 @@ func (fb *FileBrowser) Setup() (bool, error) {
 	}
 
 	if needUpdate {
-		fb.Config.UpdateUsers(users)
-	} else {
-
 		fb.Config.Users = users
 		fb.Config.RefreshUserRam()
 	}
@@ -119,9 +116,9 @@ func (fb *FileBrowser) Setup() (bool, error) {
 
 func ToUserModel(u *config.UserConfig, cfg *config.GlobalConfig) *UserModel {
 	return &UserModel{u, u.Username,
-		fileutils.Dir(cfg.GetUserHomePath(u.Username)),
-		fileutils.Dir(cfg.GetUserPreviewPath(u.Username)),
-		fileutils.Dir(cfg.GetUserSharesPath(u.Username)),
+		utils.Dir(cfg.GetUserHomePath(u.Username)),
+		utils.Dir(cfg.GetUserPreviewPath(u.Username)),
+		utils.Dir(cfg.GetUserSharesPath(u.Username)),
 	}
 }
 

@@ -3,11 +3,10 @@ package lib
 import (
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
-	"github.com/browsefile/backend/src/lib/fileutils"
-	"log"
+	"github.com/browsefile/backend/src/lib/utils"
 	"net/http"
 	"net/url"
-	"path/filepath"
+	"strings"
 )
 
 //used to filter out specific files by name and path
@@ -66,13 +65,31 @@ type Params struct {
 	//is share request
 	IsShare bool
 	//requestURL
-	URL       string
-	URLString string
-	Method    string
-	RESP      http.ResponseWriter
-	REQ       *http.Request
+	URL    string
+	Method string
+	RESP   http.ResponseWriter
+	REQ    *http.Request
 }
 
+//cut user home path from for non download routes
+func (c *Context) CutPath(path string) string {
+	if c.Router != cnst.R_DOWNLOAD {
+		if c.IsShare {
+			if c.IsExternalShare() {
+				path = strings.TrimPrefix(path, c.GetUserHomePath())
+				path = "/" + strings.SplitN(path, "/", 3)[2]
+			} else if c.Router == cnst.R_PLAYLIST {
+				path = strings.TrimPrefix(path, c.GetUserSharesPath())
+			} else {
+				path = strings.TrimPrefix(path, c.GetUserSharesPath())
+			}
+		} else {
+			path = strings.TrimPrefix(path, c.GetUserHomePath())
+		}
+	}
+	return path
+
+}
 func (c *Context) GetUserHomePath() string {
 	return c.Config.GetUserHomePath(c.User.Username)
 }
@@ -85,7 +102,7 @@ func (c *Context) GetUserSharesPath() string {
 
 func (c *Context) GenPreview(out string) {
 	if len(c.Config.ScriptPath) > 0 {
-		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
+		_, t := utils.GetBasedOnExtensions(c.File.Name)
 		if t == cnst.IMAGE || t == cnst.VIDEO {
 			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 		}
@@ -95,15 +112,9 @@ func (c *Context) GenPreview(out string) {
 func (c *Context) GenSharesPreview(out string) {
 	if len(c.Config.ScriptPath) > 0 {
 
-		_, t := fileutils.GetBasedOnExtensions(c.File.Name)
+		_, t := utils.GetBasedOnExtensions(c.File.Name)
 		if t == cnst.IMAGE || t == cnst.VIDEO {
-
-			f2, err := filepath.EvalSymlinks(c.File.Path)
-			if err == nil {
-				c.Pgen.Process(c.Pgen.GetDefaultData(f2, out, t))
-			} else {
-				log.Println(err)
-			}
+			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 
 		}
 

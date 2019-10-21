@@ -7,11 +7,10 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"github.com/browsefile/backend/src/cnst"
-	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/utils"
 	"github.com/maruel/natural"
 	"hash"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -71,7 +70,7 @@ type Listing struct {
 }
 
 // build correct path, and replace user in context in case external share
-func ResolvePaths(c *Context) (p, previewPath, urlPath string, err error) {
+func ResolveContextUser(c *Context) (p, previewPath, urlPath string, err error) {
 	if c.IsShare {
 		if c.IsExternalShare() {
 			itm, usr := c.Config.GetExternal(c.RootHash)
@@ -85,14 +84,10 @@ func ResolvePaths(c *Context) (p, previewPath, urlPath string, err error) {
 			p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
 			//if share root listing
 
-			if len(c.URL) == 1 {
-				urlPath = itm.Path
-			} else {
-				urlPath = itm.Path + c.URL
-			}
+			urlPath = itm.Path
 
 		} else {
-			p, previewPath = c.GetUserSharesPath(), c.Config.GetSharePreviewPath(c.URL)
+			p, previewPath = c.GetUserSharesPath(), filepath.Join(c.Config.GetSharePreviewPath(c.URL))
 			urlPath = c.URL
 		}
 
@@ -105,15 +100,14 @@ func ResolvePaths(c *Context) (p, previewPath, urlPath string, err error) {
 
 // MakeInfo gets the file information
 func MakeInfo(c *Context) (*File, error) {
-	p, _, urlPath2, err := ResolvePaths(c)
+	p, _, urlPath2, err := ResolveContextUser(c)
 	c.URL = urlPath2
-
-	info, err, path := fileutils.GetFileInfo(p, c.URL)
+	info, err, path := utils.GetFileInfo(p, c.URL)
 	if err != nil {
 		return nil, err
 	}
 	i := &File{
-		URL:         c.URLString,
+		URL:         c.URL,
 		VirtualPath: c.URL,
 		Path:        path,
 		Name:        info.Name(),
@@ -125,6 +119,7 @@ func MakeInfo(c *Context) (*File, error) {
 	if i.IsDir && !strings.HasSuffix(i.URL, "/") {
 		i.URL += "/"
 	}
+	i.URL = url.PathEscape(i.URL)
 
 	return i, nil
 }
@@ -132,9 +127,8 @@ func MakeInfo(c *Context) (*File, error) {
 //recursively fetch share/file paths
 func (i *File) GetListing(c *Context) (files []os.FileInfo, paths []string, err error) {
 	isExternal := c.IsExternalShare()
-
+	//fetch all files
 	if c.IsRecursive {
-
 		var p string
 		if c.IsShare && !isExternal {
 			p = c.GetUserSharesPath()
@@ -143,28 +137,47 @@ func (i *File) GetListing(c *Context) (files []os.FileInfo, paths []string, err 
 		}
 		files, paths = i.listRecurs(c, filepath.Join(p, i.VirtualPath))
 	} else {
-		var f *os.File
-		var err error
-		if isExternal {
-			f, err = c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
-			//replace original user/owner
-			usr, _ := c.Config.GetByUsername("guest")
-			c.User = ToUserModel(usr, c.Config)
-
-		} else if c.IsShare {
-			f, err = c.User.FileSystemShares.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+		//only list content
+		var fs FileSystem
+		if isExternal || !c.IsShare {
+			fs = c.User.FileSystem
 		} else {
-			f, err = c.User.FileSystem.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+			fs = c.User.FileSystemShares
 		}
-
+		inf, err := fs.Stat(i.VirtualPath)
 		if err != nil {
 			return nil, nil, err
 		}
-		defer f.Close()
-		// Reads the directory and gets the information about the files.
-		files, err = f.Readdir(-1)
-		if err != nil {
-			return nil, nil, err
+		if inf.IsDir() {
+			f, err := fs.OpenFile(i.VirtualPath, os.O_RDONLY, 0, c.User.UID, c.User.GID)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer f.Close()
+			// Reads the directory and gets the information about the files.
+			names, err := f.Readdirnames(-1)
+			for _, n := range names {
+				nMod := filepath.Join(i.VirtualPath, n)
+				paths = append(paths, nMod)
+				inf, err := fs.Stat(nMod)
+				if err != nil {
+					return nil, nil, err
+				}
+				files = append(files, inf)
+			}
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			p := filepath.Join(fs.String(), i.VirtualPath)
+			if c.IsShare {
+				inf, p, err = utils.ResolveSymlink(p)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+			files = append(files, inf)
+			paths = append(paths, i.VirtualPath)
 		}
 	}
 	return files, paths, nil
@@ -174,59 +187,43 @@ func (i *File) listRecurs(c *Context, path string) (files []os.FileInfo, paths [
 	err := filepath.Walk(path,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return err
+				return nil
 			}
 
 			if c.IsShare && !c.IsExternalShare() {
 				//get files from current user shares folder
-				f2, _ := filepath.EvalSymlinks(path)
-				info, _ = os.Stat(f2)
+				info, shrPath, _ := utils.ResolveSymlink(path)
 				if info.IsDir() {
-					fls, e := ioutil.ReadDir(f2)
-					if e != nil {
+					infDir, err := os.OpenFile(shrPath, os.O_RDONLY, 0)
+					if err != nil {
 						return nil
 					}
-					for _, f := range fls {
-						if f.IsDir() {
-							fr, pr := i.listRecurs(c, filepath.Join(f2, f.Name()))
+					//step to reduce problem in recursion
+					names, err := infDir.Readdir(-1)
+					if err != nil {
+						return nil
+					}
+					for _, name := range names {
+						if name.IsDir() {
+							fr, pr := i.listRecurs(c, filepath.Join(path, name.Name()))
 							files = append(files, fr...)
 							paths = append(paths, pr...)
-
 						} else {
-							//ignore path cut for download, full path required for download handler
-							if c.Router != cnst.R_DOWNLOAD {
-								path = strings.TrimPrefix(f2, c.Config.FilesPath)
-							}
-							if c.FitFilter != nil && c.FitFilter(f.Name(), path) ||
+							if c.FitFilter != nil && c.FitFilter(name.Name(), shrPath) ||
 								c.FitFilter == nil {
-								//cut files from path
-
-								if c.Router != cnst.R_DOWNLOAD {
-									arr := strings.SplitN(path, "/", 4)
-									paths = append(paths, filepath.Join("/", arr[1], arr[3], f.Name()))
-								} else {
-									paths = append(paths, path)
-								}
-								files = append(files, f)
+								files = append(files, name)
+								paths = append(paths, c.CutPath(filepath.Join(path, name.Name())))
 							}
 						}
 					}
-					return nil
+
 				}
+				return nil
 
 			} else {
-				if c.Router != cnst.R_DOWNLOAD {
-					path = strings.TrimPrefix(path, c.GetUserHomePath())
-				}
 				if c.FitFilter != nil && c.FitFilter(info.Name(), path) || c.FitFilter == nil {
-					if c.IsExternalShare() {
-						//replace root share folder with rootHash
-						path = "/" + strings.SplitN(path, "/", 3)[2]
-					} else if c.Router != cnst.R_DOWNLOAD {
-						path = strings.TrimPrefix(path, c.GetUserHomePath())
-					}
 					files = append(files, info)
-					paths = append(paths, path)
+					paths = append(paths, c.CutPath(path))
 				}
 			}
 
@@ -255,24 +252,12 @@ func (i *File) ProcessList(c *Context) error {
 		log.Println("file: ", err)
 		return err
 	}
-	baseurl, err := url.PathUnescape(i.URL)
-	if err != nil {
-		return err
-	}
-
-	isShare := c.IsShare
-	isExternal := c.IsExternalShare()
-	if isShare && c.IsRecursive {
-		isShare = false
-	}
 	for ind, f := range files {
 		name := f.Name()
 
 		//resolve share symlink
-		if isShare && !c.IsRecursive && !isExternal {
-			p := filepath.Join(i.Path, name)
-			f2, _ := filepath.EvalSymlinks(p)
-			f, _ = os.Stat(f2)
+		if c.IsShare && !c.IsRecursive {
+			f, _, _ = utils.ResolveSymlink(filepath.Join(i.Path, name))
 		}
 
 		if f.IsDir() {
@@ -281,19 +266,7 @@ func (i *File) ProcessList(c *Context) error {
 		} else {
 			fileCount++
 		}
-		//take path from recursive fetch, otherwise use current
-		if c.IsRecursive {
-
-			if f.IsDir() {
-				fUrl = url.URL{Path: baseurl}
-			} else {
-				fUrl = url.URL{Path: paths[ind]}
-			}
-
-		} else {
-			fUrl = url.URL{Path: baseurl + name}
-		}
-
+		fUrl = url.URL{Path: paths[ind]}
 		fI := &File{
 			Name:    f.Name(),
 			Size:    f.Size(),
@@ -338,7 +311,7 @@ func (f *File) SetFileType(checkContent bool) {
 		return
 	}
 	var isOk bool
-	isOk, f.Type = fileutils.GetBasedOnExtensions(filepath.Ext(f.Name))
+	isOk, f.Type = utils.GetBasedOnExtensions(filepath.Ext(f.Name))
 	// Tries to get the file mimetype using its extension.
 	if !isOk && checkContent {
 		log.Println("Can't detect file type, based on extension ", f.Name)

@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	"log"
 	"net/http"
@@ -59,7 +60,7 @@ func reCaptcha(host, secret, response string) (bool, error) {
 func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res bool) {
 	cfgM := c.GetAuthConfig()
 	if cfgM.AuthMethod == "ip" {
-		u, res := c.Config.GetByIp(r.RemoteAddr)
+		u, res := c.Config.GetUserByIp(r.RemoteAddr)
 		if !res {
 			return false
 		}
@@ -76,7 +77,7 @@ func authDavHandler(c *fb.Context, w http.ResponseWriter, r *http.Request) (res 
 		return
 	}
 
-	user, ok := c.Config.GetByUsername(username)
+	user, ok := c.Config.GetUserByUsername(username)
 	if !ok {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
@@ -116,9 +117,9 @@ func authHandler(c *fb.Context) (int, error) {
 		var uc *config.UserConfig
 		var ok bool
 		if isIp {
-			uc, ok = c.Config.GetByIp(c.REQ.RemoteAddr)
+			uc, ok = c.Config.GetUserByIp(c.REQ.RemoteAddr)
 		} else {
-			uc, ok = c.Config.GetByUsername(c.REQ.Header.Get(c.FileBrowser.Config.Header))
+			uc, ok = c.Config.GetUserByUsername(c.REQ.Header.Get(c.FileBrowser.Config.Header))
 		}
 
 		// Receive the Username from the Header and check if it exists.
@@ -153,7 +154,7 @@ func authHandler(c *fb.Context) (int, error) {
 		}
 	}
 
-	uc, ok := c.Config.GetByUsername(cred.Username)
+	uc, ok := c.Config.GetUserByUsername(cred.Username)
 	if !ok {
 		return http.StatusForbidden, nil
 	}
@@ -180,7 +181,7 @@ func renewAuthHandler(c *fb.Context) (int, error) {
 }
 
 // claims is the JWT claims.
-type claims struct {
+type Claims struct {
 	fb.UserModel
 	jwt.StandardClaims
 }
@@ -194,7 +195,7 @@ func printToken(c *fb.Context) (int, error) {
 	u.Password = ""
 
 	// Builds the claims.
-	claims := claims{
+	claims := Claims{
 		u,
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
@@ -210,7 +211,7 @@ func printToken(c *fb.Context) (int, error) {
 	}
 
 	//expired
-	if !claims.VerifyExpiresAt(time.Now().Add(time.Hour).Unix(), true) {
+	if !claims.VerifyExpiresAt(time.Now().Add(time.Hour).Unix(), true) && !c.User.IsGuest() {
 		c.RESP.Header().Add("X-Renew-Token", "true")
 	}
 
@@ -229,7 +230,7 @@ func printToken(c *fb.Context) (int, error) {
 type extractor []string
 
 func (e extractor) ExtractToken(r *http.Request) (string, error) {
-	token, _ := request.HeaderExtractor{"X-Auth"}.ExtractToken(r)
+	token, _ := request.HeaderExtractor{cnst.H_XAUTH}.ExtractToken(r)
 
 	// Checks if the token isn't empty and if it contains two dots.
 	// The former prevents incompatibility with URLs that previously
@@ -260,7 +261,7 @@ func validateAuth(c *fb.Context) (bool, *fb.UserModel) {
 	}
 	// If proxy auth is used do not verify the JWT token if the header is provided.
 	if cfgM.AuthMethod == "proxy" {
-		u, ok := c.Config.GetByUsername(c.REQ.Header.Get(c.Config.Header))
+		u, ok := c.Config.GetUserByUsername(c.REQ.Header.Get(c.Config.Header))
 		if !ok {
 			return false, nil
 		}
@@ -272,11 +273,11 @@ func validateAuth(c *fb.Context) (bool, *fb.UserModel) {
 		return c.Config.GetKeyBytes()
 	}
 
-	var claims claims
+	var claims Claims
 	var u *config.UserConfig
 	var ok bool
 	if cfgM.AuthMethod == "ip" {
-		u, ok = c.Config.GetByIp(c.REQ.RemoteAddr)
+		u, ok = c.Config.GetUserByIp(c.REQ.RemoteAddr)
 		if !ok {
 			return false, nil
 		}
@@ -289,7 +290,7 @@ func validateAuth(c *fb.Context) (bool, *fb.UserModel) {
 			return false, nil
 		}
 
-		u, ok = c.Config.GetByUsername(claims.Username)
+		u, ok = c.Config.GetUserByUsername(claims.Username)
 		if !ok {
 			return false, nil
 		}

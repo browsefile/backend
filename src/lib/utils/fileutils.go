@@ -1,6 +1,6 @@
-// Package fileutils implements some useful functions
+// Package utils implements some useful functions
 // to work with the file system.
-package fileutils
+package utils
 
 import (
 	"archive/zip"
@@ -61,7 +61,7 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 		}
 	}
 	if !res {
-		//log.Printf("fileutils can't detect type: %s", ext)
+		//log.Printf("utils can't detect type: %s", ext)
 		t = cnst.BLOB
 	}
 
@@ -124,13 +124,11 @@ func GenPreviewConvertPath(path string, scope string, previewScope string) (outp
 func ModPermission(uid, gid int, path string) (err error) {
 	if uid > 0 && gid > 0 {
 		err = os.Chown(path, uid, gid)
-		if err != nil {
-			log.Println(err)
-		}
 	}
 	return err
 
 }
+
 //write archive file to writer, paths - absolute files paths, filesFolder - absolute path for users folder, this method will trim user folder path from archive
 func ServeArchiveCompress(paths []string, filesFolder string, writer io.Writer, infos []os.FileInfo) (err error) {
 	archive := zip.NewWriter(writer)
@@ -146,7 +144,10 @@ func ServeArchiveCompress(paths []string, filesFolder string, writer io.Writer, 
 	}()
 	for i, f := range paths {
 		p := CutUserPath(f, filesFolder)
-		file, _ := os.OpenFile(f, os.O_RDONLY, 0)
+		file, err := os.OpenFile(f, os.O_RDONLY, 0)
+		if err != nil {
+			return err
+		}
 		//ignore compression for now
 		header := &zip.FileHeader{Name: p, Method: zip.Store, Modified: infos[i].ModTime()}
 		if err != nil {
@@ -167,6 +168,14 @@ func ServeArchiveCompress(paths []string, filesFolder string, writer io.Writer, 
 
 	}
 	return err
+}
+func ResolveSymlink(p string) (inf os.FileInfo, realPath string, err error) {
+	realPath, err = filepath.EvalSymlinks(p)
+	if err != nil {
+		return nil, "", err
+	}
+	inf, err = os.Stat(realPath)
+	return
 }
 
 /**

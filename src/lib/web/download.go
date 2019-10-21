@@ -3,7 +3,7 @@ package web
 import (
 	"github.com/browsefile/backend/src/cnst"
 	fb "github.com/browsefile/backend/src/lib"
-	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/utils"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,7 +18,10 @@ func downloadHandler(c *fb.Context) (code int, err error) {
 		if len(c.FilePaths) == 1 {
 			c.URL = c.FilePaths[0]
 		}
-		c.URL = fileutils.SlashClean(c.URL)
+		c.URL = utils.SlashClean(c.URL)
+		if len(c.URL) == 0 {
+			return http.StatusBadRequest, cnst.ErrInvalidOption
+		}
 		c.File, err = fb.MakeInfo(c)
 		if err != nil {
 			return cnst.ErrorToHTTP(err, false), err
@@ -30,7 +33,7 @@ func downloadHandler(c *fb.Context) (code int, err error) {
 			return downloadFileHandler(c)
 		} else {
 			//todo: remove redundant makeInfo for single file
-			c.FilePaths = []string{fileutils.CutUserPath(c.File.Path, c.Config.FilesPath)}
+			c.FilePaths = []string{utils.CutUserPath(c.File.Path, c.Config.FilesPath)}
 		}
 	}
 	code, err, infos := prepareFiles(c)
@@ -54,13 +57,13 @@ func prepareFiles(c *fb.Context) (int, error, []os.FileInfo) {
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
 	for _, p := range c.FilePaths {
-		p := fileutils.SlashClean(p)
+		p := utils.SlashClean(p)
 		c.URL = p
 		c.File, err = fb.MakeInfo(c)
 		if err != nil {
 			return cnst.ErrorToHTTP(err, false), err, nil
 		}
-		c.IsRecursive = true
+		c.IsRecursive = c.File.IsDir
 		infos, paths, err := c.File.GetListing(c)
 		if err != nil {
 			return cnst.ErrorToHTTP(err, false), err, nil
@@ -78,7 +81,7 @@ func prepareFiles(c *fb.Context) (int, error, []os.FileInfo) {
 }
 
 //set header as download, also set archive name, after archive
-func serveDownload(c *fb.Context, infos []os.FileInfo) (err error) {
+func serveDownload(c *fb.Context, infos []os.FileInfo) error {
 	// Defines the file name.
 	name := ""
 	if c.File != nil {
@@ -90,13 +93,13 @@ func serveDownload(c *fb.Context, infos []os.FileInfo) (err error) {
 		name += ".zip"
 	}
 	c.RESP.Header().Set("Content-Disposition", "attachment; filename*=utf-8''"+url.PathEscape(name))
-	return fileutils.ServeArchiveCompress(c.FilePaths, c.Config.FilesPath, c.RESP, infos)
+	return utils.ServeArchiveCompress(c.FilePaths, c.Config.FilesPath, c.RESP, infos)
 }
 
 //download single file, include preview
 func downloadFileHandler(c *fb.Context) (int, error) {
 	var err error
-	c.File.Path = fileutils.SlashClean(c.File.Path)
+	c.File.Path = utils.SlashClean(c.File.Path)
 
 	file, err := os.Open(c.File.Path)
 	defer file.Close()
@@ -109,18 +112,18 @@ func downloadFileHandler(c *fb.Context) (int, error) {
 	//serve icon
 	if len(c.PreviewType) > 0 {
 		var prevPath string
-		_, prevPath, c.URL, err = fb.ResolvePaths(c)
+		_, prevPath, c.URL, err = fb.ResolveContextUser(c)
 		if c.IsExternalShare() {
 			prevPath = filepath.Join(prevPath, c.URL)
 		}
 
 		if c.IsShare {
-			prevPath, _ = fileutils.ReplacePrevExt(prevPath)
+			prevPath, _ = utils.ReplacePrevExt(prevPath)
 		} else {
-			prevPath = fileutils.PreviewPathMod(c.File.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
+			prevPath = utils.PreviewPathMod(c.File.Path, c.GetUserHomePath(), c.GetUserPreviewPath())
 		}
 
-		if !fileutils.Exists(prevPath) {
+		if !utils.Exists(prevPath) {
 			if c.IsShare && !c.IsExternalShare() {
 				c.GenSharesPreview(prevPath)
 			} else {
@@ -128,12 +131,12 @@ func downloadFileHandler(c *fb.Context) (int, error) {
 			}
 
 		} else {
-			c.RESP.Header().Set("Content-Type", fb.GetMimeType(prevPath))
+			c.RESP.Header().Set("Content-Type", utils.GetMimeType(prevPath))
 			return servePreview(c, prevPath)
 		}
 	}
 	c.File.SetFileType(false)
-	m := fb.GetMimeType(c.File.Path)
+	m := utils.GetMimeType(c.File.Path)
 	if len(m) == 0 {
 		m = c.File.Type
 	}

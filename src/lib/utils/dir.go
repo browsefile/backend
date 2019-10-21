@@ -1,4 +1,4 @@
-package fileutils
+package utils
 
 import (
 	"os"
@@ -26,7 +26,6 @@ func (d Dir) resolve(name string) string {
 	return filepath.Join(dir, filepath.FromSlash(SlashClean(name)))
 }
 
-
 // Mkdir implements os.Mkdir in this directory context.
 func (d Dir) Mkdir(name string, perm os.FileMode, uid, gid int) error {
 	if name = d.resolve(name); name == "" {
@@ -34,7 +33,7 @@ func (d Dir) Mkdir(name string, perm os.FileMode, uid, gid int) error {
 	}
 	err := os.MkdirAll(name, perm)
 	if err == nil {
-		ModPermission(uid, gid, name)
+		err = ModPermission(uid, gid, name)
 	}
 	return err
 }
@@ -48,8 +47,8 @@ func (d Dir) OpenFile(name string, flag int, perm os.FileMode, uid, gid int) (*o
 	if err != nil {
 		return nil, err
 	}
-	ModPermission(uid, gid, name)
-	return f, nil
+	err = ModPermission(uid, gid, name)
+	return f, err
 }
 
 // RemoveAll implements os.RemoveAll in this directory context.
@@ -119,4 +118,8 @@ func (d Dir) Copy(src, dst string, uid, gid int) error {
 	}
 
 	return CopyFile(src, dst, uid, gid)
+}
+
+func (d Dir) String() string {
+	return string(d)
 }

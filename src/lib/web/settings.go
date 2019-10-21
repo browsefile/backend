@@ -46,7 +46,7 @@ func settingsPutHandler(c *lib.Context) (int, error) {
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-	mod.Init()
+	mod.Verify()
 	c.Config.UpdateConfig(mod)
 	c.Config.RefreshUserRam()
 

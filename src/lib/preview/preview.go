@@ -2,7 +2,7 @@ package preview
 
 import (
 	"github.com/browsefile/backend/src/cnst"
-	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/utils"
 	"log"
 	"os"
 	"os/exec"
@@ -18,7 +18,7 @@ type PreviewGen struct {
 }
 
 func genPrew(pd *PreviewData) {
-	if !fileutils.Exists(pd.out) {
+	if !utils.Exists(pd.out) {
 		//create missed paths
 		os.MkdirAll(filepath.Dir(pd.out), cnst.PERM_DEFAULT)
 		cmd := exec.Command("/bin/sh", pd.convert, pd.in, pd.out, pd.fType)
@@ -45,7 +45,7 @@ func (p *PreviewGen) Setup(t int, scr string) {
 			go func() {
 			Begin:
 				scp := <-p.ch
-				_, t := fileutils.GetBasedOnExtensions(scp.in)
+				_, t := utils.GetBasedOnExtensions(scp.in)
 				genPrew(p.GetDefaultData(scp.in, scp.out, t))
 				//p.ProcessPath(filepath.Dir(scp.in), filepath.Dir(scp.out))
 				goto Begin
@@ -78,10 +78,10 @@ func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 				return err
 			}
 
-			ok, t := fileutils.GetBasedOnExtensions(path)
+			ok, t := utils.GetBasedOnExtensions(path)
 			if ok && (strings.EqualFold(cnst.IMAGE, t) || strings.EqualFold(cnst.VIDEO, t)) {
 				var out string
-				out, err = fileutils.GenPreviewConvertPath(path, scope, previewScope)
+				out, err = utils.GenPreviewConvertPath(path, scope, previewScope)
 				genPrew(p.GetDefaultData(path, out, t))
 			}
 

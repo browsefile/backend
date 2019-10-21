@@ -2,8 +2,10 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	"github.com/browsefile/backend/src/lib"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -58,6 +60,7 @@ func sharePostHandler(c *lib.Context) (res int, err error) {
 			return http.StatusBadRequest, err
 		}
 	}
+	needUpd := false
 	switch c.ShareType {
 	case "gen-ex":
 		shrs := c.User.GetShares(c.URL, false)
@@ -76,47 +79,38 @@ func sharePostHandler(c *lib.Context) (res int, err error) {
 			h = shr.Hash
 		}
 
-		l := c.Config.ExternalShareHost + "/shares?rootHash=" + url.QueryEscape(h)
+		l := c.Config.ExternalShareHost + "/shares?" + cnst.P_ROOTHASH + "=" + url.QueryEscape(h)
 		return renderJSON(c.RESP, l)
 
-	case "my-meta":
-		shrs := c.User.GetShares(c.URL, false)
-		var shr *config.ShareItem
-		if len(shrs) == 0 {
-			shr = &config.ShareItem{}
-			shr.Path = c.URL
-		} else {
-			shr = shrs[0]
-		}
-
-		if shrs != nil {
-			if !c.Config.DeleteShare(c.User.UserConfig, c.URL) {
-				return http.StatusBadRequest, err
-			}
+	default:
+		shrs := c.User.GetShares(itm.Path, false)
+		if shrs != nil && !c.User.DeleteShare(itm.Path) {
+			return http.StatusBadRequest, cnst.ErrExist
 		}
 		if !c.User.AddShare(itm) {
-			return http.StatusBadRequest, err
+			return http.StatusBadRequest, cnst.ErrExist
 		}
-	default:
-		if err != nil {
+		needUpd = true
+	}
+	if needUpd {
+		if err = c.Config.Update(c.User.UserConfig); err != nil {
+			log.Println(err)
 			return http.StatusBadRequest, err
-		}
-		itm.Path = c.URL
-
-		ok := c.User.AddShare(itm)
-		if !ok {
-			return http.StatusNotFound, nil
 		}
 	}
-	c.Config.Update(c.User.UserConfig)
 	return renderJSON(c.RESP, itm)
 }
 
 func shareDeleteHandler(c *lib.Context) (int, error) {
-	ok := c.Config.DeleteShare(c.User.UserConfig, c.URL)
-	if !ok {
+	if !c.User.DeleteShare(c.URL) {
 		return http.StatusNotFound, nil
+	} else {
+		if err := c.Config.Update(c.User.UserConfig); err != nil {
+			log.Println(err)
+			return http.StatusNotFound, nil
+		}
+
 	}
-	c.Config.Update(c.User.UserConfig)
+
 	return http.StatusOK, nil
 }

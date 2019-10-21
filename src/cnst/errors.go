@@ -12,5 +12,5 @@ var (
 	ErrIsDirectory   = errors.New("file is directory")
 	ErrInvalidOption = errors.New("invalid option")
 	ErrWrongDataType = errors.New("wrong data type")
-	ErrShareAccess      = errors.New("share not allowed")
+	ErrShareAccess   = errors.New("share not allowed")
 )

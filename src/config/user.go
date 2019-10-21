@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"github.com/browsefile/backend/src/cnst"
 	"golang.org/x/net/webdav"
 	"strings"
@@ -66,12 +67,11 @@ func (u *UserConfig) copyUser() (res *UserConfig) {
 }
 func (u *UserConfig) IsGuest() bool {
 	return u.Username == cnst.GUEST
-
 }
 
 func (u *UserConfig) GetShares(relPath string, del bool) (res []*ShareItem) {
-	config.lockR()
-	defer config.unlockR()
+	updateLock.RLock()
+	defer updateLock.RUnlock()
 	relPath = strings.TrimSuffix(relPath, "/")
 	for _, shr := range u.Shares {
 		if del {
@@ -86,6 +86,13 @@ func (u *UserConfig) GetShares(relPath string, del bool) (res []*ShareItem) {
 	return
 }
 
+//true in case share deleted
+func (u *UserConfig) DeleteShare(relPath string) (res bool) {
+	updateLock.RLock()
+	defer updateLock.RUnlock()
+
+	return u.deleteShare(relPath)
+}
 func (u *UserConfig) deleteShare(relPath string) (res bool) {
 	res = false
 
@@ -98,19 +105,138 @@ func (u *UserConfig) deleteShare(relPath string) (res bool) {
 		}
 
 	}
+	return res
+}
 
+//true in case share added
+func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
+
+	shr.Path = strings.TrimSuffix(shr.Path, "/")
+	u.Shares = append(u.Shares, shr)
+	shr.Hash = GenShareHash(u.Username, shr.Path)
+	res = true
+	addSharePath(shr, u.Username)
 	return
 }
 
-func (u *UserConfig) AddShare(shr *ShareItem) (res bool) {
-	config.lock()
-	shr.Path = strings.TrimSuffix(shr.Path, "/")
-	u.Shares = append(u.Shares, shr)
-	if shr.AllowExternal {
-		shr.Hash = GenShareHash(u.Username, shr.Path)
+func (cfg *GlobalConfig) GetUserByUsername(username string) (*UserConfig, bool) {
+	updateLock.RLock()
+	defer updateLock.RUnlock()
+	if username == cnst.GUEST {
+		admin := cfg.GetAdmin()
+		return &UserConfig{
+			Username:  username,
+			Locale:    admin.Locale,
+			Admin:     false,
+			ViewMode:  admin.ViewMode,
+			AllowNew:  false,
+			AllowEdit: false,
+		}, true
 	}
-	res = true
-	config.unlock()
-	addSharePath(shr, u.Username)
-	return
+
+	res, ok := usersRam[username]
+	if !ok {
+		return nil, ok
+	}
+
+	return res.copyUser(), ok
+}
+func (cfg *GlobalConfig) GetUserByIp(ip string) (*UserConfig, bool) {
+	updateLock.RLock()
+	defer updateLock.RUnlock()
+	ip = strings.Split(ip, ":")[0]
+	res, ok := usersRam[ip]
+	if !ok {
+		return nil, ok
+	}
+
+	return res.copyUser(), ok
+}
+
+func (cfg *GlobalConfig) GetUsers() (res []*UserConfig) {
+	updateLock.RLock()
+	defer updateLock.RUnlock()
+	res = make([]*UserConfig, len(cfg.Users))
+	for i, u := range cfg.Users {
+		res[i] = u.copyUser()
+	}
+
+	return res
+}
+
+func (cfg *GlobalConfig) AddUser(u *UserConfig) error {
+	updateLock.Lock()
+	defer updateLock.Unlock()
+	_, exists := usersRam[u.Username]
+	if exists {
+		return errors.New("User exists " + u.Username)
+	}
+
+	cfg.Users = append(cfg.Users, u)
+	cfg.RefreshUserRam()
+
+	return nil
+}
+func (cfg *GlobalConfig) UpdatePassword(u *UserConfig) error {
+	updateLock.Lock()
+	defer updateLock.Unlock()
+	i := cfg.getUserIndex(u.Username)
+	if i >= 0 {
+		//update only specific fields
+		cfg.Users[i].Password = u.Password
+	} else {
+		return errors.New("User does not exists " + u.Username)
+	}
+	return nil
+}
+func (cfg *GlobalConfig) Update(u *UserConfig) error {
+	updateLock.Lock()
+	defer updateLock.Unlock()
+	i := cfg.getUserIndex(u.Username)
+	if i >= 0 {
+		//update only specific fields
+		cfg.Users[i].Admin = u.Admin
+		cfg.Users[i].ViewMode = u.ViewMode
+		cfg.Users[i].FirstRun = u.FirstRun
+		cfg.Users[i].Shares = u.Shares
+		cfg.Users[i].IpAuth = u.IpAuth
+		cfg.Users[i].Locale = u.Locale
+		cfg.Users[i].AllowEdit = u.AllowEdit
+		cfg.Users[i].AllowNew = u.AllowNew
+		cfg.Users[i].LockPassword = u.LockPassword
+		cfg.Users[i].UID = u.UID
+		cfg.Users[i].GID = u.GID
+		cfg.RefreshUserRam()
+	} else {
+		return errors.New("User does not exists " + u.Username)
+	}
+
+	return nil
+}
+
+//delete user by username
+func (cfg *GlobalConfig) DeleteUser(username string) error {
+	updateLock.Lock()
+	defer updateLock.Unlock()
+	i := cfg.getUserIndex(username)
+	if i >= 0 {
+		for _, shr := range cfg.Users[i].Shares {
+			cfg.Users[i].deleteShare(shr.Path)
+		}
+
+		cfg.Users = append(cfg.Users[:i], cfg.Users[i+1:]...)
+	}
+	cfg.RefreshUserRam()
+
+	return nil
+}
+
+//get user index in cfg users array
+func (cfg *GlobalConfig) getUserIndex(userName string) int {
+	for i, u := range cfg.Users {
+		if strings.EqualFold(u.Username, userName) {
+			return i
+		}
+	}
+	return -1
 }

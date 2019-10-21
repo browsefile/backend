@@ -6,7 +6,7 @@ import (
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	fb "github.com/browsefile/backend/src/lib"
-	"github.com/browsefile/backend/src/lib/fileutils"
+	"github.com/browsefile/backend/src/lib/utils"
 	"io"
 	"io/ioutil"
 	"log"
@@ -21,7 +21,7 @@ var (
 	resourceMediaFilter = func(c *fb.Context, name, p string) bool {
 
 		var fitType bool
-		ok, t := fileutils.GetBasedOnExtensions(filepath.Ext(name))
+		ok, t := utils.GetBasedOnExtensions(filepath.Ext(name))
 		hasType := c.Audio || c.Video || c.Pdf || c.Image
 		if ok && hasType {
 			fitType = t == cnst.IMAGE && c.Image ||
@@ -34,9 +34,9 @@ var (
 	}
 )
 // sanitizeURL sanitizes the URL to prevent path transversal
-// using fileutils.SlashClean and adds the trailing slash bar.
+// using utils.SlashClean and adds the trailing slash bar.
 func sanitizeURL(url string) string {
-	path := fileutils.SlashClean(url)
+	path := utils.SlashClean(url)
 	if strings.HasSuffix(url, "/") && path != "/" {
 		return path + "/"
 	}
@@ -44,6 +44,7 @@ func sanitizeURL(url string) string {
 }
 
 func resourceHandler(c *fb.Context) (int, error) {
+
 	c.URL = sanitizeURL(c.URL)
 
 	switch c.Method {
@@ -148,14 +149,16 @@ func resourceDeleteHandler(c *fb.Context) (int, error) {
 	}
 	//delete share
 	for _, itm := range findShare(c.User.UserConfig, c.URL) {
-		c.Config.DeleteShare(c.User.UserConfig, itm.Path)
-		_ = c.Config.Update(c.User.UserConfig)
+
+		if c.User.DeleteShare(itm.Path) {
+			_ = c.Config.Update(c.User.UserConfig)
+		}
+
 	}
 
 	return http.StatusOK, nil
 }
 func findShare(u *config.UserConfig, p string) (res []*config.ShareItem) {
-
 	for _, itm := range u.GetShares(p, true) {
 		itmPath := strings.TrimSuffix(itm.Path, "/")
 		itmPath = strings.TrimPrefix(itmPath, "/")
@@ -176,7 +179,7 @@ func removePreview(c *fb.Context) {
 	}
 	var src string
 	if !info.IsDir() {
-		src, _ = fileutils.ReplacePrevExt(c.URL)
+		src, _ = utils.ReplacePrevExt(c.URL)
 	} else {
 		src = c.URL
 	}
@@ -188,15 +191,15 @@ func removePreview(c *fb.Context) {
 } //rename preview
 func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 	info, err := c.User.FileSystem.Stat(src)
-	_, t := fileutils.GetBasedOnExtensions(src)
+	_, t := utils.GetBasedOnExtensions(src)
 	if err != nil {
 		//log.Printf("resource: preview file locked or it does not exists %s", err)
 		return
 	}
 	if t == cnst.IMAGE || t == cnst.VIDEO {
 		if !info.IsDir() {
-			src, _ = fileutils.ReplacePrevExt(src)
-			dst, _ = fileutils.ReplacePrevExt(dst)
+			src, _ = utils.ReplacePrevExt(src)
+			dst, _ = utils.ReplacePrevExt(dst)
 		}
 		if isCopy {
 			c.User.FileSystemPreview.Copy(src, dst, c.User.UID, c.User.GID)
@@ -230,12 +233,12 @@ func resourcePostPutHandler(c *fb.Context) (int, error) {
 		}
 
 		// Otherwise we try to create the directory.
-		err := c.User.FileSystem.Mkdir(c.URL, 0775, c.User.UID, c.User.GID)
+		err := c.User.FileSystem.Mkdir(c.URL, cnst.PERM_DEFAULT, c.User.UID, c.User.GID)
 		if err != nil {
 			p := filepath.Join(c.GetUserHomePath(), c.URL)
 			err = os.Chown(p, c.User.UID, c.User.GID)
 			if err != nil {
-				c.User.FileSystemPreview.Mkdir(p, 0775, c.User.UID, c.User.GID)
+				c.User.FileSystemPreview.Mkdir(p, cnst.PERM_DEFAULT, c.User.UID, c.User.GID)
 			}
 			if !os.IsPermission(err) {
 				log.Println(err)
@@ -253,7 +256,7 @@ func resourcePostPutHandler(c *fb.Context) (int, error) {
 		}
 	}
 	// Create/Open the file.
-	f, err := c.User.FileSystem.OpenFile(c.URL, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775, c.User.UID, c.User.GID)
+	f, err := c.User.FileSystem.OpenFile(c.URL, os.O_RDWR|os.O_CREATE|os.O_TRUNC, cnst.PERM_DEFAULT, c.User.UID, c.User.GID)
 	if err != nil {
 		return cnst.ErrorToHTTP(err, false), err
 	}
@@ -274,8 +277,8 @@ func resourcePostPutHandler(c *fb.Context) (int, error) {
 		inf, err := fb.MakeInfo(c)
 		if err == nil {
 			c.File = inf
-			modP := fileutils.PreviewPathMod(c.URL, c.GetUserHomePath(), c.GetUserPreviewPath())
-			if !fileutils.Exists(modP) {
+			modP := utils.PreviewPathMod(c.URL, c.GetUserHomePath(), c.GetUserPreviewPath())
+			if !utils.Exists(modP) {
 				c.GenPreview(modP)
 			}
 		}
@@ -316,8 +319,9 @@ func resourcePatchHandler(c *fb.Context) (int, error) {
 		if err == nil {
 			//check if share exists
 			for _, itm := range findShare(c.User.UserConfig, c.URL) {
-				c.Config.DeleteShare(c.User.UserConfig, itm.Path)
-				_ = c.Config.Update(c.User.UserConfig)
+				if c.User.DeleteShare(itm.Path) {
+					_ = c.Config.Update(c.User.UserConfig)
+				}
 			}
 		}
 

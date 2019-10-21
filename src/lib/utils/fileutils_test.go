@@ -1,4 +1,4 @@
-package fileutils
+package utils
 
 import "testing"
 
@@ -62,7 +62,4 @@ func TestSlashClean(t *testing.T) {
 			t.Errorf("Incorrect value on SlashClean for %v; want: %v; got: %v", test.Value, test.Result, val)
 		}
 	}
-}
-func TestSome(t *testing.T) {
-
 }
