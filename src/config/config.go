@@ -88,7 +88,7 @@ func (cfg *GlobalConfig) GetExternal(hash string) (res *ShareItem, usr *UserConf
 	defer updateLock.RUnlock()
 	for _, user := range cfg.Users {
 		for _, item := range user.Shares {
-			if strings.EqualFold(hash, item.Hash) {
+			if hash == item.Hash {
 				res = item
 				usr = user
 				break
@@ -232,7 +232,7 @@ func (cfg *GlobalConfig) setUpPaths() {
 		//fix bad symlinks, or build missed for share for specific user
 		for _, owner := range cfg.Users {
 			//skip same user
-			if strings.EqualFold(owner.Username, u.Username) {
+			if owner.Username == u.Username {
 				continue
 			}
 

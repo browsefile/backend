@@ -35,13 +35,13 @@ func GetBasedOnExtensions(name string) (res bool, t string) {
 	if ext == "" {
 		ext = name
 	}
-	res = strings.EqualFold(".pdf", ext)
+	res = ".pdf" == ext
 	if res {
 		return res, cnst.PDF
 	}
 	for iEx, eArr := range cnst.MIME_EXT {
 		for _, e := range eArr {
-			res = strings.EqualFold(e, ext)
+			res = e == ext
 			if res {
 				switch iEx {
 				case 0:
@@ -112,7 +112,7 @@ func ReplacePrevExt(srcPath string) (path string, t string) {
 
 // Will return input and output to be processed to the bash convert/ffmpeg in order to generate preview
 func GenPreviewConvertPath(path string, scope string, previewScope string) (outp string, err error) {
-	if !strings.EqualFold(filepath.Dir(path), path) {
+	if filepath.Dir(path) != path {
 
 		outp = filepath.Join(previewScope, strings.TrimPrefix(path, scope))
 		outp, _ = ReplacePrevExt(outp)

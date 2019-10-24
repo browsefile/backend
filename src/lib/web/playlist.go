@@ -41,9 +41,9 @@ func makePlaylist(c *lib.Context) (int, error) {
 }
 
 func fitMediaFilter(c *lib.Context, t string) bool {
-	return c.Audio && strings.EqualFold(t, cnst.AUDIO) ||
-		c.Video && strings.EqualFold(t, cnst.VIDEO) ||
-		c.Image && strings.EqualFold(t, cnst.IMAGE)
+	return c.Audio && t == cnst.AUDIO ||
+		c.Video && t == cnst.VIDEO ||
+		c.Image && t == cnst.IMAGE
 }
 
 //write specific m3u tags into response

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // should be 1 global object
@@ -79,7 +78,7 @@ func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 			}
 
 			ok, t := utils.GetBasedOnExtensions(path)
-			if ok && (strings.EqualFold(cnst.IMAGE, t) || strings.EqualFold(cnst.VIDEO, t)) {
+			if ok && (cnst.IMAGE == t || cnst.VIDEO == t) {
 				var out string
 				out, err = utils.GenPreviewConvertPath(path, scope, previewScope)
 				genPrew(p.GetDefaultData(path, out, t))

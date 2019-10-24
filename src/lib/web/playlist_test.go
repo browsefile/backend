@@ -83,7 +83,7 @@ func testPlaylistOnDir(cfg *TServContext, t *testing.T, isShare bool, data map[s
 func validatePlaylistLinks(cfg *TServContext, links string, t *testing.T, count int) {
 	count *= 2
 	arr := strings.Split(links, "\n")
-	arr = arr[: len(arr)-1]
+	arr = arr[:len(arr)-1]
 	if len(arr) != count {
 		t.Error(links)
 		t.Fatal("wrong links count, expected ", count, "actual", len(arr))

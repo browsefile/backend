@@ -17,18 +17,18 @@ import (
 
 //helper struct for testing only
 type TContext struct {
-	SharePathDeep string
-	SharePathUp   string
-	ConfigPath    string
-	Usr1          *UserConfig
-	Usr2          *UserConfig
-	Guest         *UserConfig
-	User1FS       utils.Dir
-	User1FSPreview       utils.Dir
-	User2FS       utils.Dir
-	User2FSShare  utils.Dir
-	AdminFSShare  utils.Dir
-	AdminFS       utils.Dir
+	SharePathDeep  string
+	SharePathUp    string
+	ConfigPath     string
+	Usr1           *UserConfig
+	Usr2           *UserConfig
+	Guest          *UserConfig
+	User1FS        utils.Dir
+	User1FSPreview utils.Dir
+	User2FS        utils.Dir
+	User2FSShare   utils.Dir
+	AdminFSShare   utils.Dir
+	AdminFS        utils.Dir
 	*GlobalConfig
 	Srv   *httptest.Server
 	Tr    *http.Transport

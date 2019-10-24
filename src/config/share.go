@@ -36,11 +36,11 @@ func (shr *ShareItem) IsAllowed(user string) (res bool) {
 
 	if ok && shr.AllowLocal && !usr.IsGuest() {
 		res = true
-	} else if shr.AllowExternal && len(shr.Hash) > 0 && strings.EqualFold(user, cnst.GUEST) {
+	} else if shr.AllowExternal && len(shr.Hash) > 0 && user == cnst.GUEST {
 		res = true
 	} else {
 		for _, uname := range shr.AllowUsers {
-			res = strings.EqualFold(uname, user)
+			res = uname == user
 			if res {
 				break
 			}
@@ -80,7 +80,7 @@ func addSharePath(shr *ShareItem, own string) {
 
 //will create share path, or drop share item, in case share not exists
 func processSharePath(shr *ShareItem, u *UserConfig, own string) {
-	if strings.EqualFold(u.Username, own) {
+	if u.Username == own {
 		return
 	}
 	if !config.checkShareSymLinkPath(shr, u.Username, own) {
@@ -92,7 +92,7 @@ func processSharePath(shr *ShareItem, u *UserConfig, own string) {
 
 func delSharePath(shr *ShareItem, owner string) {
 	for _, u := range config.Users {
-		if strings.EqualFold(owner, u.Username) {
+		if owner == u.Username {
 			continue
 		}
 		p, err := shr.ResolveSymlinkName()
@@ -112,7 +112,7 @@ func GenShareHash(userName, itmPath string) string {
 //returns true in case share good, otherwise original share path does not exists. Will create share if needed
 func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, consumer, owner string) (res bool) {
 	res = true
-	if strings.EqualFold(owner, consumer) {
+	if owner == consumer {
 		return
 	}
 	dp := filepath.Join(cfg.GetUserSharesPath(consumer), owner)
