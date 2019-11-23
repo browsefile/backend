@@ -34,7 +34,7 @@ func shareGetHandler(c *lib.Context) (int, error) {
 	switch c.ShareType {
 	case "my-meta":
 		if "/" == c.URL {
-			return renderJSON(c.RESP, c.User.Shares)
+			return renderJSON(c, c.User.Shares)
 		} else {
 			shrs := c.User.GetShares(c.URL, false)
 			var shr *config.ShareItem
@@ -44,7 +44,7 @@ func shareGetHandler(c *lib.Context) (int, error) {
 			} else {
 				shr = shrs[0]
 			}
-			return renderJSON(c.RESP, shr)
+			return renderJSON(c, shr)
 		}
 
 	default:
@@ -79,7 +79,7 @@ func sharePostHandler(c *lib.Context) (res int, err error) {
 		}
 
 		l := c.Config.ExternalShareHost + "/shares?" + cnst.P_ROOTHASH + "=" + url.QueryEscape(h)
-		return renderJSON(c.RESP, l)
+		return renderJSON(c, l)
 
 	default:
 		shrs := c.User.GetShares(itm.Path, false)
@@ -97,7 +97,7 @@ func sharePostHandler(c *lib.Context) (res int, err error) {
 			return http.StatusBadRequest, err
 		}
 	}
-	return renderJSON(c.RESP, itm)
+	return renderJSON(c, itm)
 }
 
 func shareDeleteHandler(c *lib.Context) (int, error) {

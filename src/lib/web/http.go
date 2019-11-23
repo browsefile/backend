@@ -35,8 +35,10 @@ func Handler(m *fb.FileBrowser) http.Handler {
 				err = nil
 			}
 		}
+		if !c.Rendered && c.Router > 0 && c.Router != cnst.R_DOWNLOAD && c.Router != cnst.R_PLAYLIST {
+			w.WriteHeader(code)
+		}
 
-		w.WriteHeader(code)
 	})
 }
 
@@ -116,7 +118,7 @@ func apiHandler(c *fb.Context) (code int, err error) {
 		}
 		// do not waste bandwidth if we just want the checksum
 		c.File.Content = ""
-		return renderJSON(c.RESP, c.File)
+		return renderJSON(c, c.File)
 	}
 
 	switch c.Router {
@@ -205,14 +207,14 @@ func renderFile(c *fb.Context, file string) (int, error) {
 }
 
 // renderJSON prints the JSON version of data to the browser.
-func renderJSON(w http.ResponseWriter, data interface{}) (int, error) {
+func renderJSON(c *fb.Context, data interface{}) (int, error) {
 	marsh, err := json.Marshal(data)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if _, err := w.Write(marsh); err != nil {
+	c.Rendered = true
+	c.RESP.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if _, err := c.RESP.Write(marsh); err != nil {
 		return http.StatusInternalServerError, err
 	}
 

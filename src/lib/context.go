@@ -22,6 +22,7 @@ type Context struct {
 	Router int
 	*Params
 	FitFilter
+	Rendered bool
 }
 
 //params in URL request
