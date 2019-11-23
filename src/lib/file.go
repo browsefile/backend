@@ -69,61 +69,6 @@ type Listing struct {
 	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 }
 
-// build correct path, and replace user in context in case external share
-func ResolveContextUser(c *Context) (p, previewPath, urlPath string, err error) {
-	if c.IsShare {
-		if c.IsExternalShare() {
-			itm, usr := c.Config.GetExternal(c.RootHash)
-			if itm == nil {
-				return "", "", "", cnst.ErrNotExist
-			}
-			if !itm.IsAllowed(c.User.Username) {
-				return "", "", "", cnst.ErrShareAccess
-			}
-			c.User = ToUserModel(usr, c.Config)
-			p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
-			//if share root listing
-
-			urlPath = itm.Path
-
-		} else {
-			p, previewPath = c.GetUserSharesPath(), filepath.Join(c.Config.GetSharePreviewPath(c.URL))
-			urlPath = c.URL
-		}
-
-	} else {
-		p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
-		urlPath = c.URL
-	}
-	return
-}
-
-// MakeInfo gets the file information
-func MakeInfo(c *Context) (*File, error) {
-	p, _, urlPath2, err := ResolveContextUser(c)
-	c.URL = urlPath2
-	info, err, path := utils.GetFileInfo(p, c.URL)
-	if err != nil {
-		return nil, err
-	}
-	i := &File{
-		URL:         c.URL,
-		VirtualPath: c.URL,
-		Path:        path,
-		Name:        info.Name(),
-		IsDir:       info.IsDir(),
-		Size:        info.Size(),
-		ModTime:     info.ModTime(),
-	}
-
-	if i.IsDir && !strings.HasSuffix(i.URL, "/") {
-		i.URL += "/"
-	}
-	i.URL = url.PathEscape(i.URL)
-
-	return i, nil
-}
-
 //recursively fetch share/file paths
 func (i *File) GetListing(c *Context) (files []os.FileInfo, paths []string, err error) {
 	isExternal := c.IsExternalShare()
@@ -274,7 +219,8 @@ func (i *File) ProcessList(c *Context) error {
 			IsDir:   f.IsDir(),
 			URL:     fUrl.String(),
 		}
-		fI.SetFileType(false)
+
+		_, fI.Type = utils.GetFileType(f.Name())
 
 		if c.FitFilter != nil && !c.IsRecursive {
 			if c.FitFilter(fI.Name, fUrl.Path) {
@@ -302,22 +248,6 @@ func (i *File) ProcessList(c *Context) error {
 	}
 
 	return nil
-}
-
-// SetFileType obtains the mimetype and converts it to a simple
-// type nomenclature.
-func (f *File) SetFileType(checkContent bool) {
-	if len(f.Type) > 0 || f.IsDir {
-		return
-	}
-	var isOk bool
-	isOk, f.Type = utils.GetBasedOnExtensions(filepath.Ext(f.Name))
-	// Tries to get the file mimetype using its extension.
-	if !isOk && checkContent {
-		log.Println("Can't detect file type, based on extension ", f.Name)
-		return
-
-	}
 }
 
 // Checksum retrieves the checksum of a file.

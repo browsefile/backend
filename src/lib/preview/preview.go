@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // should be 1 global object
@@ -45,7 +44,7 @@ func (p *PreviewGen) Setup(t int, scr string) {
 			go func() {
 			Begin:
 				scp := <-p.ch
-				_, t := utils.GetBasedOnExtensions(scp.in)
+				_, t := utils.GetFileType(scp.in)
 				genPrew(p.GetDefaultData(scp.in, scp.out, t))
 				//p.ProcessPath(filepath.Dir(scp.in), filepath.Dir(scp.out))
 				goto Begin
@@ -78,11 +77,8 @@ func (p *PreviewGen) ProcessPath(scope string, previewScope string) {
 				return err
 			}
 
-			ok, t := utils.GetBasedOnExtensions(path)
-			if ok && (strings.EqualFold(cnst.IMAGE, t) || strings.EqualFold(cnst.VIDEO, t)) {
-				var out string
-				out, err = utils.GenPreviewConvertPath(path, scope, previewScope)
-				genPrew(p.GetDefaultData(path, out, t))
+			if ok, t := utils.GetFileType(path); ok && (cnst.IMAGE == t || cnst.VIDEO == t) {
+				genPrew(p.GetDefaultData(path, utils.GenPreviewConvertPath(path, scope, previewScope), t))
 			}
 
 			return nil

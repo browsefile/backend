@@ -45,14 +45,14 @@ func serve(c *fb.Context) (int, error) {
 	// Checks if this request is made to the static assets folder. If so, and
 	// if it is a GET request, returns with the asset. Otherwise, returns
 	// a status not implemented.
-	if matchURL(c.REQ.URL.Path, "/static") {
+	if strings.HasPrefix(c.REQ.URL.Path, "/static") {
 		if c.Method != http.MethodGet {
 			return http.StatusNotImplemented, nil
 		}
 
 		return staticHandler(c)
 	}
-	if matchURL(c.REQ.URL.Path, cnst.WEB_DAV_URL) {
+	if strings.HasPrefix(c.REQ.URL.Path, cnst.WEB_DAV_URL) {
 		ServeDav(c, c.RESP, c.REQ)
 		return http.StatusOK, nil
 
@@ -60,7 +60,7 @@ func serve(c *fb.Context) (int, error) {
 
 	// Checks if this request is made to the API and directs to the
 	// API handler if so.
-	if matchURL(c.REQ.URL.Path, "/api") {
+	if strings.HasPrefix(c.REQ.URL.Path, "/api") {
 		return apiHandler(c)
 	}
 
@@ -100,7 +100,7 @@ func apiHandler(c *fb.Context) (code int, err error) {
 	isShares := ProcessParams(c)
 	//allow only GET requests, for external share
 	if valid && c.User.IsGuest() && (!isShares ||
-		!strings.EqualFold(c.Method, http.MethodGet) ||
+		c.Method != http.MethodGet ||
 		c.Router == cnst.R_RESOURCE ||
 		c.Router == cnst.R_USERS ||
 		c.Router == cnst.R_SETTINGS) {
@@ -217,12 +217,4 @@ func renderJSON(w http.ResponseWriter, data interface{}) (int, error) {
 	}
 
 	return 0, nil
-}
-
-// matchURL checks if the first URL matches the second.
-func matchURL(first, second string) bool {
-	first = strings.ToLower(first)
-	second = strings.ToLower(second)
-
-	return strings.HasPrefix(first, second)
 }

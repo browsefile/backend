@@ -78,7 +78,7 @@ func (u *UserConfig) GetShares(relPath string, del bool) (res []*ShareItem) {
 			if strings.HasPrefix(relPath, shr.Path) || strings.HasPrefix(shr.Path, relPath) {
 				res = append(res, shr.copyShare())
 			}
-		} else if strings.EqualFold(relPath, shr.Path) {
+		} else if relPath == shr.Path {
 			res = append(res, shr.copyShare())
 			break
 		}
@@ -234,7 +234,7 @@ func (cfg *GlobalConfig) DeleteUser(username string) error {
 //get user index in cfg users array
 func (cfg *GlobalConfig) getUserIndex(userName string) int {
 	for i, u := range cfg.Users {
-		if strings.EqualFold(u.Username, userName) {
+		if u.Username == userName {
 			return i
 		}
 	}

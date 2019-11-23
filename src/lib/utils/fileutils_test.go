@@ -63,3 +63,8 @@ func TestSlashClean(t *testing.T) {
 		}
 	}
 }
+func BenchmarkGetOnExtension(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		GetFileType("f.jpg")
+	}
+}
