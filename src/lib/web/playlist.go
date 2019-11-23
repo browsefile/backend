@@ -22,7 +22,7 @@ func makePlaylist(c *lib.Context) (int, error) {
 	}
 	c.RESP.Header().Set("Content-Disposition", "attachment; filename=playlist.m3u")
 	c.FitFilter = func(name, p string) bool {
-		if ok, t := utils.GetBasedOnExtensions(filepath.Ext(name)); ok && fitMediaFilter(c, t) {
+		if ok, t := utils.GetFileType(filepath.Ext(name)); ok && fitMediaFilter(c, t) {
 			return true
 		}
 		return false
@@ -49,8 +49,11 @@ func fitMediaFilter(c *lib.Context, t string) bool {
 //write specific m3u tags into response
 func serveFileAsUrl(c *lib.Context, fName, p, host string) {
 
-	io.WriteString(c.RESP, "#EXTINF:0 tvg-name=")
+	io.WriteString(c.RESP, "#EXTINF:0 group-title=\"")
+	io.WriteString(c.RESP, "Browsefile")
+	io.WriteString(c.RESP, "\",")
 	io.WriteString(c.RESP, fName)
+
 	io.WriteString(c.RESP, "\r\n")
 	io.WriteString(c.RESP, host)
 	io.WriteString(c.RESP, p)

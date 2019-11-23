@@ -350,6 +350,7 @@ func (cfg *GlobalConfig) setupLog() {
 		log.SetOutput(ioutil.Discard)
 	default:
 		log.SetOutput(&lumberjack.Logger{
+			LocalTime:  true,
 			Filename:   cfg.Log,
 			MaxSize:    100,
 			MaxAge:     14,

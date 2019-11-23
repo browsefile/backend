@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"github.com/browsefile/backend/src/cnst"
+	"github.com/browsefile/backend/src/lib/utils"
 	"github.com/pkg/errors"
 	"log"
 	"os"
@@ -141,6 +142,9 @@ func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, consumer, owner s
 				//drop not valid symlink, because dav client will fail to read it
 				_ = os.Remove(dPath)
 				log.Printf("config : Cant create share sym link from '%s' TO '%s'", sPath, dPath)
+			}
+			if err!=nil{
+				utils.ModPermission(0,0,dPath)
 			}
 		}
 	}

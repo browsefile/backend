@@ -6,6 +6,7 @@ import (
 	"github.com/browsefile/backend/src/lib/utils"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 )
 
@@ -102,7 +103,7 @@ func (c *Context) GetUserSharesPath() string {
 
 func (c *Context) GenPreview(out string) {
 	if len(c.Config.ScriptPath) > 0 {
-		_, t := utils.GetBasedOnExtensions(c.File.Name)
+		_, t := utils.GetFileType(c.File.Name)
 		if t == cnst.IMAGE || t == cnst.VIDEO {
 			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 		}
@@ -112,7 +113,7 @@ func (c *Context) GenPreview(out string) {
 func (c *Context) GenSharesPreview(out string) {
 	if len(c.Config.ScriptPath) > 0 {
 
-		_, t := utils.GetBasedOnExtensions(c.File.Name)
+		_, t := utils.GetFileType(c.File.Name)
 		if t == cnst.IMAGE || t == cnst.VIDEO {
 			c.Pgen.Process(c.Pgen.GetDefaultData(c.File.Path, out, t))
 
@@ -135,4 +136,59 @@ func (c *Context) GetAuthConfig() *config.ListenConf {
 
 	}
 	return cfgM
+}
+
+// MakeInfo gets the file information
+func (c *Context) MakeInfo() (*File, error) {
+	p, _, urlPath2, err := c.ResolveContextUser()
+	c.URL = urlPath2
+	info, err, path := utils.GetFileInfo(p, c.URL)
+	if err != nil {
+		return nil, err
+	}
+	i := &File{
+		URL:         c.URL,
+		VirtualPath: utils.SlashClean(c.URL),
+		Path:        path,
+		Name:        info.Name(),
+		IsDir:       info.IsDir(),
+		Size:        info.Size(),
+		ModTime:     info.ModTime(),
+	}
+
+	if i.IsDir && !strings.HasSuffix(i.URL, "/") {
+		i.URL += "/"
+	}
+	i.URL = url.PathEscape(i.URL)
+
+	return i, nil
+}
+
+// build correct path, and replace user in context in case external share
+func (c *Context) ResolveContextUser() (p, previewPath, urlPath string, err error) {
+	if c.IsShare {
+		if c.IsExternalShare() {
+			itm, usr := c.Config.GetExternal(c.RootHash)
+			if itm == nil {
+				return "", "", "", cnst.ErrNotExist
+			}
+			if !itm.IsAllowed(c.User.Username) {
+				return "", "", "", cnst.ErrShareAccess
+			}
+			c.User = ToUserModel(usr, c.Config)
+			p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
+			//if share root listing
+
+			urlPath = itm.Path
+
+		} else {
+			p, previewPath = c.GetUserSharesPath(), filepath.Join(c.Config.GetSharePreviewPath(c.URL))
+			urlPath = c.URL
+		}
+
+	} else {
+		p, previewPath = c.GetUserHomePath(), c.GetUserPreviewPath()
+		urlPath = c.URL
+	}
+	return
 }

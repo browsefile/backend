@@ -26,7 +26,7 @@ func SlashClean(name string) string {
 // can be edited.
 
 // getBasedOnExtensions checks if a file can be edited by its mimeExt.
-func GetBasedOnExtensions(name string) (res bool, t string) {
+func GetFileType(name string) (res bool, t string) {
 	if len(name) == 0 {
 		return false, ""
 	}
@@ -78,13 +78,7 @@ func GetFileInfo(scope, urlPath string) (info os.FileInfo, err error, path strin
 	}
 	return info, err, path
 }
-func PreviewPathMod(orig, scope, pScope string) (p string) {
-	rPath := strings.TrimPrefix(orig, scope)
-	p = filepath.Join(pScope, rPath)
-	//replace file extension
-	p, _ = ReplacePrevExt(p)
-	return
-}
+
 func Exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
@@ -95,7 +89,7 @@ func ReplacePrevExt(srcPath string) (path string, t string) {
 	extension := filepath.Ext(srcPath)
 	if len(extension) > 0 {
 		var ext string
-		_, t = GetBasedOnExtensions(extension)
+		_, t = GetFileType(extension)
 		if t == cnst.VIDEO {
 			ext = ".gif"
 		} else {
@@ -111,7 +105,7 @@ func ReplacePrevExt(srcPath string) (path string, t string) {
 }
 
 // Will return input and output to be processed to the bash convert/ffmpeg in order to generate preview
-func GenPreviewConvertPath(path string, scope string, previewScope string) (outp string, err error) {
+func GenPreviewConvertPath(path string, scope string, previewScope string) (outp string) {
 	if filepath.Dir(path) != path {
 
 		outp = filepath.Join(previewScope, strings.TrimPrefix(path, scope))
