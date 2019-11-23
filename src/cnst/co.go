@@ -56,7 +56,7 @@ var MIME_EXT = [][]string{{
 }, {
 	".3gp", ".3g2", ".asf", ".wma", ".wmv",
 	".avi", ".divx", ".f4v", ".evo", ".flv",
-	".MKV", ".MK3D", ".MKA", ".MKS", ".webm",
+	".mkv", ".mk3d", ".mka", ".mks", ".webm",
 	".mcf", ".mp4", ".mpg", ".mpeg", ".m2p",
 	".ps", ".ts", ".m2ts", ".mxf",
 	".mov", ".qt", ".rmvb", ".vob",

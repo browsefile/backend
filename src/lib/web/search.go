@@ -18,7 +18,7 @@ func searchHandler(c *fb.Context) (int, error) {
 		}
 
 		var fitType bool
-		ok, t := utils.GetBasedOnExtensions(filepath.Ext(name))
+		ok, t := utils.GetFileType(filepath.Ext(name))
 		hasType := c.Audio || c.Video || c.Pdf || c.Image
 		if ok && hasType {
 			fitType = t == cnst.IMAGE && c.Image ||

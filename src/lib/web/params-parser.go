@@ -51,7 +51,7 @@ func ProcessParams(c *fb.Context) (isShares bool) {
 		if len(arr) > 1 {
 			setFileType(c, arr[1])
 		}
-		if (c.Image || c.Audio || c.Video) && strings.EqualFold(arr[0], "m3u") {
+		if (c.Image || c.Audio || c.Video) && arr[0] == "m3u" {
 			c.Algo = arr[0]
 			c.Router = cnst.R_PLAYLIST
 		}

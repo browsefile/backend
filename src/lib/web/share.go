@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 func shareHandler(c *lib.Context) (int, error) {
@@ -54,9 +53,9 @@ func shareGetHandler(c *lib.Context) (int, error) {
 }
 func sharePostHandler(c *lib.Context) (res int, err error) {
 	itm := &config.ShareItem{}
-	if !strings.EqualFold(c.ShareType, "gen-ex") {
+	if c.ShareType != "gen-ex" {
 		err := json.NewDecoder(c.REQ.Body).Decode(itm)
-		if strings.EqualFold(itm.Path, "") {
+		if itm.Path == "" {
 			return http.StatusBadRequest, err
 		}
 	}

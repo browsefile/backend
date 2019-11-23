@@ -40,4 +40,3 @@ func TestVideoThumbGen(t *testing.T) {
 	}
 	os.Remove(resV)
 }*/
-
