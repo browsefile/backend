@@ -9,7 +9,7 @@ import (
 var (
 	H_XAUTH        = "X-Auth"
 	P_PREVIEW_TYPE = "previewType"
-	P_ROOTHASH     = "rootHash"
+	P_EXSHARE      = "exshare"
 )
 var (
 	// Version is the current File Browser version.

@@ -27,7 +27,7 @@ func settingsGetHandler(c *lib.Context) (int, error) {
 	if !c.User.Admin {
 		return http.StatusForbidden, nil
 	}
-	return renderJSON(c.RESP, c.Config.CopyConfig())
+	return renderJSON(c, c.Config.CopyConfig())
 }
 
 func settingsPutHandler(c *lib.Context) (int, error) {

@@ -42,19 +42,19 @@ func TestSharePathMod(t *testing.T) {
 		t.Fatal("share path does not exists, but should be", err)
 	}
 	//test parent share present at user2
-	p, _ := shrUp.ResolveSymlinkName()
+	p := shrUp.ResolveSymlinkName()
 	_, err = cfg.User2FSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err != nil {
 		t.Fatal("parent share does not exists, but should be", err)
 	}
 	//test child share present at user2
-	p, _ = shrDeep.ResolveSymlinkName()
+	p = shrDeep.ResolveSymlinkName()
 	_, err = cfg.User2FSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err == nil {
 		t.Fatal("share does not exists, but should be", err)
 	}
 	//test child share present at admin
-	p, _ = shrDeep.ResolveSymlinkName()
+	p = shrDeep.ResolveSymlinkName()
 	_, err = cfg.AdminFSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err != nil {
 		t.Fatal("share does not exists, but should be", err)
@@ -76,19 +76,19 @@ func TestSharePathMod(t *testing.T) {
 	}
 
 	//test parent share present at user2
-	p, _ = shrUp.ResolveSymlinkName()
+	p = shrUp.ResolveSymlinkName()
 	_, err = cfg.User2FSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err == nil {
 		t.Fatal("parent share exists, but should not be", err)
 	}
 	//test child share present at user2
-	p, _ = shrDeep.ResolveSymlinkName()
+	p = shrDeep.ResolveSymlinkName()
 	_, err = cfg.User2FSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err == nil {
 		t.Fatal("share exists, but should not be", err)
 	}
 	//test child share present at admin
-	p, _ = shrDeep.ResolveSymlinkName()
+	p = shrDeep.ResolveSymlinkName()
 	_, err = cfg.AdminFSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err == nil {
 		t.Fatal("share exists, but should not be", err)
@@ -119,17 +119,12 @@ func TestSharePathMod(t *testing.T) {
 }
 func TestResolveSymLinkPath(t *testing.T) {
 	shr := &ShareItem{Path: "/path/to/dir", AllowLocal: true, AllowExternal: true, Hash: "0x123"}
-	p, _ := shr.ResolveSymlinkName()
+	p := shr.ResolveSymlinkName()
 	if !strings.HasPrefix(p, "dir_") {
 		t.Fatal("symlink should start with path name")
 	}
 	if !strings.HasSuffix(p, shr.Hash) {
 		t.Fatal("symlink should ends with share hash")
-	}
-	shr.Hash = ""
-	_, err := shr.ResolveSymlinkName()
-	if err == nil {
-		t.Fatal("should return error on empty share hash")
 	}
 
 }
@@ -157,19 +152,19 @@ func TestDeleteUserAndShares(t *testing.T) {
 
 	_ = cfg.DeleteUser(cfg.Usr1.Username)
 	//test parent share present at user2
-	p, _ := shrUp.ResolveSymlinkName()
+	p := shrUp.ResolveSymlinkName()
 	_, err = cfg.User2FSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err == nil {
 		t.Fatal("parent share exists, but should not be", err)
 	}
 	//test child share present at user2
-	p, _ = shrDeep.ResolveSymlinkName()
+	p = shrDeep.ResolveSymlinkName()
 	_, err = cfg.User2FSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err == nil {
 		t.Fatal("share exists, but should not be", err)
 	}
 	//test child share present at admin
-	p, _ = shrDeep.ResolveSymlinkName()
+	p = shrDeep.ResolveSymlinkName()
 	_, err = cfg.AdminFSShare.Stat(filepath.Join(cfg.Usr1.Username, p))
 	if err == nil {
 		t.Fatal("share exists, but should not be", err)
@@ -208,10 +203,14 @@ func TestSharePreviewPath(t *testing.T) {
 	shrUp := &ShareItem{Path: "/so/path", AllowLocal: false, AllowExternal: false}
 	cfg.Usr1.AddShare(shrUp)
 	_ = cfg.Update(cfg.Usr1)
-	p, _ := shrUp.ResolveSymlinkName()
-	p = cfg.GetSharePreviewPath("/user1/" + p + "/path")
+	p := shrUp.ResolveSymlinkName()
+	p, _ = cfg.GetSharePreviewPath("/user1/"+p+"/path", false)
 	if !strings.HasSuffix(p, "preview/so/path") {
 		t.Fatal("wrong preview path for share consumer")
+	}
+	p, h := cfg.GetSharePreviewPath(shrUp.ResolveSymlinkName()+"/path", true)
+	if !strings.HasSuffix(p, "preview/so/path") || !strings.EqualFold(shrUp.Hash, h) {
+		t.Fatal("wrong ex share hash")
 	}
 }
 

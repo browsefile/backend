@@ -32,11 +32,14 @@ func Handler(m *fb.FileBrowser) http.Handler {
 				log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
 				log.Println(err)
 			} else {
+				log.Println(err)
 				err = nil
 			}
 		}
+		if !c.Rendered && c.Router > 0 && c.Router != cnst.R_DOWNLOAD && c.Router != cnst.R_PLAYLIST {
+			w.WriteHeader(code)
+		}
 
-		w.WriteHeader(code)
 	})
 }
 
@@ -101,7 +104,6 @@ func apiHandler(c *fb.Context) (code int, err error) {
 	//allow only GET requests, for external share
 	if valid && c.User.IsGuest() && (!isShares ||
 		c.Method != http.MethodGet ||
-		c.Router == cnst.R_RESOURCE ||
 		c.Router == cnst.R_USERS ||
 		c.Router == cnst.R_SETTINGS) {
 		return http.StatusForbidden, nil
@@ -116,7 +118,7 @@ func apiHandler(c *fb.Context) (code int, err error) {
 		}
 		// do not waste bandwidth if we just want the checksum
 		c.File.Content = ""
-		return renderJSON(c.RESP, c.File)
+		return renderJSON(c, c.File)
 	}
 
 	switch c.Router {
@@ -163,8 +165,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 	}
 	c.Query = c.REQ.URL.Query()
 
-	c.RootHash = c.Query.Get("rootHash")
-	isEx := len(c.RootHash) > 0
+	c.IsExternal = len(c.Query.Get(cnst.P_EXSHARE))>0
 	c.RESP.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	cfgM := c.GetAuthConfig()
 
@@ -172,7 +173,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 		"Name":            "Browsefile",
 		"DisableExternal": false,
 		"Version":         cnst.Version,
-		"isExternal":      isEx,
+		"isExternal":      c.IsExternal,
 		"StaticURL":       "/static",
 		"Signup":          false,
 		"NoAuth":          strings.ToLower(cfgM.AuthMethod) == "noauth" || strings.ToLower(cfgM.AuthMethod) == "ip",
@@ -181,7 +182,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 		"ReCaptchaKey":    c.ReCaptcha.Key,
 	}
 
-	if isEx {
+	if c.IsExternal {
 		data["StaticURL"] = c.Config.ExternalShareHost + "/static"
 	}
 	b, err := json.MarshalIndent(data, "", "  ")
@@ -205,14 +206,14 @@ func renderFile(c *fb.Context, file string) (int, error) {
 }
 
 // renderJSON prints the JSON version of data to the browser.
-func renderJSON(w http.ResponseWriter, data interface{}) (int, error) {
+func renderJSON(c *fb.Context, data interface{}) (int, error) {
 	marsh, err := json.Marshal(data)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if _, err := w.Write(marsh); err != nil {
+	c.Rendered = true
+	c.RESP.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if _, err := c.RESP.Write(marsh); err != nil {
 		return http.StatusInternalServerError, err
 	}
 

@@ -81,7 +81,7 @@ func resourceGetHandler(c *fb.Context) (int, error) {
 	if f.IsDir {
 		c.File = f
 		listingHandler(c)
-		return renderJSON(c.RESP, f)
+		return renderJSON(c, f)
 	}
 
 	// Tries to get the file type.
@@ -105,12 +105,12 @@ func resourceGetHandler(c *fb.Context) (int, error) {
 	// just serve the editor.
 	if !f.CanBeEdited() || !c.User.AllowEdit {
 		f.Kind = "preview"
-		return renderJSON(c.RESP, f)
+		return renderJSON(c, f)
 	}
 
 	f.Kind = "editor"
 
-	return renderJSON(c.RESP, f)
+	return renderJSON(c, f)
 }
 
 func listingHandler(c *fb.Context) (int, error) {

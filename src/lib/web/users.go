@@ -85,7 +85,7 @@ func parseUserFromRequest(c *fb.Context) (*fb.UserModel, string, error) {
 func usersGetHandler(c *fb.Context) (int, error) {
 	// Request for the default user data.
 	if c.URL == "/base" {
-		return renderJSON(c.RESP, c.Config.GetAdmin())
+		return renderJSON(c, c.Config.GetAdmin())
 	}
 
 	// Request for the listing of users.
@@ -109,7 +109,7 @@ func usersGetHandler(c *fb.Context) (int, error) {
 			}
 		}
 
-		return renderJSON(c.RESP, users)
+		return renderJSON(c, users)
 	}
 
 	name := getUserName(c.URL)
@@ -119,7 +119,7 @@ func usersGetHandler(c *fb.Context) (int, error) {
 	}
 
 	u.Password = ""
-	return renderJSON(c.RESP, u)
+	return renderJSON(c, u)
 }
 
 func usersPostHandler(c *fb.Context) (int, error) {

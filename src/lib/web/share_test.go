@@ -21,7 +21,7 @@ func TestSharePreviewPath(t *testing.T) {
 	cfg.InitServ(t)
 	defer cfg.Clean(t)
 
-	p, _ := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0].ResolveSymlinkName()
+	p := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0].ResolveSymlinkName()
 	dat := map[string]interface{}{"u": "/user1/" + p, "share": "list"}
 
 	_, rs, _ := cfg.MakeRequest(cnst.R_SHARES, dat, cfg.GetAdmin(), t, true)

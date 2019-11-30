@@ -22,8 +22,8 @@ func TestSearchImageSharesExternal(t *testing.T) {
 	dat := map[string]interface{}{"query": "type:i "}
 	//search in share up
 	shr := cfg.Usr1.GetShares(cfg.SharePathUp, false)[0]
-	p, _ := shr.ResolveSymlinkName()
-	dat[cnst.P_ROOTHASH] = shr.Hash
+	p := shr.ResolveSymlinkName()
+	dat[cnst.P_EXSHARE] = shr.Hash
 	dat["u"] = "/" + p
 	_, rs, _ := cfg.MakeRequest(cnst.R_SEARCH, dat, cfg.Guest, t, true)
 	f := *ValidateListingResp(rs, t, 5)
@@ -37,7 +37,7 @@ func TestSearchImageShares(t *testing.T) {
 
 	//trying to read sharedeep from admin user
 	shr := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0]
-	p, _ := shr.ResolveSymlinkName()
+	p := shr.ResolveSymlinkName()
 
 	dat := map[string]interface{}{"u": "/" + cfg.Usr1.Username + "/" + p, "query": "type:i "}
 	_, rs, _ := cfg.MakeRequest(cnst.R_SEARCH, dat, cfg.GetAdmin(), t, true)
@@ -50,7 +50,7 @@ func TestSearchImageShares(t *testing.T) {
 
 	//search in share up
 	shr = cfg.Usr1.GetShares(cfg.SharePathUp, false)[0]
-	p, _ = shr.ResolveSymlinkName()
+	p = shr.ResolveSymlinkName()
 	dat["u"] = "/" + cfg.Usr1.Username + "/" + p
 	_, rs, _ = cfg.MakeRequest(cnst.R_SEARCH, dat, cfg.GetAdmin(), t, true)
 
@@ -66,18 +66,19 @@ func TestSearchImageShareExternal(t *testing.T) {
 	//trying to read sharedeep from admin user
 	shr := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0]
 	//for external share we cut first parent, and replace it with root hash
-	dat := map[string]interface{}{"u": "/share", "query": "type:i ", cnst.P_ROOTHASH: shr.Hash}
+	dat := map[string]interface{}{"u": "/share", "query": "type:i ", cnst.P_EXSHARE: shr.Hash}
 	_, rs, _ := cfg.MakeRequest(cnst.R_SEARCH, dat, cfg.GetAdmin(), t, true)
-	f := *ValidateListingResp(rs, t, 3)
-	CheckLink(f, dat, cfg, t, true, true)
+	if rs.StatusCode != http.StatusNotFound {
+		t.Errorf("must be 404")
+	}
 
 	//search in share up
 	shr = cfg.Usr1.GetShares(cfg.SharePathUp, false)[0]
-	dat["u"] = "/"
-	dat[cnst.P_ROOTHASH] = shr.Hash
+	dat["u"] = "/" + shr.ResolveSymlinkName()
+	dat[cnst.P_EXSHARE] = "1"
 	_, rs, _ = cfg.MakeRequest(cnst.R_SEARCH, dat, cfg.Guest, t, true)
 
-	f = *ValidateListingResp(rs, t, 5)
+	f := *ValidateListingResp(rs, t, 5)
 	CheckLink(f, dat, cfg, t, true, true)
 }
 
