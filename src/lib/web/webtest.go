@@ -80,8 +80,8 @@ func (tc *TServContext) BuildUrl(r int, params map[string]interface{}, isShare b
 	urlSuf := params["u"].(string)
 	q := url.Values{}
 
-	if _, rh := params[cnst.P_ROOTHASH]; isShare && rh {
-		q.Set(cnst.P_ROOTHASH, params[cnst.P_ROOTHASH].(string))
+	if _, rh := params[cnst.P_EXSHARE]; isShare && rh {
+		q.Set(cnst.P_EXSHARE, params[cnst.P_EXSHARE].(string))
 	}
 
 	switch r {

@@ -27,7 +27,7 @@ func TestPlaylistOnShareFile(t *testing.T) {
 	cfg := TServContext{}
 	cfg.InitServ(t)
 	defer cfg.Clean(t)
-	l, _ := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0].ResolveSymlinkName()
+	l := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0].ResolveSymlinkName()
 	p := cfg.Usr1.Username + "/" + l + "/t.png"
 
 	testPlaylistOnDir(&cfg, t, true, map[string]interface{}{"u": "/", "files": []string{p}}, 1)
@@ -36,7 +36,7 @@ func TestPlaylistOnShareDir(t *testing.T) {
 	cfg := TServContext{}
 	cfg.InitServ(t)
 	defer cfg.Clean(t)
-	l, _ := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0].ResolveSymlinkName()
+	l := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0].ResolveSymlinkName()
 	p := cfg.Usr1.Username + "/" + l
 
 	testPlaylistOnDir(&cfg, t, true, map[string]interface{}{"u": "/", "files": []string{p}}, 5)
@@ -45,21 +45,21 @@ func TestPlaylistOnExternalShareDir(t *testing.T) {
 	cfg := TServContext{}
 	cfg.InitServ(t)
 	defer cfg.Clean(t)
-	shr := cfg.Usr1.GetShares(cfg.SharePathDeep, false)[0]
-	l, _ := shr.ResolveSymlinkName()
+	shr := cfg.Usr1.GetShares(cfg.SharePathUp, false)[0]
+	l := shr.ResolveSymlinkName()
 	p := "/" + l
 
-	testPlaylistOnDir(&cfg, t, true, map[string]interface{}{cnst.P_ROOTHASH: shr.Hash, "u": p, "files": []string{p}}, 5)
+	testPlaylistOnDir(&cfg, t, true, map[string]interface{}{cnst.P_EXSHARE: "1", "u": p, "files": []string{p}}, 9)
 }
 func TestPlaylistOnExternalShareDirParent(t *testing.T) {
 	cfg := TServContext{}
 	cfg.InitServ(t)
 	defer cfg.Clean(t)
 	shr := cfg.Usr1.GetShares(cfg.SharePathUp, false)[0]
-	l, _ := shr.ResolveSymlinkName()
+	l := shr.ResolveSymlinkName()
 	p := "/" + l
 
-	testPlaylistOnDir(&cfg, t, true, map[string]interface{}{cnst.P_ROOTHASH: shr.Hash, "u": p, "files": []string{p}}, 9)
+	testPlaylistOnDir(&cfg, t, true, map[string]interface{}{cnst.P_EXSHARE: shr.Hash, "u": p, "files": []string{p}}, 9)
 }
 
 func testPlaylistOnDir(cfg *TServContext, t *testing.T, isShare bool, data map[string]interface{}, lCount int) {

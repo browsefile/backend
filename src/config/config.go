@@ -134,8 +134,6 @@ func (cfg *GlobalConfig) Verify() {
 			shr.Hash = GenShareHash(u.Username, shr.Path)
 		}
 	}
-
-	//todo
 }
 
 // ~/<<cfg_PATH>>/<<username>>/files
@@ -151,6 +149,11 @@ func (cfg *GlobalConfig) GetUserSharesPath(userName string) string {
 // ~/<<cfg_PATH>>/<<username>>/preview
 func (cfg *GlobalConfig) GetUserPreviewPath(userName string) string {
 	return filepath.Join(cfg.FilesPath, userName, "preview")
+}
+
+// ~/<<cfg_PATH>>/<<username>>/sharex
+func (cfg *GlobalConfig) GetUserSharexPath(userName string) string {
+	return filepath.Join(cfg.FilesPath, userName, "sharex")
 }
 
 //read and initiate global config, if file missed, one will be created with default settings.
@@ -223,6 +226,8 @@ func (cfg *GlobalConfig) setUpPaths() {
 	for _, u := range cfg.Users {
 		//create shares folder
 		createPath(cfg.GetUserSharesPath(u.Username))
+		//create external shares folder
+		createPath(cfg.GetUserSharexPath(u.Username))
 		//create user files folder
 		createPath(cfg.GetUserHomePath(u.Username))
 		//create user preview folder
@@ -242,6 +247,12 @@ func (cfg *GlobalConfig) setUpPaths() {
 
 					needUpdate = true
 				}
+			}
+		}
+		for _, shr := range u.Shares {
+			if !cfg.checkExternalShareSymLinkPath(shr, u.Username) {
+				u.DeleteShare(shr.Path)
+				needUpdate = true
 			}
 		}
 	}

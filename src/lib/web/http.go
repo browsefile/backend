@@ -32,6 +32,7 @@ func Handler(m *fb.FileBrowser) http.Handler {
 				log.Printf("%v: %v %v\n", r.URL.Path, code, txt)
 				log.Println(err)
 			} else {
+				log.Println(err)
 				err = nil
 			}
 		}
@@ -103,7 +104,6 @@ func apiHandler(c *fb.Context) (code int, err error) {
 	//allow only GET requests, for external share
 	if valid && c.User.IsGuest() && (!isShares ||
 		c.Method != http.MethodGet ||
-		c.Router == cnst.R_RESOURCE ||
 		c.Router == cnst.R_USERS ||
 		c.Router == cnst.R_SETTINGS) {
 		return http.StatusForbidden, nil
@@ -165,8 +165,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 	}
 	c.Query = c.REQ.URL.Query()
 
-	c.RootHash = c.Query.Get("rootHash")
-	isEx := len(c.RootHash) > 0
+	c.IsExternal = len(c.Query.Get(cnst.P_EXSHARE))>0
 	c.RESP.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	cfgM := c.GetAuthConfig()
 
@@ -174,7 +173,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 		"Name":            "Browsefile",
 		"DisableExternal": false,
 		"Version":         cnst.Version,
-		"isExternal":      isEx,
+		"isExternal":      c.IsExternal,
 		"StaticURL":       "/static",
 		"Signup":          false,
 		"NoAuth":          strings.ToLower(cfgM.AuthMethod) == "noauth" || strings.ToLower(cfgM.AuthMethod) == "ip",
@@ -183,7 +182,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 		"ReCaptchaKey":    c.ReCaptcha.Key,
 	}
 
-	if isEx {
+	if c.IsExternal {
 		data["StaticURL"] = c.Config.ExternalShareHost + "/static"
 	}
 	b, err := json.MarshalIndent(data, "", "  ")

@@ -25,6 +25,9 @@ func TestNewConfig(t *testing.T) {
 	if _, err = os.Stat(cfg.GetUserPreviewPath("admin")); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = os.Stat(cfg.GetUserSharexPath("admin")); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = os.Stat(cfg.GetDavPath("admin")); err != nil {
 		t.Fatal(err)
 	}

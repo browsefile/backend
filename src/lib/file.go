@@ -71,24 +71,12 @@ type Listing struct {
 
 //recursively fetch share/file paths
 func (i *File) GetListing(c *Context) (files []os.FileInfo, paths []string, err error) {
-	isExternal := c.IsExternalShare()
+	p, fs := c.ResolvePathContext(i)
 	//fetch all files
 	if c.IsRecursive {
-		var p string
-		if c.IsShare && !isExternal {
-			p = c.GetUserSharesPath()
-		} else {
-			p = c.GetUserHomePath()
-		}
 		files, paths = i.listRecurs(c, filepath.Join(p, i.VirtualPath))
 	} else {
 		//only list content
-		var fs FileSystem
-		if isExternal || !c.IsShare {
-			fs = c.User.FileSystem
-		} else {
-			fs = c.User.FileSystemShares
-		}
 		inf, err := fs.Stat(i.VirtualPath)
 		if err != nil {
 			return nil, nil, err
@@ -135,7 +123,7 @@ func (i *File) listRecurs(c *Context, path string) (files []os.FileInfo, paths [
 				return nil
 			}
 
-			if c.IsShare && !c.IsExternalShare() {
+			if c.IsShare {
 				//get files from current user shares folder
 				info, shrPath, _ := utils.ResolveSymlink(path)
 				if info.IsDir() {

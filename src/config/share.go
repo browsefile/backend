@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/lib/utils"
-	"github.com/pkg/errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -88,6 +87,8 @@ func processSharePath(shr *ShareItem, u *UserConfig, own string) {
 		if owner, ok := config.GetUserByUsername(own); ok && owner.DeleteShare(shr.Path) {
 			_ = config.Update(owner)
 		}
+	} else {
+		config.checkExternalShareSymLinkPath(shr, own)
 	}
 }
 
@@ -96,14 +97,14 @@ func delSharePath(shr *ShareItem, owner string) {
 		if owner == u.Username {
 			continue
 		}
-		p, err := shr.ResolveSymlinkName()
-		if err != nil {
-			log.Println(err)
-		}
+		p := shr.ResolveSymlinkName()
+
 		dp := filepath.Join(config.GetUserSharesPath(u.Username), owner, p)
 		_ = os.Remove(dp)
-
 	}
+	//drop external share
+	dp := filepath.Join(config.GetUserSharexPath(owner), shr.Hash)
+	_ = os.Remove(dp)
 
 }
 func GenShareHash(userName, itmPath string) string {
@@ -113,9 +114,6 @@ func GenShareHash(userName, itmPath string) string {
 //returns true in case share good, otherwise original share path does not exists. Will create share if needed
 func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, consumer, owner string) (res bool) {
 	res = true
-	if owner == consumer {
-		return
-	}
 	dp := filepath.Join(cfg.GetUserSharesPath(consumer), owner)
 	//check share exists at shares user dir
 	if !createPath(dp) {
@@ -123,10 +121,8 @@ func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, consumer, owner s
 
 	} else {
 		//destination path for symlink
-		sp, err := shr.ResolveSymlinkName()
-		if err != nil {
-			log.Println(err)
-		}
+		sp := shr.ResolveSymlinkName()
+		var err error
 		dPath := filepath.Join(dp, sp)
 		//source path for symlink
 		sPath := filepath.Join(cfg.GetUserHomePath(owner), shr.Path)
@@ -143,34 +139,69 @@ func (cfg *GlobalConfig) checkShareSymLinkPath(shr *ShareItem, consumer, owner s
 				_ = os.Remove(dPath)
 				log.Printf("config : Cant create share sym link from '%s' TO '%s'", sPath, dPath)
 			}
-			if err!=nil{
-				utils.ModPermission(0,0,dPath)
+			if err != nil {
+				_ = utils.ModPermission(0, 0, dPath)
 			}
+		}
+	}
+	return res
+}
+func (cfg *GlobalConfig) checkExternalShareSymLinkPath(shr *ShareItem, owner string) (res bool) {
+	res = true
+	dp := cfg.GetUserSharexPath(owner)
+	//check share exists at shares user dir
+	sp := shr.ResolveSymlinkName()
+	if !createPath(dp) {
+		log.Printf("config : Cant create external share path at %s ", dp)
+
+	} else {
+		var err error
+		dPath := filepath.Join(dp, sp)
+		//source path for symlink
+		sPath := filepath.Join(cfg.GetUserHomePath(owner), shr.Path)
+		//drop existing share if exists
+		_ = os.Remove(dPath)
+
+		//check if share valid
+		if _, err = os.Stat(sPath); err != nil && os.IsNotExist(err) {
+			log.Printf("config :source '%s' does not exists for %s'", sPath, dPath)
+			res = false
+		} else if err = os.Symlink(sPath, dPath); err != nil && !os.IsExist(err) {
+			//drop not valid symlink, because dav client will fail to read it
+			_ = os.Remove(dPath)
+			log.Printf("config : Cant create share sym link from '%s' TO '%s'", sPath, dPath)
+		}
+		if err != nil {
+			_ = utils.ModPermission(0, 0, dPath)
 		}
 	}
 	return res
 }
 
 //will create correct symlink name, err in case hash empty
-func (shr *ShareItem) ResolveSymlinkName() (string, error) {
-	if len(shr.Hash) == 0 {
-		return "", errors.New("config: share hash must be present")
-	}
+func (shr *ShareItem) ResolveSymlinkName() (string) {
 	d := filepath.Dir(shr.Path)
-	return strings.ReplaceAll(strings.TrimPrefix(shr.Path, d), "/", "") + "_" + shr.Hash, nil
+	return strings.ReplaceAll(strings.TrimPrefix(shr.Path, d), "/", "") + "_" + shr.Hash
 }
 
 //take the user from url, find it, after return user preview
-func (cfg *GlobalConfig) GetSharePreviewPath(url string) (res string) {
+func (cfg *GlobalConfig) GetSharePreviewPath(url string, isEx bool) (res, hash string) {
 	updateLock.RLock()
 	defer updateLock.RUnlock()
 	//cut username
 	u := strings.TrimPrefix(url, "/")
 	if len(u) > 0 {
 		arr := strings.Split(u, "/")
-		if len(arr) >= 2 {
-			arr2 := strings.Split(arr[1], "_")
-			hash := strings.Split(arr2[len(arr2)-1], "/")[0]
+		if len(arr) >= 2 && !isEx || isEx && len(arr) >= 1 {
+			var ind int
+			if isEx {
+				ind = 0
+			} else {
+				ind = 1
+			}
+
+			arr2 := strings.Split(arr[ind], "_")
+			hash = strings.Split(arr2[len(arr2)-1], "/")[0]
 			shr, user := cfg.GetExternal(hash)
 			if shr != nil {
 				fName := ""
@@ -181,6 +212,5 @@ func (cfg *GlobalConfig) GetSharePreviewPath(url string) (res string) {
 			}
 		}
 	}
-
-	return res
+	return res, hash
 }
