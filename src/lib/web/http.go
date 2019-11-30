@@ -148,7 +148,7 @@ func apiHandler(c *fb.Context) (code int, err error) {
 		c.Method == http.MethodPut ||
 		c.Method == http.MethodPost ||
 		c.Method == http.MethodDelete {
-		if c.Config != nil {
+		if c.Config != nil && err != nil {
 			c.Config.WriteConfig()
 		}
 
@@ -165,7 +165,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 	}
 	c.Query = c.REQ.URL.Query()
 
-	c.IsExternal = len(c.Query.Get(cnst.P_EXSHARE))>0
+	c.IsExternal = len(c.Query.Get(cnst.P_EXSHARE)) > 0
 	c.RESP.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	cfgM := c.GetAuthConfig()
 
