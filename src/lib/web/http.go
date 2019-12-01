@@ -148,7 +148,7 @@ func apiHandler(c *fb.Context) (code int, err error) {
 		c.Method == http.MethodPut ||
 		c.Method == http.MethodPost ||
 		c.Method == http.MethodDelete {
-		if c.Config != nil && err != nil {
+		if c.Config != nil && err == nil {
 			c.Config.WriteConfig()
 		}
 
