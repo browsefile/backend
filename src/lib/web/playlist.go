@@ -59,10 +59,10 @@ func serveFileAsUrl(c *lib.Context, fName, p, host string) {
 	io.WriteString(c.RESP, p)
 	io.WriteString(c.RESP, "?inline=true")
 
-	if c.IsExternal {
+	if c.IsExternalShare() {
 		io.WriteString(c.RESP, "&")
-		io.WriteString(c.RESP, cnst.P_EXSHARE)
-		io.WriteString(c.RESP, "=1")
+		io.WriteString(c.RESP, cnst.P_ROOTHASH)
+		io.WriteString(c.RESP, "="+c.RootHash)
 	}
 	if len(c.Auth) > 0 {
 		io.WriteString(c.RESP, "&auth="+c.Auth)
@@ -75,7 +75,7 @@ func serveFileAsUrl(c *lib.Context, fName, p, host string) {
 //returns correct URL for playlist link in file
 func getHost(c *lib.Context) string {
 	var h string
-	if c.IsExternal {
+	if c.IsExternalShare() {
 		h = strings.TrimSuffix(c.Config.ExternalShareHost, "/")
 	} else {
 		if c.REQ.TLS == nil {
@@ -90,7 +90,7 @@ func getHost(c *lib.Context) string {
 	} else {
 		h += "/api/download"
 	}
-	if !c.IsExternal {
+	if !c.IsExternalShare() {
 		if c.REQ.TLS != nil {
 			h = "https://" + h
 		} else {

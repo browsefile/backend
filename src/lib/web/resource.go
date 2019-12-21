@@ -202,9 +202,15 @@ func modPreview(c *fb.Context, src, dst string, isCopy bool) {
 			dst, _ = utils.ReplacePrevExt(dst)
 		}
 		if isCopy {
-			c.User.FileSystemPreview.Copy(src, dst, c.User.UID, c.User.GID)
+			err := c.User.FileSystemPreview.Copy(src, dst, c.User.UID, c.User.GID)
+			if err != nil {
+				log.Println(err)
+			}
 		} else {
-			c.User.FileSystemPreview.Rename(src, dst)
+			err := c.User.FileSystemPreview.Rename(src, dst)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 }

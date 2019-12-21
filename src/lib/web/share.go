@@ -7,6 +7,8 @@ import (
 	"github.com/browsefile/backend/src/lib"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 func shareHandler(c *lib.Context) (int, error) {
@@ -69,8 +71,14 @@ func sharePostHandler(c *lib.Context) (res int, err error) {
 		} else {
 			shr = shrs[0]
 		}
+		var h string
+		if shrs == nil {
+			h = config.GenShareHash(c.User.Username, c.URL)
+		} else {
+			h = shr.Hash
+		}
 
-		l := c.Config.ExternalShareHost + "/shares/" + shr.ResolveSymlinkName() + "?" + cnst.P_EXSHARE + "=1"
+		l := c.Config.ExternalShareHost + "/shares/" + url.PathEscape(strings.TrimPrefix(shr.Path, "/")) + "?" + cnst.P_ROOTHASH + "=" + url.QueryEscape(h)
 		return renderJSON(c, l)
 
 	default:

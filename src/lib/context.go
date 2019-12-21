@@ -4,8 +4,10 @@ import (
 	"github.com/browsefile/backend/src/cnst"
 	"github.com/browsefile/backend/src/config"
 	"github.com/browsefile/backend/src/lib/utils"
+	"log"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 )
 
@@ -37,7 +39,7 @@ type Params struct {
 		external share item root dir hash,
 		note: as a result, cut owner from files paths, and replaces with rootHash(hash value of specific shareItem)
 	*/
-	IsExternal bool
+	RootHash string
 	//download type, zip or playlist m3u8
 	Algo string
 	//download multiple files
@@ -72,11 +74,16 @@ type Params struct {
 	REQ    *http.Request
 }
 
+//true if request contains rootHash param
+func (c *Context) IsExternalShare() (r bool) {
+	return len(c.RootHash) > 0
+}
+
 //cut user home path from for non download routes
 func (c *Context) CutPath(path string) string {
 	if c.Router != cnst.R_DOWNLOAD {
 		if c.IsShare {
-			if c.IsExternal {
+			if c.IsExternalShare() {
 				path = strings.TrimPrefix(path, c.GetUserSharexPath())
 			} else {
 				path = strings.TrimPrefix(path, c.GetUserSharesPath())
@@ -102,7 +109,7 @@ func (c *Context) GetUserSharexPath() string {
 	return c.Config.GetUserSharexPath(c.User.Username)
 }
 func (c *Context) ResolvePathContext(i *File) (p string, fs FileSystem) {
-	if c.IsExternal {
+	if c.IsExternalShare() {
 		fs = c.User.FileSystemSharex
 		p = c.GetUserSharexPath()
 	} else if c.IsShare {
@@ -151,8 +158,12 @@ func (c *Context) GetAuthConfig() *config.ListenConf {
 // MakeInfo gets the file information, and replace user in context in case share rquest
 func (c *Context) MakeInfo() (*File, error) {
 	p, _, err := c.ResolveContextUser()
+	if err != nil {
+		log.Println(err)
+	}
 	info, err, path := utils.GetFileInfo(p, c.URL)
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
 	i := &File{
@@ -175,12 +186,17 @@ func (c *Context) MakeInfo() (*File, error) {
 
 // build correct path, and replace user in context in case external share
 func (c *Context) ResolveContextUser() (p, previewPath string, err error) {
-	if c.IsExternal {
-		var h string
+	if c.IsExternalShare() {
+		if len(strings.ReplaceAll(c.URL, "/", "")) == 0 {
+			return"", "", cnst.ErrInvalidOption
+		}
 
-		previewPath, h = c.Config.GetSharePreviewPath(c.URL, true)
+		itm, usr := c.Config.GetExternal(c.RootHash)
 
-		itm, usr := c.Config.GetExternal(h)
+		if itm != nil {
+			previewPath = filepath.Join(c.GetUserPreviewPath(), c.URL)
+		}
+
 		if itm == nil {
 			return "", "", cnst.ErrNotExist
 		}
@@ -191,7 +207,7 @@ func (c *Context) ResolveContextUser() (p, previewPath string, err error) {
 		p = c.GetUserSharexPath()
 
 	} else if c.IsShare {
-		previewPath, _ = c.Config.GetSharePreviewPath(c.URL, false)
+		previewPath = c.Config.GetSharePreviewPath(c.URL)
 		p = c.GetUserSharesPath()
 
 	} else {

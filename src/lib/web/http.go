@@ -165,7 +165,8 @@ func renderFile(c *fb.Context, file string) (int, error) {
 	}
 	c.Query = c.REQ.URL.Query()
 
-	c.IsExternal = len(c.Query.Get(cnst.P_EXSHARE)) > 0
+
+	isExternal := len(c.Query.Get(cnst.P_ROOTHASH)) > 0
 	c.RESP.Header().Set("Content-Type", contentType+"; charset=utf-8")
 	cfgM := c.GetAuthConfig()
 
@@ -173,7 +174,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 		"Name":            "Browsefile",
 		"DisableExternal": false,
 		"Version":         cnst.Version,
-		"isExternal":      c.IsExternal,
+		"isExternal":      isExternal,
 		"StaticURL":       "/static",
 		"Signup":          false,
 		"NoAuth":          strings.ToLower(cfgM.AuthMethod) == "noauth" || strings.ToLower(cfgM.AuthMethod) == "ip",
@@ -182,7 +183,7 @@ func renderFile(c *fb.Context, file string) (int, error) {
 		"ReCaptchaKey":    c.ReCaptcha.Key,
 	}
 
-	if c.IsExternal {
+	if isExternal {
 		data["StaticURL"] = c.Config.ExternalShareHost + "/static"
 	}
 	b, err := json.MarshalIndent(data, "", "  ")

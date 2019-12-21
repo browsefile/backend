@@ -56,14 +56,14 @@ func prepareFiles(c *fb.Context) (int, error, []os.FileInfo) {
 	var err error
 	// If there are files in the query, sanitize their names.
 	// Otherwise, just append the current path.
-	//todo: allow share to self
-	extUsr, _ := c.Config.GetUserByUsername(cnst.GUEST)
-	extUsrMod := fb.ToUserModel(extUsr, c.Config)
+
 	for _, p := range c.FilePaths {
 		p = utils.SlashClean(p)
 		c.URL = p
-		if c.IsExternal {
-			c.User = extUsrMod
+		if c.IsExternalShare() {
+			//todo: allow share to self
+			extUsr, _ := c.Config.GetUserByUsername(cnst.GUEST)
+			c.User = fb.ToUserModel(extUsr, c.Config)
 		}
 		c.File, err = c.MakeInfo()
 		if err != nil {
@@ -117,9 +117,15 @@ func downloadFileHandler(c *fb.Context) (int, error) {
 
 	//serve icon
 	if len(c.PreviewType) > 0 {
+		if c.IsExternalShare() {
+			//todo: allow share to self
+			extUsr, _ := c.Config.GetUserByUsername(cnst.GUEST)
+			c.User = fb.ToUserModel(extUsr, c.Config)
+		}
+
 		var prevPath string
 		_, prevPath, err = c.ResolveContextUser()
-		if c.IsExternal {
+		if c.IsExternalShare() {
 			prevPath = filepath.Join(prevPath, c.URL)
 		}
 

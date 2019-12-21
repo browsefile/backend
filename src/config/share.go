@@ -179,38 +179,29 @@ func (cfg *GlobalConfig) checkExternalShareSymLinkPath(shr *ShareItem, owner str
 }
 
 //will create correct symlink name, err in case hash empty
-func (shr *ShareItem) ResolveSymlinkName() (string) {
+func (shr *ShareItem) ResolveSymlinkName() string {
 	d := filepath.Dir(shr.Path)
-	return strings.ReplaceAll(strings.TrimPrefix(shr.Path, d), "/", "") + "_" + shr.Hash
+	//res := strings.ReplaceAll(shr.Hash, "/", "_")
+	res := strings.ReplaceAll(strings.TrimPrefix(shr.Path, d), "/", "")
+
+	return res
 }
 
 //take the user from url, find it, after return user preview
-func (cfg *GlobalConfig) GetSharePreviewPath(url string, isEx bool) (res, hash string) {
+func (cfg *GlobalConfig) GetSharePreviewPath(url string) (res string) {
 	updateLock.RLock()
 	defer updateLock.RUnlock()
 	//cut username
 	u := strings.TrimPrefix(url, "/")
 	if len(u) > 0 {
 		arr := strings.Split(u, "/")
-		if len(arr) >= 2 && !isEx || isEx && len(arr) >= 1 {
-			var ind int
-			if isEx {
-				ind = 0
-			} else {
-				ind = 1
+		if len(arr) >= 2 {
+			fName := ""
+			if len(filepath.Ext(arr[len(arr)-1])) > 0 {
+				fName = arr[len(arr)-1]
 			}
-
-			arr2 := strings.Split(arr[ind], "_")
-			hash = strings.Split(arr2[len(arr2)-1], "/")[0]
-			shr, user := cfg.GetExternal(hash)
-			if shr != nil {
-				fName := ""
-				if len(filepath.Ext(arr[len(arr)-1])) > 0 {
-					fName = arr[len(arr)-1]
-				}
-				res = filepath.Join(cfg.GetUserPreviewPath(user.Username), shr.Path, fName)
-			}
+			res = filepath.Join(cfg.GetUserPreviewPath(arr[0]), url, fName)
 		}
 	}
-	return res, hash
+	return res
 }

@@ -21,7 +21,7 @@ func ProcessParams(c *fb.Context) (isShares bool) {
 	c.Order = c.Query.Get("order")
 	c.PreviewType = c.Query.Get(cnst.P_PREVIEW_TYPE)
 	c.Inline, _ = strconv.ParseBool(c.Query.Get("inline"))
-	c.IsExternal = len(c.Query.Get(cnst.P_EXSHARE)) > 0
+	c.RootHash = c.Query.Get(cnst.P_ROOTHASH)
 	c.Checksum = c.Query.Get("checksum")
 	c.ShareType = c.Query.Get("share")
 	c.IsRecursive, _ = strconv.ParseBool(c.Query.Get("recursive"))

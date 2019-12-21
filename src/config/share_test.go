@@ -204,13 +204,9 @@ func TestSharePreviewPath(t *testing.T) {
 	cfg.Usr1.AddShare(shrUp)
 	_ = cfg.Update(cfg.Usr1)
 	p := shrUp.ResolveSymlinkName()
-	p, _ = cfg.GetSharePreviewPath("/user1/"+p+"/path", false)
-	if !strings.HasSuffix(p, "preview/so/path") {
+	p= cfg.GetSharePreviewPath("/user1/path", "")
+	if !strings.HasSuffix(p, "preview/path") {
 		t.Fatal("wrong preview path for share consumer")
-	}
-	p, h := cfg.GetSharePreviewPath(shrUp.ResolveSymlinkName()+"/path", true)
-	if !strings.HasSuffix(p, "preview/so/path") || !strings.EqualFold(shrUp.Hash, h) {
-		t.Fatal("wrong ex share hash")
 	}
 }
 
