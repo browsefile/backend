@@ -120,15 +120,7 @@ func listingHandler(c *fb.Context) (int, error) {
 	if err := c.File.ProcessList(c); err != nil {
 		return cnst.ErrorToHTTP(err, true), err
 	}
-	// Copy the query values into the Listing struct
-	if err := HandleSortOrder(c, "/"); err == nil {
-		c.File.Listing.Sort = c.Sort
-		c.File.Listing.Order = c.Order
-	} else {
-		return http.StatusBadRequest, err
-	}
 
-	c.File.Listing.ApplySort()
 	c.File.Listing.AllowGeneratePreview = len(c.Config.ScriptPath) > 0
 
 	return 0, nil
@@ -334,45 +326,4 @@ func resourcePatchHandler(c *fb.Context) (int, error) {
 	}
 
 	return cnst.ErrorToHTTP(err, true), err
-}
-
-// HandleSortOrder gets and stores for a Listing the 'sort' and 'order',
-// and reads 'limit' if given. The latter is 0 if not given. Sets cookies.
-func HandleSortOrder(c *fb.Context, scope string) (err error) {
-
-	// If the query 'sort' or 'order' is empty, use defaults or any values
-	// previously saved in Cookies.
-	switch c.Sort {
-	case "":
-		c.Sort = "name"
-		if sortCookie, sortErr := c.REQ.Cookie("sort"); sortErr == nil {
-			c.Sort = sortCookie.Value
-		}
-	case "name", "size":
-		http.SetCookie(c.RESP, &http.Cookie{
-			Name:   "sort",
-			Value:  c.Sort,
-			MaxAge: 31536000,
-			Path:   scope,
-			Secure: c.REQ.TLS != nil,
-		})
-	}
-
-	switch c.Order {
-	case "":
-		c.Order = "asc"
-		if orderCookie, orderErr := c.REQ.Cookie("order"); orderErr == nil {
-			c.Order = orderCookie.Value
-		}
-	case "asc", "desc":
-		http.SetCookie(c.RESP, &http.Cookie{
-			Name:   "order",
-			Value:  c.Order,
-			MaxAge: 31536000,
-			Path:   scope,
-			Secure: c.REQ.TLS != nil,
-		})
-	}
-
-	return
 }

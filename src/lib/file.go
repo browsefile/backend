@@ -15,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 )
@@ -61,10 +60,6 @@ type Listing struct {
 	NumDirs int `json:"numDirs"`
 	// The number of files (items that aren't directories) in the Listing.
 	NumFiles int `json:"numFiles"`
-	// Which sorting order is used.
-	Sort string `json:"sort"`
-	// And which order.
-	Order string `json:"order"`
 	//indicator to the frontend, to prevent request previews
 	AllowGeneratePreview bool `json:"allowGeneratePreview"`
 }
@@ -282,36 +277,6 @@ func (i *File) Checksum(algo string) error {
 // CanBeEdited checks if the extension of a file is supported by the editor
 func (i File) CanBeEdited() bool {
 	return i.Type == cnst.TEXT
-}
-
-// ApplySort applies the sort order using .Order and .Sort
-func (l Listing) ApplySort() {
-	// Check '.Order' to know how to sort
-	if l.Order == "desc" {
-		switch l.Sort {
-		case "name":
-			sort.Sort(sort.Reverse(byName(l)))
-		case "size":
-			sort.Sort(sort.Reverse(bySize(l)))
-		case "modified":
-			sort.Sort(sort.Reverse(byModified(l)))
-		default:
-			// If not one of the above, do nothing
-			return
-		}
-	} else { // If we had more Orderings we could add them here
-		switch l.Sort {
-		case "name":
-			sort.Sort(byName(l))
-		case "size":
-			sort.Sort(bySize(l))
-		case "modified":
-			sort.Sort(byModified(l))
-		default:
-			sort.Sort(byName(l))
-			return
-		}
-	}
 }
 
 // Implement sorting for Listing

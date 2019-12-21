@@ -17,8 +17,6 @@ func ProcessParams(c *fb.Context) (isShares bool) {
 		c.Query = c.REQ.URL.Query()
 	}
 
-	c.Sort = c.Query.Get("sort")
-	c.Order = c.Query.Get("order")
 	c.PreviewType = c.Query.Get(cnst.P_PREVIEW_TYPE)
 	c.Inline, _ = strconv.ParseBool(c.Query.Get("inline"))
 	c.RootHash = c.Query.Get(cnst.P_ROOTHASH)

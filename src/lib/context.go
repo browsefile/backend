@@ -62,9 +62,6 @@ type Params struct {
 	// used in resource patch requests type
 	Destination string
 	Action      string
-
-	Sort  string
-	Order string
 	//is share request
 	IsShare bool
 	//requestURL
